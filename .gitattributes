@@ -1,0 +1,8 @@
+# Windowsで開発してLinuxサーバーへデプロイするため、改行コードを明示する。
+# シェルスクリプトがCRLFになるとLinuxで
+#   /usr/bin/env: 'bash\r': No such file or directory
+# というエラーで動かなくなるので、必ずLFに固定する。
+*.sh text eol=lf
+
+# 一般的なテキストは自動判定に任せる
+* text=auto

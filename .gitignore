@@ -43,6 +43,8 @@ db.sqlite3-journal
 # /staticfiles/
 
 *.log
+# 日次バッチのログ出力先（scripts/daily_update.sh が30日で自動削除する）
+/logs/
 
 
 # ============================================================
