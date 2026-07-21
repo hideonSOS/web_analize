@@ -1,0 +1,178 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}{{ stock.name }} カルテ | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'karte/css/karte.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="kt">
+  <p class="kt-back"><a href="{% url 'karte:index' %}">← カルテ一覧へ戻る</a></p>
+
+  <h1 class="kt-title">{{ stock.name }}</h1>
+  <p class="kt-sub">
+    {{ stock.display_code }}{% if stock.market %} ／ {{ stock.market }}{% endif %}{% if stock.sector33 %} ／ {{ stock.sector33 }}{% endif %}
+    {% if has_indicator_page %}
+    ・<a href="{% url 'japan_kabu:stock_detail' stock.display_code %}">自動指標を見る</a>
+    {% endif %}
+  </p>
+  <p class="kt-fill">
+    記入済み {{ filled }}/{{ total_fields }}項目
+    {% if karte.ir_url %}
+    ・<a href="{{ karte.ir_url }}" target="_blank" rel="noopener noreferrer">IR資料を開く ↗</a>
+    {% endif %}
+  </p>
+
+  <!-- 中期経営計画の目標 vs 現在値 -->
+  <section class="kt-section">
+    <h2 class="kt-h2">中期経営計画の目標</h2>
+    {% for t in targets %}
+    <div class="kt-target">
+      <div class="kt-target-head">
+        <span class="kt-target-label">{{ t.label }}{% if t.target_fy %}（{{ t.target_fy }}）{% endif %}</span>
+        <span class="kt-target-val">
+          {% if t.current_value is not None %}{{ t.current_value|floatformat:"-1" }} / {% endif %}{{ t.target_value|floatformat:"-1" }}{{ t.unit }}
+          {% if t.progress is not None %}<span class="kt-target-pct">{{ t.progress|floatformat:0 }}%</span>{% endif %}
+        </span>
+        <form method="post" action="{% url 'karte:delete_target' stock.display_code t.pk %}" class="kt-del-form" onsubmit="return confirm('削除しますか？');">
+          {% csrf_token %}<button type="submit" class="kt-del">🗑</button>
+        </form>
+      </div>
+      {% if t.progress is not None %}
+      <div class="kt-progress"><div class="kt-progress-bar" style="width: {{ t.progress|floatformat:0 }}%"></div></div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="kt-note">未登録です。IR資料の中期経営計画から目標値を登録すると、達成度が可視化されます。</p>
+    {% endfor %}
+
+    <details class="kt-add">
+      <summary>＋ 目標を追加</summary>
+      <form method="post" action="{% url 'karte:add_target' stock.display_code %}" class="kt-add-form">
+        {% csrf_token %}
+        <input type="text" name="label" placeholder="項目（例: 営業利益）" required />
+        <input type="number" name="target_value" step="any" placeholder="目標値" required />
+        <input type="number" name="current_value" step="any" placeholder="現在値（任意）" />
+        <input type="text" name="unit" placeholder="単位（億円）" />
+        <input type="text" name="target_fy" placeholder="達成年度（2027年度）" />
+        <button type="submit">追加</button>
+      </form>
+    </details>
+  </section>
+
+  <!-- 独自KPI / セグメント別業績 -->
+  <section class="kt-section">
+    <h2 class="kt-h2">独自KPI・セグメント別業績</h2>
+    {% if kpi_chart %}
+    <div class="kt-kpi-chart-wrap"><div id="kt-kpi-chart" class="ec-canvas"></div></div>
+    {% endif %}
+
+    {% for name, d in kpi_groups.items %}
+    <div class="kt-kpi-group">
+      <p class="kt-kpi-name">{{ name }}{% if d.unit %}（{{ d.unit }}）{% endif %}</p>
+      <div class="kt-kpi-rows">
+        {% for p in d.periods %}
+        <span class="kt-kpi-chip">{{ p }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <p class="kt-note">未登録です。「ゲーム部門売上」「ARR」「既存店売上」など、その企業が重視するKPIを期ごとに入れると折れ線グラフになります。</p>
+    {% endfor %}
+
+    <details class="kt-add">
+      <summary>＋ KPIを追加</summary>
+      <form method="post" action="{% url 'karte:add_kpi' stock.display_code %}" class="kt-add-form">
+        {% csrf_token %}
+        <input type="text" name="name" placeholder="KPI名（例: ゲーム部門売上）" required />
+        <input type="text" name="period" placeholder="期（2025Q1 / 2025年度）" required />
+        <input type="number" name="value" step="any" placeholder="数値" required />
+        <input type="text" name="unit" placeholder="単位（億円）" />
+        <button type="submit">追加</button>
+      </form>
+      <p class="kt-note">同じKPI名・同じ期を再入力すると上書きされます。</p>
+    </details>
+  </section>
+
+  <!-- 雛形フォーム（全銘柄共通・空欄可）
+       写真アップロード用の独立フォームを内側に置けるよう、保存フォームは空にして
+       各入力欄は HTML5 の form 属性で紐付ける（フォームの入れ子を避けるため） -->
+  <form method="post" action="{% url 'karte:save' stock.display_code %}" id="kt-save-form">
+    {% csrf_token %}
+  </form>
+
+  <div class="kt-form">
+    {% for sec in sections %}
+    <section class="kt-section">
+      <h2 class="kt-h2">{{ sec.group }}</h2>
+
+      {% if sec.group == '経営陣の考課' %}
+      <div class="kt-execs">
+        {% for e in executives %}
+        <figure class="kt-exec">
+          {% if e.photo %}
+          <img src="{{ e.photo.url }}" alt="" class="kt-exec-photo" />
+          {% else %}
+          <div class="kt-exec-photo kt-exec-noimg">写真なし</div>
+          {% endif %}
+          {% if e.note %}<figcaption class="kt-exec-note">{{ e.note|linebreaksbr }}</figcaption>{% endif %}
+          <form method="post" action="{% url 'karte:delete_executive' stock.display_code e.pk %}"
+                class="kt-del-form kt-exec-del" onsubmit="return confirm('削除しますか？');">
+            {% csrf_token %}<button type="submit" class="kt-del">🗑</button>
+          </form>
+        </figure>
+        {% empty %}
+        <p class="kt-note">経営陣が未登録です。顔写真を貼っておくと、決算説明会の発言が頭に入りやすくなります。</p>
+        {% endfor %}
+      </div>
+
+      <form method="post" action="{% url 'karte:add_executive' stock.display_code %}"
+            class="kt-exec-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label class="kt-file">
+          <span id="kt-file-label">＋ 写真を選ぶ</span>
+          <input type="file" name="photo" accept="image/*" id="kt-exec-photo-input" />
+        </label>
+        <input type="text" name="note" placeholder="コメント（任意）" />
+        <button type="submit">追加</button>
+      </form>
+      {% endif %}
+
+      {% for item in sec.items %}
+      <div class="kt-field {% if not item.value %}kt-empty-field{% endif %}">
+        <label for="f-{{ item.field }}">{{ item.label }}</label>
+        <p class="kt-hint">{{ item.hint }}</p>
+        <textarea id="f-{{ item.field }}" name="{{ item.field }}" rows="4" form="kt-save-form">{{ item.value }}</textarea>
+      </div>
+      {% endfor %}
+
+      {% if sec.group == '参照' %}
+      <div class="kt-field">
+        <label for="f-ir_url">IR資料リンク</label>
+        <p class="kt-hint">決算説明資料・統合報告書などのURL。保存すると上部から開けるようになる</p>
+        <input type="url" id="f-ir_url" name="ir_url" value="{{ karte.ir_url }}" placeholder="https://..." form="kt-save-form" />
+      </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+
+    <div class="kt-save-row">
+      <button type="submit" class="kt-save" form="kt-save-form">カルテを保存</button>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'karte:delete' stock.display_code %}" class="kt-delete-karte" onsubmit="return confirm('このカルテを削除しますか？');">
+    {% csrf_token %}
+    <button type="submit">このカルテを削除</button>
+  </form>
+</main>
+
+{{ kpi_chart|json_script:"kpi-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'karte/js/karte_detail.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

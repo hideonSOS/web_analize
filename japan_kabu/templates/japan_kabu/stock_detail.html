@@ -1,0 +1,63 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}銘柄別指標 | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'japan_kabu/css/stock_detail.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="sd">
+  {% if payload %}
+  <p class="sd-back"><a href="{% url 'japan_kabu:index' %}">← 時価総額ランキングへ戻る</a></p>
+
+  <div class="sd-select">
+    <input id="stock-search" type="text" placeholder="銘柄名かコードで検索（{{ count }}銘柄）" autocomplete="off" />
+    <div id="stock-list" class="sd-list" hidden></div>
+  </div>
+
+  <h1 class="sd-title" id="sd-name"></h1>
+  <p class="sd-sub" id="sd-sub"></p>
+  <p class="sd-price"><span id="sd-close"></span> <span class="sd-price-date" id="sd-price-date"></span></p>
+  <p class="sd-fy" id="sd-fy"></p>
+
+  <div class="ind-grid">
+    {% for d in indicator_defs %}
+    <div class="ind-card">
+      <div class="ind-info">
+        <p class="ind-label">{{ d.label }}</p>
+        <p class="ind-value" id="ind-value-{{ forloop.counter0 }}"></p>
+      </div>
+      <div class="ind-chart-wrap"><div id="ind-chart-{{ forloop.counter0 }}" class="ec-canvas"></div></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <h2 class="sd-section-title">指標の推移（四半期・TTMベース）</h2>
+  <div class="hist-tabs" id="hist-tabs">
+    {% for d in indicator_defs %}
+    <button type="button" data-key="{{ d.key }}" {% if forloop.first %}class="active"{% endif %}>{{ d.label }}</button>
+    {% endfor %}
+  </div>
+  <div class="hist-chart-wrap"><div id="hist-chart" class="ec-canvas"></div></div>
+
+  <h2 class="sd-section-title">業績推移（億円）</h2>
+  <div class="trend-chart-wrap"><div id="trend-chart" class="ec-canvas"></div></div>
+  {% else %}
+  <div class="sd-empty">
+    <p>決算データが未取得です。以下のコマンドで初回取得してください。</p>
+    <pre>python manage.py update_marketcap --backfill-years 5</pre>
+  </div>
+  {% endif %}
+</main>
+
+{{ payload|json_script:"all-data" }}
+{{ indicator_defs|json_script:"defs-data" }}
+{{ initial_code|json_script:"initial-code" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'japan_kabu/js/stock_detail.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

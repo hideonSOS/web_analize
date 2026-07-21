@@ -1,0 +1,277 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+
+{% block title %}売買日記 | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'diary/css/diary.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="dy">
+  <h1 class="dy-title">売買日記</h1>
+  <p class="dy-lead">判断した瞬間の自分を記録し、後から振り返る。記録時の判断は編集せず、振り返りだけを追記します。</p>
+
+  <div class="dy-stats">
+    <div class="dy-stat"><span class="dy-stat-num">{{ stats.total }}</span>記録</div>
+    <div class="dy-stat"><span class="dy-stat-num">{{ stats.buy }}</span>買い</div>
+    <div class="dy-stat"><span class="dy-stat-num">{{ stats.sell }}</span>売り</div>
+    <div class="dy-stat"><span class="dy-stat-num">{{ stats.pass }}</span>見送り</div>
+    <div class="dy-stat">
+      <span class="dy-stat-num">{% if stats.success_rate is not None %}{{ stats.success_rate }}%{% else %}―{% endif %}</span>
+      成功率（評価済 {{ stats.reviewed }}件）
+    </div>
+  </div>
+
+  <div class="dy-toolbar">
+    <button type="button" class="dy-new-btn" id="dy-open-modal">＋ 新規記録</button>
+    <div class="dy-view-toggle">
+      <a href="?action={{ filter_action }}&q={{ filter_q|urlencode }}" {% if not view %}class="active"{% endif %}>カード</a>
+      <a href="?view=list&action={{ filter_action }}&q={{ filter_q|urlencode }}" {% if view %}class="active"{% endif %}>一覧表</a>
+    </div>
+    <form method="get" class="dy-filter">
+      {% if view %}<input type="hidden" name="view" value="list" />{% endif %}
+      <select name="action" onchange="this.form.submit()">
+        <option value="">すべて</option>
+        {% for val, label in action_choices %}
+        <option value="{{ val }}" {% if filter_action == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="q" value="{{ filter_q }}" placeholder="銘柄名で絞り込み" />
+      <button type="submit">検索</button>
+    </form>
+  </div>
+
+  {% if view %}
+  <div class="dy-table-wrap">
+    <table class="dy-table">
+      <thead>
+        <tr>
+          <th>日時</th><th>コード</th><th>銘柄</th><th>売買</th>
+          <th class="num">株価</th><th class="num">株数</th>
+          <th class="num">その後</th><th class="num">概算損益</th><th class="num">RR比</th>
+          <th>状態</th><th>評価</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.e.recorded_at|date:"y/m/d H:i" }}</td>
+          <td>{{ r.e.stock_code }}</td>
+          <td>{% if r.e.stock and r.e.stock.country == 'JP' %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}</td>
+          <td><span class="dy-badge dy-badge-{{ r.e.action }}">{{ r.e.get_action_display }}</span></td>
+          <td class="num">{% if r.e.price %}{{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}{% endif %}</td>
+          <td class="num">{% if r.e.shares %}{{ r.e.shares|intcomma }}{% endif %}</td>
+          <td class="num">{% if r.change is not None %}<span class="dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">{% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>{% endif %}</td>
+          <td class="num">{% if r.pnl is not None %}<span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">{% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{{ r.pnl|floatformat:0|intcomma }}{{ r.cur_suf }}</span>{% endif %}</td>
+          <td class="num">{% if r.rr is not None %}{{ r.rr|floatformat:1 }}{% endif %}</td>
+          <td>{% if r.hit == 'target' %}<span class="dy-hit dy-hit-target">目標到達</span>{% elif r.hit == 'stop' %}<span class="dy-hit dy-hit-stop">損切到達</span>{% endif %}</td>
+          <td>{% if r.e.review_result %}<span class="dy-result dy-result-{{ r.e.review_result }}">{{ r.e.get_review_result_display }}</span>{% endif %}</td>
+          <td>
+            <form method="post" action="{% url 'diary:delete' r.e.pk %}" class="dy-del-form" onsubmit="return confirm('この記録を削除しますか？');">
+              {% csrf_token %}
+              <button type="submit" class="dy-del-icon" title="この記録を削除">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="12" class="dy-table-empty">記録がありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {% for r in rows %}
+  <article class="dy-card">
+    <header class="dy-card-head">
+      <span class="dy-badge dy-badge-{{ r.e.action }}">{{ r.e.get_action_display }}</span>
+      <span class="dy-stock">
+        {% if r.e.stock and r.e.stock.country == 'JP' %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}
+        {% if r.e.stock_code %}（{{ r.e.stock_code }}）{% endif %}
+        {% if r.e.stock and r.e.stock.country == 'US' %}<span class="dy-us-tag">US</span>{% endif %}
+      </span>
+      <span class="dy-date">{{ r.e.recorded_at|date:"Y/m/d H:i" }}</span>
+      <form method="post" action="{% url 'diary:delete' r.e.pk %}" class="dy-del-form" onsubmit="return confirm('この記録を削除しますか？');">
+        {% csrf_token %}
+        <button type="submit" class="dy-del-icon" title="この記録を削除">🗑</button>
+      </form>
+    </header>
+
+    <div class="dy-price-row">
+      {% if r.e.price %}
+      <span>記録時 {{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}{% if r.e.shares %} × {{ r.e.shares|intcomma }}株{% endif %}</span>
+      {% if r.current_close %}
+      <span>→ 現在 {{ r.cur_pre }}{{ r.current_close|floatformat:1 }}{{ r.cur_suf }}</span>
+      <span class="dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">
+        その後 {% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%
+      </span>
+      {% if r.pnl is not None %}
+      <span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">
+        概算損益 {% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{{ r.pnl|floatformat:0|intcomma }}{{ r.cur_suf }}
+      </span>
+      {% endif %}
+      {% endif %}
+      {% endif %}
+      {% if r.e.mood %}<span class="dy-mood">心理: {{ r.e.mood }}</span>{% endif %}
+    </div>
+
+    {% if r.e.target_price or r.e.stop_price %}
+    <div class="dy-plan">
+      {% if r.e.target_price %}<span>目標 {{ r.cur_pre }}{{ r.e.target_price|floatformat:1 }}{{ r.cur_suf }}</span>{% endif %}
+      {% if r.e.stop_price %}<span>損切り {{ r.cur_pre }}{{ r.e.stop_price|floatformat:1 }}{{ r.cur_suf }}</span>{% endif %}
+      {% if r.rr is not None %}<span>RR比 {{ r.rr|floatformat:1 }}</span>{% endif %}
+      {% if r.hit == 'target' %}<span class="dy-hit dy-hit-target">目標到達</span>
+      {% elif r.hit == 'stop' %}<span class="dy-hit dy-hit-stop">損切りライン到達</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if r.tag_list %}
+    <div class="dy-tags">{% for t in r.tag_list %}<span class="dy-tag">{{ t }}</span>{% endfor %}</div>
+    {% endif %}
+
+    <p class="dy-label">判断理由</p>
+    <p class="dy-text">{{ r.e.reason|linebreaksbr }}</p>
+    {% if r.e.impression %}
+    <p class="dy-label">感想・メモ</p>
+    <p class="dy-text">{{ r.e.impression|linebreaksbr }}</p>
+    {% endif %}
+
+    {% if r.e.review_note or r.e.review_result %}
+    <div class="dy-review">
+      <p class="dy-label">
+        振り返り（{{ r.e.reviewed_at|date:"Y/m/d" }}）
+        {% if r.e.review_result %}<span class="dy-result dy-result-{{ r.e.review_result }}">{{ r.e.get_review_result_display }}</span>{% endif %}
+      </p>
+      <p class="dy-text">{{ r.e.review_note|linebreaksbr }}</p>
+    </div>
+    {% endif %}
+
+    <details class="dy-actions">
+      <summary>振り返りを{% if r.e.review_note %}更新{% else %}追記{% endif %}</summary>
+      <form method="post" action="{% url 'diary:review' r.e.pk %}" class="dy-review-form">
+        {% csrf_token %}
+        <div class="dy-result-radios">
+          {% for val, label in result_choices %}
+          <label><input type="radio" name="review_result" value="{{ val }}" {% if r.e.review_result == val %}checked{% endif %} /> {{ label }}</label>
+          {% endfor %}
+        </div>
+        <textarea name="review_note" rows="3" placeholder="今振り返ってどうだったか。学びは何か">{{ r.e.review_note }}</textarea>
+        <div class="dy-form-row">
+          <button type="submit">振り返りを保存</button>
+        </div>
+      </form>
+    </details>
+  </article>
+  {% empty %}
+  <div class="dy-empty">
+    <p>まだ記録がありません。「＋ 新規記録」から最初の日記をつけてみましょう。</p>
+  </div>
+  {% endfor %}
+  {% endif %}
+</main>
+
+<!-- 新規記録モーダル -->
+<div class="dy-modal-overlay" id="dy-modal" hidden>
+  <div class="dy-modal">
+    <div class="dy-modal-head">
+      <p>新規記録</p>
+      <button type="button" id="dy-close-modal">×</button>
+    </div>
+    <form method="post" action="{% url 'diary:create' %}" id="dy-form">
+      {% csrf_token %}
+      <label class="dy-field">銘柄
+        <input type="text" id="dy-stock-search" placeholder="銘柄名かコードで検索" autocomplete="off" />
+        <div id="dy-stock-list" class="dy-stock-list" hidden></div>
+        <input type="hidden" name="stock_code" id="dy-stock-code" />
+      </label>
+      <div class="dy-field-row">
+        <label class="dy-field">日時
+          <input type="datetime-local" name="recorded_at" id="dy-recorded-at" required />
+        </label>
+        <label class="dy-field">株価（円）
+          <input type="number" name="price" id="dy-price" step="0.1" inputmode="decimal" placeholder="銘柄選択で自動入力" />
+        </label>
+      </div>
+      <div class="dy-field-row">
+        <label class="dy-field">株数
+          <input type="number" name="shares" id="dy-shares" step="1" min="1" inputmode="numeric" placeholder="例: 100" />
+        </label>
+        <label class="dy-field">概算金額（円）
+          <input type="text" id="dy-amount" readonly placeholder="株価×株数で自動計算" tabindex="-1" />
+        </label>
+      </div>
+      <div class="dy-field">
+        <span class="dy-field-label">売り買い</span>
+        <div class="dy-radio-row">
+          {% for val, label in action_choices %}
+          <label><input type="radio" name="action" value="{{ val }}" {% if forloop.first %}checked{% endif %} /> {{ label }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div id="dy-exit">
+        <div class="dy-field-row">
+          <div class="dy-field">
+            <span class="dy-field-label">目標株価（円）</span>
+            <div class="dy-pct-row">
+              <select id="dy-target-pct">
+                <option value="">%選択</option>
+                <option value="5">+5%</option>
+                <option value="10">+10%</option>
+                <option value="15">+15%</option>
+                <option value="20">+20%</option>
+              </select>
+              <input type="number" name="target_price" id="dy-target" step="0.1" inputmode="decimal" placeholder="自動計算 / 手入力" />
+            </div>
+          </div>
+          <div class="dy-field">
+            <span class="dy-field-label">損切りライン（円）</span>
+            <div class="dy-pct-row">
+              <select id="dy-stop-pct">
+                <option value="">%選択</option>
+                <option value="5">-5%</option>
+                <option value="10">-10%</option>
+                <option value="15">-15%</option>
+                <option value="20">-20%</option>
+                <option value="none">長期（損切りなし）</option>
+              </select>
+              <input type="number" name="stop_price" id="dy-stop" step="0.1" inputmode="decimal" placeholder="自動計算 / 手入力" />
+            </div>
+          </div>
+        </div>
+        <p class="dy-rr-hint" id="dy-rr-hint"></p>
+      </div>
+      <div class="dy-field">
+        <span class="dy-field-label">判断理由タグ（複数可）</span>
+        <div class="dy-check-row">
+          {% for t in tags %}
+          <label><input type="checkbox" name="tags" value="{{ t }}" /> {{ t }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="dy-field">
+        <span class="dy-field-label">記録時の心理状態</span>
+        <div class="dy-radio-row">
+          {% for m in moods %}
+          <label><input type="radio" name="mood" value="{{ m }}" {% if m == '中立' %}checked{% endif %} /> {{ m }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <label class="dy-field">判断理由
+        <textarea name="reason" rows="3" required placeholder="なぜそう判断したか（あとで書き換えない前提で正直に）"></textarea>
+      </label>
+      <label class="dy-field">感想・メモ
+        <textarea name="impression" rows="2" placeholder="迷い・確信度・相場の雰囲気など"></textarea>
+      </label>
+      <div class="dy-form-row">
+        <button type="submit" class="dy-submit">記録する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";</script>
+<script src="{% static 'diary/js/diary.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

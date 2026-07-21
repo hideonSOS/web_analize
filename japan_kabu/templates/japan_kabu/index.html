@@ -1,0 +1,69 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}時価総額ランキング | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'japan_kabu/css/marketcap.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="mc">
+  <h1 class="mc-title">時価総額ランキング</h1>
+
+  {% if stocks %}
+  <p class="mc-meta">
+    株価基準日: {{ price_date|date:"Y/m/d" }} ／
+    {% if sector %}{{ sector }}{% else %}全業種{% endif %} {{ total_count }}銘柄中 TOP{{ limit }}
+  </p>
+  <div class="mc-limit">
+    <a href="?limit=20&sector={{ sector|urlencode }}" {% if limit == 20 %}class="active"{% endif %}>TOP20</a>
+    <a href="?limit=50&sector={{ sector|urlencode }}" {% if limit == 50 %}class="active"{% endif %}>TOP50</a>
+    <a href="?limit=100&sector={{ sector|urlencode }}" {% if limit == 100 %}class="active"{% endif %}>TOP100</a>
+  </div>
+  <div class="mc-sector">
+    <a href="?limit={{ limit }}" {% if not sector %}class="active"{% endif %}>全て</a>
+    {% for s in sectors %}
+    <a href="?limit={{ limit }}&sector={{ s|urlencode }}" {% if s == sector %}class="active"{% endif %}>{{ s }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="mc-chart-wrap">
+    <div id="mc-chart" class="ec-canvas"></div>
+  </div>
+
+  <details class="mc-table-wrap">
+    <summary>一覧表を表示</summary>
+    <table class="mc-table">
+      <thead>
+        <tr><th>順位</th><th>コード</th><th>銘柄名</th><th>市場</th><th>業種</th><th class="num">時価総額</th></tr>
+      </thead>
+      <tbody>
+        {% for s in stocks %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ s.display_code }}</td>
+          <td><a href="{% url 'japan_kabu:stock_detail' s.display_code %}">{{ s.name }}</a></td>
+          <td>{{ s.market }}</td>
+          <td>{{ s.sector33 }}</td>
+          <td class="num" data-yen="{{ s.market_cap }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% else %}
+  <div class="mc-empty">
+    <p>データが未取得です。以下のコマンドでデータを取得してください。</p>
+    <pre>python manage.py update_marketcap</pre>
+  </div>
+  {% endif %}
+</main>
+
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'japan_kabu/js/marketcap.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

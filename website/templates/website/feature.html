@@ -1,0 +1,20 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}{{ feature.name }} | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'website/css/feature.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="feature">
+  <h1 class="feature-title">{{ feature.name }}</h1>
+  <div class="feature-card">
+    <p class="feature-status">COMING SOON</p>
+    <p>このページは準備中です。</p>
+    <p>{{ feature.description }}</p>
+    <a class="btn-link" href="{% url 'website:index' %}">トップへ戻る</a>
+  </div>
+</main>
+{% endblock %}

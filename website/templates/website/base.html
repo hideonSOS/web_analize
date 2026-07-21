@@ -1,0 +1,41 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{% block title %}株分析ツール KABU ANALYZE{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'website/css/base.css' %}?v={% now 'U' %}" />
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body>
+    <!-- ヘッダー -->
+    <header>
+      <p class="site-title"><a href="{% url 'website:index' %}">KABU ANALYZE</a></p>
+      <button class="ham-btn" id="js-btn">
+        <span></span><span></span><span></span>
+      </button>
+      <!-- ナビゲーション -->
+      <nav class="ham-nav" id="js-nav">
+        <ul>
+          <li><a href="{% url 'japan_kabu:index' %}">時価総額ランキング</a></li>
+          <li><a href="{% url 'japan_kabu:volume' %}">出来高急増ランキング</a></li>
+          <li><a href="{% url 'karte:index' %}">銘柄カルテ</a></li>
+          <li><a href="{% url 'diary:index' %}">売買日記</a></li>
+          <li><a href="{% url 'japan_kabu:stock_detail' '6758' %}">銘柄別指標</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <footer>
+      <p>テストサイトです。</p>
+      <p>不具合に関しまして、一切の責任はとれません。</p>
+      <p>個人情報等は入力しないでください。</p>
+    </footer>
+
+    <script src="{% static 'website/js/base.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

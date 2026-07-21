@@ -1,0 +1,70 @@
+.mc{ padding:16px 12px 40px; max-width:1100px; margin:0 auto; }
+.mc-title{
+  text-align:center;
+  margin:20px 0 8px;
+  font-size:clamp(22px,4.5vw,34px);
+  letter-spacing:4px;
+  color:#1e90ff;
+  text-shadow:0 0 12px rgba(30,144,255,.9), 0 0 30px rgba(30,144,255,.4);
+}
+.mc-meta{ text-align:center; color:#87cefa; font-size:13px; margin:0 0 12px; }
+
+.mc-limit{ display:flex; justify-content:center; gap:10px; margin-bottom:16px; }
+.mc-limit a{
+  color:#93c5fd; text-decoration:none; font-size:13px; font-weight:700;
+  border:1px solid #1e3a5f; padding:6px 14px; border-radius:10px;
+}
+.mc-limit a:hover{ background:rgba(59,130,246,.12); }
+.mc-limit a.active{
+  color:#fff; border-color:#3b82f6; background:rgba(59,130,246,.25);
+  box-shadow:0 0 10px rgba(59,130,246,.4);
+}
+
+.mc-sector{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:6px;
+  max-width:900px; margin:0 auto 16px;
+}
+.mc-sector a{
+  color:#93c5fd; text-decoration:none; font-size:12px;
+  border:1px solid #1e3a5f; padding:4px 10px; border-radius:999px;
+}
+.mc-sector a:hover{ background:rgba(59,130,246,.12); }
+.mc-sector a.active{
+  color:#fff; border-color:#3b82f6; background:rgba(59,130,246,.25);
+  box-shadow:0 0 10px rgba(59,130,246,.4);
+}
+
+.mc-chart-wrap{
+  border:1px solid #1f2937; background:#0b1220; border-radius:12px;
+  padding:12px 8px; position:relative; box-sizing:border-box;
+}
+/* EChartsの描画コンテナ（幅高さ100%が必須） */
+.ec-canvas{ width:100%; height:100%; }
+
+.mc-table-wrap{ margin-top:16px; color:#e5e7eb; }
+.mc-table-wrap summary{
+  cursor:pointer; color:#93c5fd; font-weight:700; padding:8px 4px;
+}
+.mc-table{ width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+.mc-table th, .mc-table td{
+  border:1px solid #1f2937; padding:6px 8px; text-align:left; white-space:nowrap;
+}
+.mc-table th{ background:#0f172a; color:#93c5fd; }
+.mc-table td.num, .mc-table th.num{ text-align:right; }
+.mc-table tbody tr:hover{ background:rgba(59,130,246,.08); }
+.mc-table td a{ color:#93c5fd; text-decoration:none; }
+.mc-table td a:hover{ text-decoration:underline; }
+
+.mc-empty{
+  border:1px solid #1f2937; background:#0f172a; border-radius:12px;
+  padding:24px; text-align:center; color:#e5e7eb; line-height:1.8;
+}
+.mc-empty pre{
+  display:inline-block; background:#000; border:1px solid #334155;
+  border-radius:8px; padding:10px 16px; color:#93c5fd;
+}
+
+@media (max-width: 600px){
+  .mc-table{ font-size:11px; }
+  .mc-table th, .mc-table td{ padding:4px 5px; }
+}

@@ -1,0 +1,101 @@
+.sd{ padding:16px 12px 40px; max-width:1000px; margin:0 auto; }
+.sd-back{ margin:16px 0 0; }
+.sd-back a{ color:#93c5fd; text-decoration:none; font-size:13px; }
+.sd-back a:hover{ text-decoration:underline; }
+
+.sd-select{ position:relative; max-width:420px; margin:16px auto 0; }
+.sd-select input{
+  width:100%; box-sizing:border-box;
+  background:#0f172a; color:#e5e7eb;
+  border:1px solid #334155; border-radius:10px;
+  padding:10px 14px; font-size:14px; outline:none;
+}
+.sd-select input:focus{
+  border-color:#3b82f6;
+  box-shadow:0 0 0 3px rgba(59,130,246,.15), 0 0 12px rgba(59,130,246,.25);
+}
+.sd-list{
+  position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:100;
+  background:#0b1220; border:1px solid #334155; border-radius:10px;
+  max-height:320px; overflow-y:auto;
+  box-shadow:0 12px 30px rgba(0,0,0,.6);
+}
+.sd-item{ padding:9px 14px; font-size:13px; color:#e5e7eb; cursor:pointer; }
+.sd-item:hover{ background:rgba(59,130,246,.18); }
+
+.sd-empty{
+  border:1px solid #1f2937; background:#0f172a; border-radius:12px;
+  padding:24px; text-align:center; color:#e5e7eb; line-height:1.8; margin-top:32px;
+}
+.sd-empty pre{
+  display:inline-block; background:#000; border:1px solid #334155;
+  border-radius:8px; padding:10px 16px; color:#93c5fd;
+}
+
+.sd-title{
+  text-align:center;
+  margin:16px 0 4px;
+  font-size:clamp(22px,4.5vw,32px);
+  letter-spacing:3px;
+  color:#1e90ff;
+  text-shadow:0 0 12px rgba(30,144,255,.9), 0 0 30px rgba(30,144,255,.4);
+}
+.sd-sub{ text-align:center; color:#87cefa; font-size:13px; margin:0 0 12px; }
+.sd-price{ text-align:center; font-size:clamp(24px,5vw,34px); font-weight:700; color:#e5e7eb; margin:0; }
+.sd-price-date{ font-size:12px; color:#9ca3af; font-weight:400; }
+.sd-fy{ text-align:center; color:#9ca3af; font-size:12px; margin:4px 0 0; }
+
+.ind-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  margin:24px 0;
+}
+.ind-card{
+  display:flex;
+  align-items:center;
+  gap:20px;
+  border:1px solid #1f2937; background:#0b1220; border-radius:12px;
+  padding:14px 20px;
+}
+.ind-info{ flex:0 0 auto; width:150px; }
+.ind-label{ margin:0; font-size:13px; color:#93c5fd; font-weight:700; white-space:nowrap; }
+.ind-value{ margin:4px 0 0; font-size:26px; font-weight:700; color:#3b82f6; }
+.ind-value.neg{ color:#ef4444; }
+.ind-value.ind-na{ color:#6b7280; font-size:16px; }
+.ind-chart-wrap{ flex:1 1 auto; height:64px; min-width:0; }
+/* EChartsの描画コンテナ（幅高さ100%が必須） */
+.ec-canvas{ width:100%; height:100%; }
+
+.hist-tabs{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:0 0 12px;
+}
+.hist-tabs button{
+  background:#0f172a; color:#93c5fd; font-size:12px; font-weight:700;
+  border:1px solid #1e3a5f; padding:6px 12px; border-radius:999px; cursor:pointer;
+}
+.hist-tabs button:hover{ background:rgba(59,130,246,.12); }
+.hist-tabs button.active{
+  color:#fff; border-color:#3b82f6; background:rgba(59,130,246,.25);
+  box-shadow:0 0 10px rgba(59,130,246,.4);
+}
+.hist-chart-wrap{
+  border:1px solid #1f2937; background:#0b1220; border-radius:12px;
+  padding:12px 8px; height:300px; box-sizing:border-box;
+}
+
+.sd-section-title{
+  color:#1e90ff; font-size:18px; letter-spacing:2px; margin:32px 0 12px;
+  text-align:center;
+}
+.trend-chart-wrap{
+  border:1px solid #1f2937; background:#0b1220; border-radius:12px;
+  padding:12px 8px; height:320px; box-sizing:border-box;
+}
+
+@media (max-width: 600px){
+  .ind-card{ flex-direction:column; align-items:stretch; gap:8px; }
+  .ind-info{ width:auto; }
+  .ind-value{ font-size:22px; }
+  .ind-chart-wrap{ width:100%; }
+}

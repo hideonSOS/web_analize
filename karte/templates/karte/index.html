@@ -1,0 +1,53 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}銘柄カルテ | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'karte/css/karte.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="kt">
+  <h1 class="kt-title">銘柄カルテ</h1>
+  <p class="kt-lead">IR資料を読みながら、全銘柄共通の雛形に書き込んでいく詳細分析です。空欄のままでも保存できます。</p>
+
+  <div class="kt-toolbar">
+    <div class="kt-new">
+      <input type="text" id="kt-stock-search" placeholder="銘柄名かコードで検索してカルテを作成" autocomplete="off" />
+      <div id="kt-stock-list" class="kt-stock-list" hidden></div>
+      <form method="post" action="{% url 'karte:create' %}" id="kt-create-form">
+        {% csrf_token %}
+        <input type="hidden" name="stock_code" id="kt-stock-code" />
+      </form>
+    </div>
+  </div>
+
+  {% if rows %}
+  <div class="kt-grid">
+    {% for r in rows %}
+    <a class="kt-card" href="{% url 'karte:detail' r.k.stock.display_code %}">
+      <p class="kt-card-name">{{ r.k.stock.name }}</p>
+      <p class="kt-card-code">
+        {{ r.k.stock.display_code }}
+        {% if r.k.stock.country == 'US' %}<span class="kt-us">US</span>{% endif %}
+      </p>
+      <div class="kt-progress">
+        <div class="kt-progress-bar" style="width: {{ r.pct }}%"></div>
+      </div>
+      <p class="kt-card-meta">記入 {{ r.filled }}/{{ r.total }}項目　更新 {{ r.k.updated_at|date:"Y/m/d" }}</p>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="kt-empty">
+    <p>まだカルテがありません。上の検索窓から銘柄を選ぶとカルテが作成されます。</p>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>window.KARTE_STOCK_OPTIONS_URL = "{% url 'karte:stock_options' %}";</script>
+<script src="{% static 'karte/js/karte_index.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

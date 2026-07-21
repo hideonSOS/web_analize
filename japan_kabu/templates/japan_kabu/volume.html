@@ -1,0 +1,69 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}出来高急増ランキング | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'japan_kabu/css/marketcap.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="mc">
+  <h1 class="mc-title">出来高急増ランキング</h1>
+
+  {% if rows %}
+  <p class="mc-meta">
+    基準日: {{ volume_date|date:"Y/m/d" }} ／ 対象 {{ total_count }}銘柄中 TOP{{ limit }}<br>
+    並び順は対数出来高のz-score（過去20日比の統計的異常度）。薄商い銘柄（売買代金中央値1億円未満）は除外
+  </p>
+  <div class="mc-limit">
+    <a href="?limit=20" {% if limit == 20 %}class="active"{% endif %}>TOP20</a>
+    <a href="?limit=50" {% if limit == 50 %}class="active"{% endif %}>TOP50</a>
+    <a href="?limit=100" {% if limit == 100 %}class="active"{% endif %}>TOP100</a>
+  </div>
+
+  <div class="mc-chart-wrap">
+    <div id="vol-chart" class="ec-canvas"></div>
+  </div>
+
+  <details class="mc-table-wrap">
+    <summary>一覧表を表示</summary>
+    <table class="mc-table">
+      <thead>
+        <tr>
+          <th>順位</th><th>コード</th><th>銘柄名</th><th>業種</th>
+          <th class="num">出来高</th><th class="num">平均比</th>
+          <th class="num">z</th><th class="num">Φ(z)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.rank }}</td>
+          <td>{{ r.stock.display_code }}</td>
+          <td><a href="{% url 'japan_kabu:stock_detail' r.stock.display_code %}">{{ r.stock.name }}</a></td>
+          <td>{{ r.stock.sector33 }}</td>
+          <td class="num" data-num="{{ r.stock.volume }}"></td>
+          <td class="num">{{ r.stock.volume_ratio|floatformat:1 }}倍</td>
+          <td class="num">{{ r.stock.volume_z|floatformat:2 }}</td>
+          <td class="num">{{ r.p|floatformat:2 }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% else %}
+  <div class="mc-empty">
+    <p>データが未取得です。以下のコマンドでデータを取得してください。</p>
+    <pre>python manage.py update_volume</pre>
+  </div>
+  {% endif %}
+</main>
+
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'japan_kabu/js/volume.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

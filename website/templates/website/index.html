@@ -1,0 +1,24 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}トップ | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'website/css/index.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="top">
+  <h1 class="top-title">KABU ANALYZE</h1>
+  <p class="top-lead">株の分析ツールサイトです。利用する機能を選択してください。</p>
+
+  <div class="grid">
+    {% for num, f in features.items %}
+    <a class="sq" href="{% if f.url_args %}{% url f.url f.url_args.0 %}{% elif f.url %}{% url f.url %}{% else %}{% url 'website:feature' num %}{% endif %}">
+      <span class="sq-name">{{ f.name }}</span>
+      <span class="sq-desc">{{ f.description }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}
