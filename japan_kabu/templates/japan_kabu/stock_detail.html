@@ -26,7 +26,7 @@
     {% for d in indicator_defs %}
     <div class="ind-card">
       <div class="ind-info">
-        <p class="ind-label">{{ d.label }}</p>
+        <p class="ind-label" id="ind-label-{{ forloop.counter0 }}">{{ d.label }}</p>
         <p class="ind-value" id="ind-value-{{ forloop.counter0 }}"></p>
       </div>
       <div class="ind-chart-wrap"><div id="ind-chart-{{ forloop.counter0 }}" class="ec-canvas"></div></div>

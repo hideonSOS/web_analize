@@ -1,10 +1,16 @@
-// 経営陣の写真: ファイル選択後に選んだファイル名をボタンに表示する
+// 画像アップロード: ファイル選択後に選んだファイル名をボタンに表示する
 (() => {
-  const input = document.getElementById('kt-exec-photo-input');
-  const label = document.getElementById('kt-file-label');
-  if (!input || !label) return;
-  input.addEventListener('change', () => {
-    label.textContent = input.files.length ? input.files[0].name : '＋ 写真を選ぶ';
+  const pairs = [
+    ['kt-exec-photo-input', 'kt-file-label', '＋ 写真を選ぶ'],
+    ['kt-shot-input', 'kt-shot-label', '＋ 画像を選ぶ'],
+  ];
+  pairs.forEach(([inputId, labelId, defaultText]) => {
+    const input = document.getElementById(inputId);
+    const label = document.getElementById(labelId);
+    if (!input || !label) return;
+    input.addEventListener('change', () => {
+      label.textContent = input.files.length ? input.files[0].name : defaultText;
+    });
   });
 })();
 

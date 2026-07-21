@@ -103,17 +103,27 @@ def volume_ranking(request):
     return render(request, 'japan_kabu/volume.html', context)
 
 
-def _indicator_values(close, rep):
-    """終値と通期決算（FinancialReport）から指標を計算する。算出不可はNone"""
+def _indicator_values(close, rep, ttm_np=None):
+    """終値と決算データから指標を計算する。算出不可はNone
+
+    ttm_np を渡すと、それを利益として使う（米国株のTTM実績ベース）。
+    渡さない場合は日本株の想定で、来期予想EPS/通期純利益を使う。
+    """
     values = {key: None for key, *_ in INDICATOR_DEFS}
     if rep is None or close is None:
         return values
-    forecast_eps = rep.nx_np / rep.shares if rep.nx_np and rep.shares else None
+    # 日本株は来期予想EPSベース（予想PER）。米国株は予想が無いのでTTM実績を渡す
+    if ttm_np is not None:
+        eps = ttm_np / rep.shares if rep.shares else None
+        profit = ttm_np
+    else:
+        eps = rep.nx_np / rep.shares if rep.nx_np and rep.shares else None
+        profit = rep.np
     dividend = rep.nx_div_ann or rep.div_ann
-    values['per'] = close / forecast_eps if forecast_eps and forecast_eps > 0 else None
+    values['per'] = close / eps if eps and eps > 0 else None
     values['pbr'] = close / rep.bps if rep.bps and rep.bps > 0 else None
-    values['roe'] = rep.np / rep.equity * 100 if rep.np is not None and rep.equity else None
-    values['roa'] = rep.np / rep.total_assets * 100 if rep.np is not None and rep.total_assets else None
+    values['roe'] = profit / rep.equity * 100 if profit is not None and rep.equity else None
+    values['roa'] = profit / rep.total_assets * 100 if profit is not None and rep.total_assets else None
     values['yield'] = dividend / close * 100 if dividend else None
     values['equity_ratio'] = rep.equity_ratio * 100 if rep.equity_ratio is not None else None
     return {k: round(v, 3) if v is not None else None for k, v in values.items()}
@@ -124,14 +134,19 @@ def _oku(v):
     return round(v / 1e8) if v is not None else None
 
 
+def _mil(v):
+    """ドル → 百万ドル（整数）。Noneはそのまま"""
+    return round(v / 1e6) if v is not None else None
+
+
 def _r2(v):
     return round(v, 2) if v is not None else None
 
 
 def _ttm_np(rep, by_key, fy_ends):
-    """TTM（直近12か月）純利益 = 直前FY通期 + 当期累計 − 前年同期累計
+    """日本株のTTM純利益 = 直前FY通期 + 当期累計 − 前年同期累計
 
-    四半期の純利益は期初からの累計値なので、この式で12か月分に換算する。
+    J-Quantsの四半期は期初からの累計値なので、この式で12か月分に換算する。
     通期（FY）レコードはそのまま通期純利益。
     """
     if rep.per_type == 'FY':
@@ -147,21 +162,43 @@ def _ttm_np(rep, by_key, fy_ends):
     return prev_fy.np + rep.np - prev_cum.np
 
 
+def _ttm_np_us(rep, quarters):
+    """米国株のTTM純利益 = 直近4四半期の単純合計
+
+    yfinanceの四半期は各四半期単独の数値なので、そのまま足す。
+    FYレコードはそのまま通期純利益。
+    """
+    if rep.per_type == 'FY':
+        return rep.np
+    idx = quarters.index(rep)
+    window = quarters[max(0, idx - 3):idx + 1]
+    if len(window) < 4 or any(q.np is None for q in window):
+        return None
+    return sum(q.np for q in window)
+
+
 HISTORY_PERIODS = 20  # 推移グラフに表示する期数（四半期×5年）
 
 
-def _build_history(reps):
-    """四半期ごとの指標推移（TTMベース）。repsはper_end昇順の全レコード"""
+def _build_history(reps, is_us=False):
+    """四半期ごとの指標推移（TTMベース）。repsはper_end昇順の全レコード
+
+    米国株は四半期が単独値、日本株は累計値なのでTTMの求め方を分ける。
+    """
     by_key = {(r.fy_end, r.per_type): r for r in reps}
     fy_ends = [r.fy_end for r in reps if r.per_type == 'FY']
+    # 米国株は四半期(Q)だけを時系列に並べてTTMを計算する
+    us_quarters = [r for r in reps if r.per_type == 'Q'] if is_us else []
+    # 米国株の推移は四半期のみを使う（FYと混ぜると同じ期が二重に並ぶため）
+    series = us_quarters if is_us else reps
 
     # 発行済株式数・年間配当は開示がある期の値を引き継ぐ
     last_shares = last_div = None
     enriched = []
-    for r in reps:
+    for r in series:
         if r.shares:
             last_shares = r.shares
-        if r.per_type == 'FY' and r.div_ann is not None:
+        if r.div_ann is not None:
             last_div = r.div_ann
         enriched.append((r, last_shares, last_div))
 
@@ -169,7 +206,7 @@ def _build_history(reps):
             ('labels', 'per', 'pbr', 'roe', 'roa', 'yield', 'equity_ratio')}
     for r, shares, div in enriched[-HISTORY_PERIODS:]:
         close = r.close
-        ttm = _ttm_np(r, by_key, fy_ends)
+        ttm = _ttm_np_us(r, us_quarters) if is_us else _ttm_np(r, by_key, fy_ends)
         eps_ttm = ttm / shares if (ttm is not None and shares) else None
         bps = r.bps if (r.bps and r.bps > 0) else (
             r.equity / shares if (r.equity and shares) else None)
@@ -197,24 +234,42 @@ def _build_indicator_payload():
         fy_reps = [r for r in reps if r.per_type == 'FY']
         if not fy_reps:
             continue
+        is_us = s.country == 'US'
         latest = fy_reps[-1]
         trend_reps = fy_reps[-5:]
+
+        # 米国株は最新の四半期を現在値の算出に使う（yfinanceに来期予想が無いため
+        # PERは実績TTMベースになる。日本株は予想EPSベース）
+        quarters = [r for r in reps if r.per_type == 'Q']
+        if is_us:
+            latest_ind_src = quarters[-1] if quarters else latest
+            ttm = _ttm_np_us(latest_ind_src, quarters) if quarters else latest.np
+            ind = _indicator_values(s.close, latest_ind_src, ttm_np=ttm)
+        else:
+            ind = _indicator_values(s.close, latest)
+
+        # 通貨と単位が異なる（日本株=億円 / 米国株=百万ドル）
+        scale = _mil if is_us else _oku
         payload.append({
             'code': s.display_code,
             'name': s.name,
             'market': s.market,
             'sector': s.sector33,
+            'country': s.country,
+            'currency': 'USD' if is_us else 'JPY',
+            'trend_unit': '百万ドル' if is_us else '億円',
             'close': s.close,
             'price_date': s.price_date.strftime('%Y/%m/%d') if s.price_date else None,
-            'fy_end': latest.fy_end.strftime('%Y/%m/%d'),
-            'ind': _indicator_values(s.close, latest),
+            'fy_end': (latest_ind_src if is_us else latest).per_end.strftime('%Y/%m/%d'),
+            'ind': ind,
             'trend': {
-                'labels': [f'{r.fy_end.year}年度' for r in trend_reps],
-                'sales': [_oku(r.sales) for r in trend_reps],
-                'op': [_oku(r.op) for r in trend_reps],
-                'np': [_oku(r.np) for r in trend_reps],
+                'labels': [f'{r.per_end.year}年' if is_us else f'{r.fy_end.year}年度'
+                           for r in trend_reps],
+                'sales': [scale(r.sales) for r in trend_reps],
+                'op': [scale(r.op) for r in trend_reps],
+                'np': [scale(r.np) for r in trend_reps],
             },
-            'hist': _build_history(reps),
+            'hist': _build_history(reps, is_us=is_us),
         })
     return payload
 

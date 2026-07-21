@@ -6,51 +6,19 @@ from django.views.decorators.http import require_POST
 
 from japan_kabu.models import Stock
 
-from .models import Executive, KpiEntry, MidTermTarget, StockKarte
+from .models import (Executive, KpiEntry, MidTermTarget, ReferenceVideo,
+                     Screenshot, StockKarte)
 
-# カルテの雛形定義（全銘柄共通）。
-# hint は「IR資料のどこを見るか」の手引き。読みながら埋めることで頭に入れるのが狙い。
+# カルテの雛形定義（全銘柄共通）。各セクションは自由記述1つ。
+# 説明書きは付けない（項目名だけで書き始められるようにする方針）
 SECTIONS = [
-    ('投資判断', [
-        ('hypothesis', '投資仮説',
-         'なぜ今買うのか。市場が見落としている点は何か'),
-        ('disconfirm', '仮説が崩れる条件',
-         '「これが起きたら撤退」と言える具体的な条件。事前に決めておく'),
-        ('next_check', '次回決算で確認すること',
-         '次に見るべき数字を1〜3個。決算後にここを見返す'),
-    ]),
-    ('経営陣の考課', [
-        ('mgmt_track_record', '実績・公約の達成度',
-         '過去の中計や公約は達成されたか。未達のときの説明は誠実か、言い訳に終始していないか'),
-        ('mgmt_capital', '資本配分の巧拙',
-         'M&A・自社株買い・設備投資の判断は的確か。ROIC/資本コストを意識した発言があるか'),
-        ('mgmt_stance', '姿勢・開示の質',
-         '経歴と在任期間、自社株の保有状況、株主との対話姿勢。都合の悪い情報も開示しているか'),
-    ]),
-    ('事業理解', [
-        ('business_model', '事業内容・稼ぎ方',
-         '何を、誰に売って稼いでいるか。決算説明資料の冒頭「事業概要」を自分の言葉で書く'),
-        ('revenue_structure', '収益構造',
-         'ストック型かフロー型か。単価×数量の何が効くか。粗利率の高い事業はどれか'),
-    ]),
-    ('競争環境', [
-        ('strengths', '強み・参入障壁',
-         'なぜ競合に真似されないか。シェア・技術・ブランド・スイッチングコスト'),
-        ('competition', '競合・市場シェア',
-         '誰と戦っているか。市場は伸びているか、シェアを取れているか'),
-        ('risks', 'リスク・弱み',
-         '何が起きたら業績が崩れるか。顧客集中・規制・為替・原材料'),
-    ]),
-    ('参照', [
-        ('memo', 'その他メモ', '気づいたこと、経営陣の発言、質疑応答で気になった点など'),
-    ]),
-    ('財務・還元', [
-        ('financial_policy', '財務方針・株主還元',
-         '配当方針（性向/DOE）、自己株買い、設備投資・研究開発の計画'),
-    ]),
+    ('投資判断', [('invest_note', '投資判断')]),
+    ('経営陣の考課', [('mgmt_note', '経営陣の評価')]),
+    ('事業理解', [('business_note', '事業内容')]),
+    ('競争環境', [('competitive_note', '競争環境')]),
 ]
 # フォーム保存対象のフィールド一覧
-FIELDS = [f for _, items in SECTIONS for f, _, _ in items]
+FIELDS = [f for _, items in SECTIONS for f, _ in items]
 
 
 def index(request):
@@ -109,8 +77,8 @@ def detail(request, code):
         {
             'group': group,
             'items': [
-                {'field': f, 'label': label, 'hint': hint, 'value': getattr(karte, f)}
-                for f, label, hint in items
+                {'field': f, 'label': label, 'value': getattr(karte, f)}
+                for f, label in items
             ],
         }
         for group, items in SECTIONS
@@ -133,6 +101,8 @@ def detail(request, code):
         'stock': stock,
         'karte': karte,
         'executives': karte.executives.all(),
+        'videos': karte.videos.all(),
+        'screenshots': karte.screenshots.all(),
         'sections': sections,
         'filled': filled,
         'total_fields': len(FIELDS),
@@ -152,6 +122,16 @@ def save(request, code):
         setattr(karte, f, request.POST.get(f, '').strip())
     karte.ir_url = request.POST.get('ir_url', '').strip()
     karte.save()
+
+    # 動画の要約も同じ保存ボタンでまとめて更新する（video_note_<pk> で送られてくる）
+    updated = []
+    for video in karte.videos.all():
+        key = f'video_note_{video.pk}'
+        if key in request.POST:
+            video.note = request.POST[key].strip()
+            updated.append(video)
+    if updated:
+        ReferenceVideo.objects.bulk_update(updated, ['note'])
     return redirect('karte:detail', code=code)
 
 
@@ -219,6 +199,50 @@ def add_executive(request, code):
 @require_POST
 def delete_executive(request, code, pk):
     get_object_or_404(Executive, pk=pk, karte__stock__display_code=code).delete()
+    return redirect('karte:detail', code=code)
+
+
+@require_POST
+def add_video(request, code):
+    """参照動画を追加（YouTubeのURLと要約）"""
+    karte = get_object_or_404(StockKarte, stock__display_code=code)
+    url = request.POST.get('url', '').strip()
+    if url:
+        ReferenceVideo.objects.create(
+            karte=karte,
+            url=url,
+            title=request.POST.get('title', '').strip(),
+            note=request.POST.get('note', '').strip(),
+            order=karte.videos.count(),
+        )
+    return redirect('karte:detail', code=code)
+
+
+@require_POST
+def delete_video(request, code, pk):
+    get_object_or_404(ReferenceVideo, pk=pk, karte__stock__display_code=code).delete()
+    return redirect('karte:detail', code=code)
+
+
+@require_POST
+def add_screenshot(request, code):
+    """スクリーンショットを追加（画像とコメント）"""
+    karte = get_object_or_404(StockKarte, stock__display_code=code)
+    image = request.FILES.get('image')
+    note = request.POST.get('note', '').strip()
+    if image or note:
+        Screenshot.objects.create(
+            karte=karte,
+            image=image,
+            note=note,
+            order=karte.screenshots.count(),
+        )
+    return redirect('karte:detail', code=code)
+
+
+@require_POST
+def delete_screenshot(request, code, pk):
+    get_object_or_404(Screenshot, pk=pk, karte__stock__display_code=code).delete()
     return redirect('karte:detail', code=code)
 
 

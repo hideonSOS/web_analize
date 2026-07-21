@@ -1,8 +1,8 @@
-"""売買日記に登場した米国株ティッカーだけ、最新株価を取得する
+"""カルテ・売買日記に登録された米国株の最新株価を取得する
 
-市場全体ではなく「日記で実際に記録したティッカー」に限定するため、
-数十件程度のバッチで済む（yfinance を使用）。日次で update_marketcap /
-update_volume と同じタイミングに実行する想定。
+市場全体ではなく「自分が登録した銘柄」に限定するため、数十件程度の
+バッチで済む（yfinance を使用）。日次で update_marketcap / update_volume と
+同じタイミングに実行する想定。
 
 使い方:
     python manage.py update_us_prices
@@ -16,17 +16,24 @@ from japan_kabu.models import Stock
 
 
 class Command(BaseCommand):
-    help = '日記で使われた米国株ティッカーの株価を更新する（yfinance）'
+    help = 'カルテ/日記に登録された米国株の株価を更新する（yfinance）'
 
     def handle(self, *args, **options):
-        # 日記で参照されている米国株コードを集める
+        # 「カルテを作った銘柄」と「日記に登場した銘柄」の米国株を対象にする
+        # （日記に付ける銘柄は通常カルテも作るが、両方を見て取りこぼしを防ぐ）
+        from karte.models import StockKarte
+
         used_codes = set(
             DiaryEntry.objects.filter(stock__country='US')
             .values_list('stock_id', flat=True)
         )
+        used_codes |= set(
+            StockKarte.objects.filter(stock__country='US')
+            .values_list('stock_id', flat=True)
+        )
         stocks = list(Stock.objects.filter(code__in=used_codes))
         if not stocks:
-            self.stdout.write('対象の米国株記録がありません')
+            self.stdout.write('対象の米国株がありません（カルテか売買日記に登録してください）')
             return
 
         tickers = [s.display_code for s in stocks]

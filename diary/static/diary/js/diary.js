@@ -37,6 +37,8 @@
     loadStocks();
     overlay.hidden = false;
     if (!recordedAt.value) recordedAt.value = nowLocalValue();
+    // 非表示のままでは高さを測れないため、表示後に自動リサイズを効かせ直す
+    if (window.autoGrowTextareas) window.autoGrowTextareas(overlay);
     searchInput.focus();
   }
 

@@ -100,7 +100,8 @@
 .dy-review-form{ margin-top:8px; display:grid; gap:8px; }
 .dy-review-form textarea{
   background:#0f172a; color:#e5e7eb; border:1px solid #334155;
-  border-radius:8px; padding:8px 10px; font-size:13px; resize:vertical;
+  border-radius:8px; padding:8px 10px; font-size:13px;
+  resize:none; overflow-y:hidden;   /* 高さはJSが自動調整する */
 }
 .dy-result-radios{ display:flex; gap:14px; font-size:13px; color:#e5e7eb; }
 .dy-form-row button, .dy-submit{
@@ -178,6 +179,8 @@
   border-radius:8px; padding:9px 12px; font-size:14px; font-weight:400;
 }
 .dy-field input:focus, .dy-field textarea:focus{ outline:none; border-color:#3b82f6; }
+/* 入力量に応じてJSが高さを伸ばす */
+.dy-field textarea{ resize:none; overflow-y:hidden; }
 /* 日時入力: ダーク背景でもカレンダーアイコンが見えるようにし、タップでピッカーを開く */
 .dy-field input[type="datetime-local"]{ color-scheme: dark; cursor:pointer; }
 .dy-field input[type="datetime-local"]::-webkit-calendar-picker-indicator{

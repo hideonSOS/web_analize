@@ -105,8 +105,13 @@
       }],
     }, { replaceMerge: ['series'] });
 
+    const isUS = d.country === 'US';
     document.querySelectorAll('#hist-tabs button').forEach((b) => {
       b.classList.toggle('active', b.dataset.key === histKey);
+      // カード側と同じく、PERの根拠を国別に表示する
+      if (b.dataset.key === 'per') {
+        b.textContent = isUS ? 'PER（実績）' : 'PER（予想）';
+      }
     });
   }
 
@@ -123,13 +128,25 @@
     const d = byCode.get(code);
     if (!d) return;
     currentCode = code;
+    const isUS = d.country === 'US';
     $('sd-name').textContent = d.name;
-    $('sd-sub').textContent = `${d.code} ／ ${d.market} ／ ${d.sector}`;
-    $('sd-close').textContent = d.close !== null ? d.close.toLocaleString() + '円' : '―';
+    // 業種が空（米国株）のときに区切り記号だけ残らないようにする
+    $('sd-sub').textContent = [d.code, d.market, d.sector].filter(Boolean).join(' ／ ');
+    // 通貨を国別に出し分ける（米国株を「円」と表示しない）
+    $('sd-close').textContent = d.close === null ? '―'
+      : isUS ? '$' + d.close.toLocaleString() : d.close.toLocaleString() + '円';
     $('sd-price-date').textContent = d.price_date ? `（${d.price_date} 終値）` : '';
-    $('sd-fy').textContent = `決算期: ${d.fy_end}期`;
+    $('sd-fy').textContent = `決算期: ${d.fy_end}期`
+      + (isUS ? '（PERは実績TTM）' : '');
+
+    // PERの根拠が国で違う（日本株=来期予想 / 米国株=実績TTM）ためラベルを出し分ける
+    const labelFor = (def) => (def.key === 'per'
+      ? (isUS ? 'PER（実績）' : 'PER（予想）')
+      : def.label);
 
     defs.forEach((def, i) => {
+      const lb = $('ind-label-' + i);
+      if (lb) lb.textContent = labelFor(def);
       const v = d.ind[def.key];
       const el = $('ind-value-' + i);
       if (v === null) {
@@ -162,7 +179,8 @@
         trigger: 'axis',
         ...TOOLTIP,
         axisPointer: { type: 'shadow' },
-        valueFormatter: (v) => (v === null ? '―' : v.toLocaleString() + '億円'),
+        // 単位は国別（日本株=億円 / 米国株=百万ドル）
+        valueFormatter: (v) => (v === null ? '―' : v.toLocaleString() + (d.trend_unit || '億円')),
       },
       xAxis: {
         type: 'category',
@@ -172,7 +190,9 @@
       },
       yAxis: {
         type: 'value',
-        axisLabel: { color: AXIS, formatter: (v) => v.toLocaleString() + '億' },
+        axisLabel: { color: AXIS, formatter: (v) => v.toLocaleString() },
+        name: d.trend_unit || '億円',
+        nameTextStyle: { color: AXIS, fontSize: 11 },
         splitLine: { lineStyle: { color: GRID } },
       },
       series: [

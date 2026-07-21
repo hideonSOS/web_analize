@@ -45,7 +45,7 @@
       {% endif %}
     </div>
     {% empty %}
-    <p class="kt-note">未登録です。IR資料の中期経営計画から目標値を登録すると、達成度が可視化されます。</p>
+    <p class="kt-note">未登録</p>
     {% endfor %}
 
     <details class="kt-add">
@@ -79,7 +79,7 @@
       </div>
     </div>
     {% empty %}
-    <p class="kt-note">未登録です。「ゲーム部門売上」「ARR」「既存店売上」など、その企業が重視するKPIを期ごとに入れると折れ線グラフになります。</p>
+    <p class="kt-note">未登録</p>
     {% endfor %}
 
     <details class="kt-add">
@@ -92,7 +92,6 @@
         <input type="text" name="unit" placeholder="単位（億円）" />
         <button type="submit">追加</button>
       </form>
-      <p class="kt-note">同じKPI名・同じ期を再入力すると上書きされます。</p>
     </details>
   </section>
 
@@ -124,7 +123,7 @@
           </form>
         </figure>
         {% empty %}
-        <p class="kt-note">経営陣が未登録です。顔写真を貼っておくと、決算説明会の発言が頭に入りやすくなります。</p>
+        <p class="kt-note">未登録</p>
         {% endfor %}
       </div>
 
@@ -143,19 +142,98 @@
       {% for item in sec.items %}
       <div class="kt-field {% if not item.value %}kt-empty-field{% endif %}">
         <label for="f-{{ item.field }}">{{ item.label }}</label>
-        <p class="kt-hint">{{ item.hint }}</p>
         <textarea id="f-{{ item.field }}" name="{{ item.field }}" rows="4" form="kt-save-form">{{ item.value }}</textarea>
       </div>
       {% endfor %}
 
-      {% if sec.group == '参照' %}
+    </section>
+
+    {% if sec.group == '経営陣の考課' %}
+    <!-- 参照動画（決算説明会・IR動画など）と要約。写真の次に見やすいので上寄りに置く -->
+    <section class="kt-section">
+      <h2 class="kt-h2">参照動画</h2>
+
+      {% for v in videos %}
+      <div class="kt-video">
+        <div class="kt-video-head">
+          <span class="kt-video-title">{{ v.title|default:"動画" }}</span>
+          <a href="{{ v.url }}" target="_blank" rel="noopener noreferrer" class="kt-video-link">YouTubeで開く ↗</a>
+          <form method="post" action="{% url 'karte:delete_video' stock.display_code v.pk %}"
+                class="kt-del-form" onsubmit="return confirm('この動画を削除しますか？');">
+            {% csrf_token %}<button type="submit" class="kt-del">🗑</button>
+          </form>
+        </div>
+
+        {% if v.embed_url %}
+        <div class="kt-video-frame">
+          <iframe src="{{ v.embed_url }}" title="{{ v.title|default:'参照動画' }}"
+                  loading="lazy" allowfullscreen
+                  allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture"
+                  referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
+        {% else %}
+        <p class="kt-note">YouTubeのURLとして認識できませんでした。動画の埋め込みは行いません。</p>
+        {% endif %}
+
+        <div class="kt-field">
+          <label for="v-note-{{ v.pk }}">要約・感想</label>
+          <textarea id="v-note-{{ v.pk }}" name="video_note_{{ v.pk }}" rows="3"
+                    form="kt-save-form" placeholder="何を話していたか。数字や方針で気になった点">{{ v.note }}</textarea>
+        </div>
+      </div>
+      {% empty %}
+      <p class="kt-note">未登録</p>
+      {% endfor %}
+
+      <details class="kt-add">
+        <summary>＋ 動画を追加</summary>
+        <form method="post" action="{% url 'karte:add_video' stock.display_code %}" class="kt-add-form">
+          {% csrf_token %}
+          <input type="url" name="url" placeholder="YouTubeのURL" required />
+          <input type="text" name="title" placeholder="ラベル（2026年3月期 決算説明会）" />
+          <button type="submit">追加</button>
+        </form>
+      </details>
+
       <div class="kt-field">
         <label for="f-ir_url">IR資料リンク</label>
-        <p class="kt-hint">決算説明資料・統合報告書などのURL。保存すると上部から開けるようになる</p>
         <input type="url" id="f-ir_url" name="ir_url" value="{{ karte.ir_url }}" placeholder="https://..." form="kt-save-form" />
       </div>
-      {% endif %}
     </section>
+
+    <!-- スクリーンショット（IR資料のグラフ・表など）と説明 -->
+    <section class="kt-section">
+      <h2 class="kt-h2">スクリーンショット</h2>
+
+      {% for sc in screenshots %}
+      <div class="kt-shot">
+        <form method="post" action="{% url 'karte:delete_screenshot' stock.display_code sc.pk %}"
+              class="kt-del-form kt-shot-del" onsubmit="return confirm('削除しますか？');">
+          {% csrf_token %}<button type="submit" class="kt-del">🗑</button>
+        </form>
+        {% if sc.image %}
+        <a href="{{ sc.image.url }}" target="_blank" rel="noopener noreferrer">
+          <img src="{{ sc.image.url }}" alt="" class="kt-shot-img" loading="lazy" />
+        </a>
+        {% endif %}
+        {% if sc.note %}<p class="kt-shot-note">{{ sc.note|linebreaksbr }}</p>{% endif %}
+      </div>
+      {% empty %}
+      <p class="kt-note">未登録</p>
+      {% endfor %}
+
+      <form method="post" action="{% url 'karte:add_screenshot' stock.display_code %}"
+            class="kt-exec-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label class="kt-file">
+          <span id="kt-shot-label">＋ 画像を選ぶ</span>
+          <input type="file" name="image" accept="image/*" id="kt-shot-input" />
+        </label>
+        <input type="text" name="note" placeholder="説明（任意）" />
+        <button type="submit">追加</button>
+      </form>
+    </section>
+    {% endif %}
     {% endfor %}
 
     <div class="kt-save-row">

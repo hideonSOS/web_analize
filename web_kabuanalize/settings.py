@@ -28,6 +28,10 @@ else:
 JQUANTS_API_KEY = _config.get('api_key', '')   # J-Quants: "x-api-key" ヘッダーで使用
 EDINET_API_KEY = _config.get('edinet_api_key', '')
 
+# サイト全体の閲覧パスワード（config.json で設定する。空なら認証なし）
+# ※ コードに直接書かないこと。リポジトリは公開されているため漏れる
+SITE_PASSWORD = _config.get('site_password', '')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -65,7 +69,14 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # サイト全体を合言葉で保護する（config.json の site_password）
+    'website.middleware.SitePasswordMiddleware',
 ]
+
+# 合言葉の入力を毎回求めないよう、セッションを長めに保つ
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30      # 30日
+SESSION_SAVE_EVERY_REQUEST = True           # 使うたびに期限を延長する
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 ROOT_URLCONF = 'web_kabuanalize.urls'
 

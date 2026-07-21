@@ -43,9 +43,10 @@ run() {
 status=0
 
 # 順番に意味がある: マスタ・株価を先に入れてから、出来高の異常度を計算する
-run update_marketcap  || status=1   # 銘柄マスタ・株価・決算・時価総額・期末株価
-run update_volume     || status=1   # 日次出来高と出来高異常度(z-score)
-run update_us_prices  || status=1   # 売買日記に登場した米国株の株価（yfinance）
+run update_marketcap     || status=1   # 銘柄マスタ・株価・決算・時価総額・期末株価
+run update_volume        || status=1   # 日次出来高と出来高異常度(z-score)
+run update_us_prices     || status=1   # 登録した米国株の株価（yfinance）
+run update_us_financials || status=1   # 登録した米国株の決算（yfinance）
 
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'update_*.log' -mtime +30 -delete 2>/dev/null

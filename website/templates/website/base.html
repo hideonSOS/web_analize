@@ -23,19 +23,14 @@
           <li><a href="{% url 'karte:index' %}">銘柄カルテ</a></li>
           <li><a href="{% url 'diary:index' %}">売買日記</a></li>
           <li><a href="{% url 'japan_kabu:stock_detail' '6758' %}">銘柄別指標</a></li>
+          <li><a href="{% url 'website:logout' %}" class="nav-logout">ログアウト</a></li>
         </ul>
       </nav>
     </header>
 
     {% block content %}{% endblock %}
 
-    <footer>
-      <p>テストサイトです。</p>
-      <p>不具合に関しまして、一切の責任はとれません。</p>
-      <p>個人情報等は入力しないでください。</p>
-    </footer>
-
-    <script src="{% static 'website/js/base.js' %}"></script>
+    <script src="{% static 'website/js/base.js' %}?v={% now 'U' %}"></script>
     {% block extra_js %}{% endblock %}
   </body>
 </html>

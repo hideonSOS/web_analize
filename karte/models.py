@@ -1,6 +1,32 @@
+import re
+
 from django.db import models
 
 from japan_kabu.models import Stock
+
+# YouTubeのURLから動画IDを取り出すパターン（watch / youtu.be / embed / shorts）
+_YT_PATTERNS = [
+    re.compile(r'(?:youtube\.com|youtube-nocookie\.com)/watch\?(?:.*&)?v=([\w-]{11})'),
+    re.compile(r'youtu\.be/([\w-]{11})'),
+    re.compile(r'(?:youtube\.com|youtube-nocookie\.com)/embed/([\w-]{11})'),
+    re.compile(r'youtube\.com/shorts/([\w-]{11})'),
+    re.compile(r'youtube\.com/live/([\w-]{11})'),
+]
+
+
+def extract_youtube_id(url):
+    """YouTubeのURLから動画IDを取り出す。取れなければ None。
+
+    URLをそのまま iframe に渡さず、ID だけを取り出して埋め込みURLを
+    自前で組み立てるために使う（任意のURLが埋め込まれるのを防ぐ）。
+    """
+    if not url:
+        return None
+    for pattern in _YT_PATTERNS:
+        m = pattern.search(url)
+        if m:
+            return m.group(1)
+    return None
 
 
 class StockKarte(models.Model):
@@ -15,26 +41,16 @@ class StockKarte(models.Model):
     """
     stock = models.OneToOneField(Stock, on_delete=models.CASCADE, related_name='karte')
 
-    # ── 経営陣の考課 ──
-    mgmt_track_record = models.TextField(blank=True)    # 過去の公約・中計の達成度
-    mgmt_capital = models.TextField(blank=True)         # 資本配分の巧拙
-    mgmt_stance = models.TextField(blank=True)          # 姿勢・開示の誠実さ
-    # ── 事業理解 ──
-    business_model = models.TextField(blank=True)       # 何を誰に売って稼ぐか
-    revenue_structure = models.TextField(blank=True)    # 収益構造・課金モデル
-    # ── 競争環境 ──
-    strengths = models.TextField(blank=True)            # 強み・参入障壁
-    risks = models.TextField(blank=True)                # リスク・弱み
-    competition = models.TextField(blank=True)          # 競合・シェア
-    # ── 財務・還元 ──
-    financial_policy = models.TextField(blank=True)     # 財務方針・株主還元・投資計画
-    # ── 投資判断 ──
-    hypothesis = models.TextField(blank=True)           # 投資仮説（なぜ買うか）
-    disconfirm = models.TextField(blank=True)           # 仮説が崩れる条件
-    next_check = models.TextField(blank=True)           # 次回決算で確認すること
-    # ── 参照 ──
+    # ── 経営陣の考課（写真中心。テキストは自由記述1つに集約）──
+    mgmt_note = models.TextField(blank=True)
+    # ── 事業理解（自由記述1つ）──
+    business_note = models.TextField(blank=True)
+    # ── 競争環境（自由記述1つ）──
+    competitive_note = models.TextField(blank=True)
+    # ── 投資判断（自由記述1つ）──
+    invest_note = models.TextField(blank=True)
+    # IR資料のURL（上部の「IR資料を開く」リンクに使う。入力欄は参照動画セクション内）
     ir_url = models.URLField(blank=True, max_length=500)
-    memo = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -46,10 +62,71 @@ class StockKarte(models.Model):
         return f"カルテ {self.stock_id}"
 
 
+class ReferenceVideo(models.Model):
+    """参照動画（決算説明会・IR動画など）と、その要約
+
+    URLはそのまま保持するが、埋め込みには video_id から組み立てたURLだけを使う。
+    """
+    karte = models.ForeignKey(StockKarte, on_delete=models.CASCADE, related_name='videos')
+    url = models.URLField(max_length=500)
+    title = models.CharField(max_length=100, blank=True)   # 任意のラベル
+    note = models.TextField(blank=True)                    # 動画の要約・感想
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    @property
+    def youtube_id(self):
+        return extract_youtube_id(self.url)
+
+    @property
+    def embed_url(self):
+        """iframe用のURL。YouTube以外・解析不能なURLは埋め込まない"""
+        vid = self.youtube_id
+        # youtube-nocookie は再生するまでCookieを置かない配信元
+        return f'https://www.youtube-nocookie.com/embed/{vid}' if vid else None
+
+    def __str__(self):
+        return self.title or self.url
+
+
 def executive_photo_path(instance, filename):
     """銘柄ごとのフォルダに保存する: media/executives/<銘柄コード>/<ファイル名>"""
     code = instance.karte.stock.display_code
     return f'executives/{code}/{filename}'
+
+
+def screenshot_path(instance, filename):
+    """銘柄ごとのフォルダに保存する: media/screenshots/<銘柄コード>/<ファイル名>"""
+    code = instance.karte.stock.display_code
+    return f'screenshots/{code}/{filename}'
+
+
+class Screenshot(models.Model):
+    """IR資料などの画面キャプチャと説明
+
+    経営陣の写真と同じく「画像 + コメント」だけの構成。
+    グラフや表など横長の画像を想定し、縦横比を保って表示する。
+    """
+    karte = models.ForeignKey(StockKarte, on_delete=models.CASCADE, related_name='screenshots')
+    image = models.ImageField(upload_to=screenshot_path, blank=True)
+    note = models.TextField(blank=True)
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def delete(self, *args, **kwargs):
+        # レコード削除時に実ファイルも消す
+        if self.image:
+            self.image.delete(save=False)
+        super().delete(*args, **kwargs)
+
+    def __str__(self):
+        return self.note[:20] or f'スクリーンショット #{self.pk}'
 
 
 class Executive(models.Model):

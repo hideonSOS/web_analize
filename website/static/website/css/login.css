@@ -1,0 +1,23 @@
+.lg-body{ display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+.lg{ width:min(340px, 88vw); text-align:center; }
+.lg-title{
+  font-size:clamp(22px,6vw,30px); letter-spacing:5px; color:#1e90ff; margin:0 0 28px;
+  text-shadow:0 0 12px rgba(30,144,255,.9), 0 0 34px rgba(30,144,255,.4);
+}
+.lg-form{ display:flex; flex-direction:column; gap:12px; }
+.lg-label{ font-size:12px; color:#93c5fd; text-align:left; }
+.lg-form input[type="password"]{
+  background:#0f172a; color:#e5e7eb; border:1px solid #334155;
+  border-radius:10px; padding:12px 14px; font-size:16px; outline:none;
+}
+.lg-form input[type="password"]:focus{
+  border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15), 0 0 14px rgba(59,130,246,.3);
+}
+.lg-form button{
+  background:rgba(59,130,246,.25); color:#fff; font-weight:700;
+  border:1px solid #3b82f6; border-radius:10px; padding:12px; font-size:15px; cursor:pointer;
+  box-shadow:0 0 12px rgba(59,130,246,.35);
+}
+.lg-form button:hover:not(:disabled){ background:rgba(59,130,246,.4); }
+.lg-form button:disabled, .lg-form input:disabled{ opacity:.5; cursor:not-allowed; }
+.lg-error{ color:#fca5a5; font-size:13px; margin:4px 0 0; }

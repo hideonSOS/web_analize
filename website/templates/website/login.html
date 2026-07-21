@@ -1,0 +1,25 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>KABU ANALYZE</title>
+    <link rel="stylesheet" href="{% static 'website/css/base.css' %}?v={% now 'U' %}" />
+    <link rel="stylesheet" href="{% static 'website/css/login.css' %}?v={% now 'U' %}" />
+  </head>
+  <body class="lg-body">
+    <main class="lg">
+      <h1 class="lg-title">KABU ANALYZE</h1>
+      <form method="post" class="lg-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}" />
+        <label for="pw" class="lg-label">合言葉</label>
+        <input type="password" id="pw" name="password" autocomplete="current-password"
+               autofocus {% if locked_for %}disabled{% endif %} />
+        <button type="submit" {% if locked_for %}disabled{% endif %}>開く</button>
+        {% if error %}<p class="lg-error">{{ error }}</p>{% endif %}
+      </form>
+    </main>
+  </body>
+</html>

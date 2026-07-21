@@ -1,5 +1,5 @@
 body { margin:0; font-family: sans-serif; background:#000; color:#fff; }
-header, nav, footer { padding:20px; border-bottom:1px solid #1e90ff; }
+header, nav { padding:20px; border-bottom:1px solid #1e90ff; }
 header { background:#000; padding:20px 20px 0; }
 header p { margin:5px 0 0; color:#87cefa; }
 
@@ -10,9 +10,7 @@ nav { background:#000; border-bottom:none; border-top:1px solid #1e90ff; margin:
 nav ul { list-style:none; margin:0; padding:0; display:flex; gap:20px; }
 nav a { color:#1e90ff; text-decoration:none; font-weight:bold; }
 nav a:hover { text-decoration:underline; }
-
-footer { background:#000; text-align:center; font-size:14px; border-top:1px solid #1e90ff; }
-footer p { margin:10px 0; color:#87cefa; }
+nav a.nav-logout { color:#6b7280; font-weight:normal; font-size:13px; }
 
 .btn-link {
     display:inline-block;

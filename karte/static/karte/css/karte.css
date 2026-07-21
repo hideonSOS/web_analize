@@ -68,8 +68,10 @@
   width:100%; box-sizing:border-box;
   background:#0f172a; color:#e5e7eb; border:1px solid #334155;
   border-radius:8px; padding:10px 12px; font-size:14px; line-height:1.7;
-  resize:vertical; outline:none;
+  outline:none;
 }
+/* 入力量に応じてJSが高さを伸ばすため、手動リサイズとスクロールは無効にする */
+.kt-field textarea{ resize:none; overflow-y:hidden; min-height:5.5em; }
 .kt-field textarea:focus, .kt-field input:focus{ border-color:#3b82f6; }
 /* 未記入の項目は枠を控えめな点線にして「まだ調べていない箇所」を可視化 */
 .kt-empty-field textarea{ border-style:dashed; border-color:#334155; }
@@ -106,7 +108,7 @@
 /* 経営陣の顔写真カード（写真は枠いっぱいの正方形） */
 .kt-execs{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
 .kt-exec{
-  position:relative; margin:0; width:150px;
+  position:relative; margin:0; width:190px;
   border:1px solid #1e3a5f; background:#0f172a; border-radius:12px;
   padding:0; overflow:hidden;
   transition:border-color .15s, box-shadow .15s;
@@ -146,6 +148,41 @@
 .kt-file:hover{ border-color:#3b82f6; background:rgba(59,130,246,.08); }
 .kt-file span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .kt-file input[type="file"]{ display:none; }
+
+/* 参照動画 */
+.kt-video{
+  border:1px solid #1e3a5f; background:#0b1220; border-radius:10px;
+  padding:12px 14px; margin-bottom:14px;
+}
+.kt-video-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.kt-video-title{ font-size:13px; font-weight:700; color:#e5e7eb; }
+.kt-video-link{ color:#93c5fd; text-decoration:none; font-size:12px; }
+.kt-video-link:hover{ text-decoration:underline; }
+.kt-video-head .kt-del-form{ margin-left:auto; }
+/* 16:9を保ったまま幅に追従させる（スマホでも枠内に収まる） */
+.kt-video-frame{
+  position:relative; width:100%; aspect-ratio:16 / 9;
+  border-radius:8px; overflow:hidden; background:#000; margin-bottom:10px;
+}
+.kt-video-frame iframe{
+  position:absolute; inset:0; width:100%; height:100%; border:0;
+}
+
+/* スクリーンショット（横長のグラフ・表を想定。縦横比を保つ） */
+.kt-shot{
+  position:relative;
+  border:1px solid #1e3a5f; background:#0b1220; border-radius:10px;
+  padding:10px; margin-bottom:12px;
+}
+.kt-shot-img{
+  display:block; width:100%; height:auto; border-radius:6px;
+  border:1px solid #1f2937; cursor:zoom-in;
+}
+.kt-shot-note{
+  margin:8px 0 0; font-size:13px; color:#e5e7eb; line-height:1.7;
+}
+.kt-shot-del{ position:absolute; top:6px; right:6px; z-index:2; }
+.kt-shot-del .kt-del{ background:rgba(0,0,0,.6); }
 
 /* 追加フォーム */
 .kt-add{ margin-top:10px; }
