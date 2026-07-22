@@ -58,6 +58,20 @@
   padding:16px 18px; margin-bottom:14px;
 }
 .kt-h2{ margin:0 0 12px; font-size:15px; color:#1e90ff; letter-spacing:2px; }
+
+/* セクションの並び替え（ドラッグハンドル）。ハンドルの分だけ見出し右側を空ける */
+.kt-sortable{ position:relative; }
+.kt-sortable .kt-h2{ padding-right:28px; }
+.kt-drag-handle{
+  position:absolute; top:14px; right:14px; z-index:3;
+  color:#4b5563; font-size:18px; line-height:1; cursor:grab;
+  user-select:none; padding:2px 4px; border-radius:6px; touch-action:none;
+}
+.kt-drag-handle:hover{ color:#93c5fd; background:rgba(59,130,246,.12); }
+.kt-drag-handle:active{ cursor:grabbing; }
+/* ドラッグ中: 元の位置に残るプレースホルダーと、掴んでいる要素の見た目 */
+.kt-sortable-ghost{ opacity:.4; border-style:dashed; border-color:#3b82f6; }
+.kt-sortable-chosen{ box-shadow:0 0 0 1px #3b82f6, 0 8px 24px rgba(0,0,0,.5); }
 .kt-note{ color:#9ca3af; font-size:12px; margin:6px 0 0; line-height:1.7; }
 
 /* 雛形フォーム */

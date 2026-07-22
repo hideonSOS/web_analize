@@ -14,6 +14,41 @@
   });
 })();
 
+// カルテ詳細: セクションの並び替え（銘柄ごとに順番をカスタマイズできる）
+// ハンドル(.kt-drag-handle)を掴んだ時だけドラッグする（テキスト選択を妨げないため）。
+// 離した時点で新しい順番をサーバへ保存する（ページ内に保存ボタンは増やさない）。
+(() => {
+  const box = document.getElementById('kt-sections');
+  if (!box || typeof Sortable === 'undefined') return;
+  const url = box.dataset.reorderUrl;
+
+  function csrfToken() {
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    const input = document.querySelector('[name=csrfmiddlewaretoken]');
+    return input ? input.value : '';
+  }
+
+  Sortable.create(box, {
+    handle: '.kt-drag-handle',
+    animation: 150,
+    ghostClass: 'kt-sortable-ghost',
+    chosenClass: 'kt-sortable-chosen',
+    onEnd() {
+      const order = [...box.querySelectorAll('.kt-sortable')].map((el) => el.dataset.key);
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+        body: JSON.stringify({ order }),
+      }).then((r) => {
+        if (!r.ok) console.error('セクション順の保存に失敗しました', r.status);
+      }).catch((e) => console.error('セクション順の保存に失敗しました', e));
+      // KPIグラフ(ECharts)は移動後にサイズが変わることがあるので測り直させる
+      window.dispatchEvent(new Event('resize'));
+    },
+  });
+})();
+
 // カルテ詳細: 手入力KPIの時系列グラフ（Apache ECharts）
 // KPI名ごとに1系列。期のラベルは各KPIの入力順（文字列ソート）に従う。
 (() => {

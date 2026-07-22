@@ -53,6 +53,9 @@ class StockKarte(models.Model):
     ir_url = models.URLField(blank=True, max_length=500)
     # 次回決算発表予定日（自動取得できないため手入力）
     next_earnings_date = models.DateField(null=True, blank=True)
+    # セクションの表示順（銘柄ごとにドラッグで並び替える。空なら既定順）。
+    # セクションを識別するキー文字列のリストを保存する。未知/欠落キーは表示時に補正する。
+    section_order = models.JSONField(default=list, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

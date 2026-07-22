@@ -10,6 +10,7 @@ urlpatterns = [
     path('create/', views.create, name='create'),
     path('<str:code>/', views.detail, name='detail'),
     path('<str:code>/save/', views.save, name='save'),
+    path('<str:code>/reorder/', views.reorder, name='reorder'),
     path('<str:code>/delete/', views.delete, name='delete'),
     path('<str:code>/target/add/', views.add_target, name='add_target'),
     path('<str:code>/target/<int:pk>/delete/', views.delete_target, name='delete_target'),

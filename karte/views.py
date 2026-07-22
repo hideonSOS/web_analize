@@ -1,6 +1,7 @@
+import json
 from collections import OrderedDict
 
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -19,6 +20,21 @@ SECTIONS = [
 ]
 # フォーム保存対象のフィールド一覧
 FIELDS = [f for _, items in SECTIONS for f, _ in items]
+
+# 並び替え対象セクションのキーと既定順。銘柄ごとの並び順は karte.section_order に保存し、
+# ここに無いキーは無視、欠けているキーは既定順で末尾に補う（セクション追加に強くする）。
+DEFAULT_SECTION_ORDER = [
+    'mgmt', 'business', 'videos', 'screenshots',
+    'invest', 'competitive', 'kpi', 'targets',
+]
+
+
+def resolve_section_order(saved):
+    """保存済みの並び順を正規化する。未知キー除去 + 欠落キーを既定順で補完。"""
+    saved = saved or []
+    order = [k for k in saved if k in DEFAULT_SECTION_ORDER]
+    order += [k for k in DEFAULT_SECTION_ORDER if k not in order]
+    return order
 
 
 def index(request):
@@ -72,17 +88,6 @@ def detail(request, code):
     if karte is None:
         raise Http404
 
-    # 雛形セクション（値とヒントを添えて描画用に整形）
-    sections = [
-        {
-            'group': group,
-            'items': [
-                {'field': f, 'label': label, 'value': getattr(karte, f)}
-                for f, label in items
-            ],
-        }
-        for group, items in SECTIONS
-    ]
     filled = sum(1 for f in FIELDS if getattr(karte, f).strip())
 
     # KPIをname別にまとめてグラフ用データにする
@@ -97,13 +102,16 @@ def detail(request, code):
         for name, d in grouped.items()
     ]
 
+    # 銘柄ごとに保存された表示順（無ければ既定順）
+    section_keys = resolve_section_order(karte.section_order)
+
     context = {
         'stock': stock,
         'karte': karte,
         'executives': karte.executives.all(),
         'videos': karte.videos.all(),
         'screenshots': karte.screenshots.all(),
-        'sections': sections,
+        'section_keys': section_keys,
         'filled': filled,
         'total_fields': len(FIELDS),
         'targets': karte.targets.all(),
@@ -112,6 +120,24 @@ def detail(request, code):
         'has_indicator_page': stock.country == 'JP',
     }
     return render(request, 'karte/detail.html', context)
+
+
+@require_POST
+def reorder(request, code):
+    """セクションの並び順を保存する（ドラッグ&ドロップ後にJSから呼ぶ）。
+
+    リクエストボディは JSON: {"order": ["mgmt", "targets", ...]}。
+    未知キーは捨て、既定順で欠けを補ってから保存する。
+    """
+    karte = get_object_or_404(StockKarte, stock__display_code=code)
+    try:
+        payload = json.loads(request.body or '{}')
+    except (ValueError, TypeError):
+        return JsonResponse({'ok': False, 'error': 'invalid json'}, status=400)
+    order = resolve_section_order(payload.get('order'))
+    karte.section_order = order
+    karte.save(update_fields=['section_order', 'updated_at'])
+    return JsonResponse({'ok': True, 'order': order})
 
 
 @require_POST
