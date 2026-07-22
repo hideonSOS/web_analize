@@ -12,9 +12,9 @@ from .models import (Executive, KpiEntry, MidTermTarget, ReferenceVideo,
 # カルテの雛形定義（全銘柄共通）。各セクションは自由記述1つ。
 # 説明書きは付けない（項目名だけで書き始められるようにする方針）
 SECTIONS = [
-    ('投資判断', [('invest_note', '投資判断')]),
     ('経営陣の考課', [('mgmt_note', '経営陣の評価')]),
     ('事業理解', [('business_note', '事業内容')]),
+    ('投資判断', [('invest_note', '投資判断')]),
     ('競争環境', [('competitive_note', '競争環境')]),
 ]
 # フォーム保存対象のフィールド一覧
@@ -121,6 +121,8 @@ def save(request, code):
     for f in FIELDS:
         setattr(karte, f, request.POST.get(f, '').strip())
     karte.ir_url = request.POST.get('ir_url', '').strip()
+    next_earnings_date = request.POST.get('next_earnings_date', '').strip()
+    karte.next_earnings_date = next_earnings_date or None
     karte.save()
 
     # 動画の要約も同じ保存ボタンでまとめて更新する（video_note_<pk> で送られてくる）

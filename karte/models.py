@@ -51,6 +51,8 @@ class StockKarte(models.Model):
     invest_note = models.TextField(blank=True)
     # IR資料のURL（上部の「IR資料を開く」リンクに使う。入力欄は参照動画セクション内）
     ir_url = models.URLField(blank=True, max_length=500)
+    # 次回決算発表予定日（自動取得できないため手入力）
+    next_earnings_date = models.DateField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -69,7 +71,7 @@ class ReferenceVideo(models.Model):
     """
     karte = models.ForeignKey(StockKarte, on_delete=models.CASCADE, related_name='videos')
     url = models.URLField(max_length=500)
-    title = models.CharField(max_length=100, blank=True)   # 任意のラベル
+    title = models.TextField(blank=True)                    # 動画の要約（自由記述）
     note = models.TextField(blank=True)                    # 動画の要約・感想
     order = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

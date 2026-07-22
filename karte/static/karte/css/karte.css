@@ -134,6 +134,14 @@
   background:#0f172a; color:#e5e7eb; border:1px solid #334155;
   border-radius:8px; padding:8px 10px; font-size:13px; flex:1 1 200px; min-width:0;
 }
+/* 説明・要約は一言のラベルではなく自由記述のため、他の入力欄より大きく全幅で確保する */
+.kt-add-form textarea, .kt-exec-form textarea{
+  width:100%; flex:1 1 100%; box-sizing:border-box;
+  background:#0f172a; color:#e5e7eb; border:1px solid #334155;
+  border-radius:8px; padding:10px 12px; font-size:14px; line-height:1.7;
+  outline:none; resize:none; overflow-y:hidden; min-height:5.5em;
+}
+.kt-add-form textarea:focus, .kt-exec-form textarea:focus{ border-color:#3b82f6; }
 .kt-exec-form button{
   background:rgba(59,130,246,.25); color:#fff; border:1px solid #3b82f6;
   border-radius:8px; padding:8px 18px; cursor:pointer; font-weight:700;
@@ -155,7 +163,7 @@
   padding:12px 14px; margin-bottom:14px;
 }
 .kt-video-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-.kt-video-title{ font-size:13px; font-weight:700; color:#e5e7eb; }
+.kt-video-title{ margin:0 0 10px; font-size:13px; color:#e5e7eb; line-height:1.7; }
 .kt-video-link{ color:#93c5fd; text-decoration:none; font-size:12px; }
 .kt-video-link:hover{ text-decoration:underline; }
 .kt-video-head .kt-del-form{ margin-left:auto; }
