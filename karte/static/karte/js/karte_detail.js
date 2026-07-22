@@ -49,6 +49,62 @@
   });
 })();
 
+// カルテ詳細: 3年の株価推移（終値ベース）。1年高値/安値を補助線で重ねる
+(() => {
+  const el = document.getElementById('price-data');
+  const box = document.getElementById('kt-price-chart');
+  if (!el || !box) return;
+  const d = JSON.parse(el.textContent);
+  if (!d || !d.values || !d.values.length) return;
+
+  // 1年レンジの上下を水平線で示す（今どのあたりを買おうとしているかの目安）
+  const marks = [];
+  if (d.high_1y != null) marks.push({ yAxis: d.high_1y, name: '1年高値' });
+  if (d.low_1y != null) marks.push({ yAxis: d.low_1y, name: '1年安値' });
+
+  const chart = echarts.init(box, null, { renderer: 'canvas' });
+  chart.setOption({
+    backgroundColor: 'transparent',
+    animationDuration: 500,
+    grid: { left: 10, right: 16, top: 16, bottom: 20, containLabel: true },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(11,18,32,0.95)',
+      borderColor: '#3b82f6',
+      textStyle: { color: '#e5e7eb', fontSize: 12 },
+    },
+    xAxis: {
+      type: 'category',
+      data: d.dates,
+      axisLabel: { color: '#87cefa', fontSize: 10 },
+      axisLine: { lineStyle: { color: 'rgba(59,130,246,0.3)' } },
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,           // 株価は0から描くと動きが潰れるため0起点にしない
+      axisLabel: { color: '#87cefa', fontSize: 10 },
+      splitLine: { lineStyle: { color: 'rgba(59,130,246,0.12)' } },
+    },
+    series: [{
+      type: 'line',
+      data: d.values,
+      showSymbol: false,
+      smooth: false,
+      lineStyle: { width: 1.5, color: '#3b82f6' },
+      areaStyle: { color: 'rgba(59,130,246,0.12)' },
+      markLine: marks.length ? {
+        silent: true,
+        symbol: 'none',
+        lineStyle: { color: '#fcd34d', type: 'dashed', width: 1 },
+        label: { color: '#fcd34d', fontSize: 10, formatter: '{b}' },
+        data: marks,
+      } : undefined,
+    }],
+  });
+
+  window.addEventListener('resize', () => chart.resize());
+})();
+
 // カルテ詳細: 手入力KPIの時系列グラフ（Apache ECharts）
 // KPI名ごとに1系列。期のラベルは各KPIの入力順（文字列ソート）に従う。
 (() => {

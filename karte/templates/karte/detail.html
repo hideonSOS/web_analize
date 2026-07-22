@@ -163,6 +163,70 @@
           <button type="submit">追加</button>
         </form>
 
+        {% elif key == 'price' %}
+        <h2 class="kt-h2">株価レンジ（買い場の目安）</h2>
+        {% if price %}
+        <div class="kt-price">
+          <p class="kt-price-now">
+            現在 <strong>{{ price.current|floatformat:2 }}</strong>
+            <span class="kt-price-asof">{{ price.as_of }}時点</span>
+          </p>
+
+          <!-- 外枠=3年レンジ / 濃い帯=1年レンジ / マーカー=現在値 -->
+          {% if price.bar %}
+          <div class="kt-range">
+            {% if price.bar.inner_width %}
+            <div class="kt-range-inner"
+                 style="left: {{ price.bar.inner_left|floatformat:1 }}%; width: {{ price.bar.inner_width|floatformat:1 }}%"></div>
+            {% endif %}
+            <div class="kt-range-marker" style="left: {{ price.bar.marker|floatformat:1 }}%"></div>
+          </div>
+          <div class="kt-range-ends">
+            <span>{{ price.3y.low|floatformat:2 }}</span>
+            <span class="kt-range-cap">3年レンジ</span>
+            <span>{{ price.3y.high|floatformat:2 }}</span>
+          </div>
+          {% endif %}
+
+          <table class="kt-price-tbl">
+            <tr><th></th><th>1年</th><th>3年</th></tr>
+            <tr>
+              <th>高値からの下落率</th>
+              <td class="kt-dd">{% if price.1y %}{{ price.1y.drawdown|floatformat:1 }}%{% else %}—{% endif %}</td>
+              <td class="kt-dd">{% if price.3y %}{{ price.3y.drawdown|floatformat:1 }}%{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+              <th>高値</th>
+              <td>{% if price.1y %}{{ price.1y.high|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td>{% if price.3y %}{{ price.3y.high|floatformat:2 }}{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+              <th>安値</th>
+              <td>{% if price.1y %}{{ price.1y.low|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td>{% if price.3y %}{{ price.3y.low|floatformat:2 }}{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+              <th>レンジ内位置</th>
+              <td>{% if price.1y %}{{ price.1y.position|floatformat:0 }}%{% else %}—{% endif %}</td>
+              <td>{% if price.3y %}{{ price.3y.position|floatformat:0 }}%{% else %}—{% endif %}</td>
+            </tr>
+          </table>
+
+          {% if price_chart %}
+          <div class="kt-price-chart-wrap"><div id="kt-price-chart" class="ec-canvas"></div></div>
+          {% endif %}
+
+          <p class="kt-note kt-price-caveat">
+            終値ベース。ここでの安値は期間中の最安値であり、何度も反発した価格帯（サポート）ではない。
+            レンジ内位置は期間を延ばすほど鈍化するため、判断は下落率を主に見る。
+          </p>
+        </div>
+        {% else %}
+        <p class="kt-note">
+          株価データが未取得です。<code>python manage.py update_daily_prices</code> を実行してください。
+        </p>
+        {% endif %}
+
         {% elif key == 'invest' %}
         <h2 class="kt-h2">投資判断</h2>
         <div class="kt-field {% if not karte.invest_note %}kt-empty-field{% endif %}">
@@ -257,6 +321,7 @@
 </main>
 
 {{ kpi_chart|json_script:"kpi-data" }}
+{{ price_chart|json_script:"price-data" }}
 {% endblock %}
 
 {% block extra_js %}

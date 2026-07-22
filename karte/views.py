@@ -5,7 +5,9 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from japan_kabu.models import Stock
+from diary.models import DiaryEntry
+from japan_kabu.models import DailyPrice, Stock
+from japan_kabu.prices import bulk_price_stats, price_stats
 
 from .models import (Executive, KpiEntry, MidTermTarget, ReferenceVideo,
                      Screenshot, StockKarte)
@@ -25,7 +27,7 @@ FIELDS = [f for _, items in SECTIONS for f, _ in items]
 # ここに無いキーは無視、欠けているキーは既定順で末尾に補う（セクション追加に強くする）。
 DEFAULT_SECTION_ORDER = [
     'mgmt', 'business', 'videos', 'screenshots',
-    'invest', 'competitive', 'kpi', 'targets',
+    'price', 'invest', 'competitive', 'kpi', 'targets',
 ]
 
 
@@ -38,8 +40,18 @@ def resolve_section_order(saved):
 
 
 def index(request):
-    """カルテ一覧 + 新規作成"""
-    kartes = StockKarte.objects.select_related('stock').all()
+    """カルテ一覧 + 新規作成 + 押し目一覧（高値からの下落率）"""
+    kartes = list(StockKarte.objects.select_related('stock').all())
+
+    # 押し目一覧の母集団は「カルテ + 売買日記」。カルテ未作成でも保有中なら
+    # リバランス対象になるため（株価取得バッチの対象範囲と揃えてある）
+    karte_codes = {k.stock_id for k in kartes}
+    diary_stocks = list(Stock.objects.filter(
+        code__in=DiaryEntry.objects.values_list('stock_id', flat=True)
+    ).exclude(code__in=karte_codes))
+    target_stocks = [k.stock for k in kartes] + diary_stocks
+
+    stats = bulk_price_stats(target_stocks)
     rows = []
     for k in kartes:
         filled = sum(1 for f in FIELDS if getattr(k, f).strip())
@@ -48,9 +60,31 @@ def index(request):
             'filled': filled,
             'total': len(FIELDS),
             'pct': round(filled / len(FIELDS) * 100),
+            'price': stats.get(k.stock_id),
         })
+
+    # 押し目が深い順（＝高値から最も下落している銘柄が先頭）。
+    # 主役はドローダウンでレンジ内位置ではない（位置は期間を延ばすほど鈍化するため）。
+    dips = []
+    for s in target_stocks:
+        p = stats.get(s.code)
+        if not p or not p.get('1y'):
+            continue
+        dd = p['1y']['drawdown']
+        dips.append({
+            'stock': s,
+            'dd': dd,
+            # バー幅は下落率の絶対値（テンプレートでabsが使えないためここで出す）
+            'width': min(100.0, abs(dd)),
+            'dd_3y': p['3y']['drawdown'] if p.get('3y') else None,
+            # カルテ未作成の銘柄は詳細ページが無い（開くと404になる）ためリンクしない
+            'has_karte': s.code in karte_codes,
+        })
+    dips.sort(key=lambda d: d['dd'])
+
     context = {
         'rows': rows,
+        'dips': dips,
         'total_fields': len(FIELDS),
     }
     return render(request, 'karte/index.html', context)
@@ -105,6 +139,18 @@ def detail(request, code):
     # 銘柄ごとに保存された表示順（無ければ既定順）
     section_keys = resolve_section_order(karte.section_order)
 
+    # 買い場判断用のレンジ統計（高値からの下落率とレンジ内位置）
+    price_rows = list(DailyPrice.objects.filter(stock=stock)
+                      .order_by('date').values_list('date', 'close'))
+    price = price_stats(stock, rows=price_rows) if price_rows else None
+    # 3年チャート用（日付は軸ラベルにするので文字列に変換しておく）
+    price_chart = {
+        'dates': [d.isoformat() for d, _ in price_rows],
+        'values': [c for _, c in price_rows],
+        'high_1y': price['1y']['high'] if price and price.get('1y') else None,
+        'low_1y': price['1y']['low'] if price and price.get('1y') else None,
+    } if price_rows else None
+
     context = {
         'stock': stock,
         'karte': karte,
@@ -112,6 +158,8 @@ def detail(request, code):
         'videos': karte.videos.all(),
         'screenshots': karte.screenshots.all(),
         'section_keys': section_keys,
+        'price': price,
+        'price_chart': price_chart,
         'filled': filled,
         'total_fields': len(FIELDS),
         'targets': karte.targets.all(),

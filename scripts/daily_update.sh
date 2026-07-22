@@ -47,6 +47,7 @@ run update_marketcap     || status=1   # 銘柄マスタ・株価・決算・時
 run update_volume        || status=1   # 日次出来高と出来高異常度(z-score)
 run update_us_prices     || status=1   # 登録した米国株の株価（yfinance）
 run update_us_financials || status=1   # 登録した米国株の決算（yfinance）
+run update_daily_prices  || status=1   # 登録銘柄の日次終値（ドローダウン算出用・差分のみ）
 
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'update_*.log' -mtime +30 -delete 2>/dev/null

@@ -23,6 +23,33 @@
     </div>
   </div>
 
+  {% if dips %}
+  <section class="kt-section kt-dips">
+    <h2 class="kt-h2">押し目一覧（1年高値からの下落率）</h2>
+    {% for d in dips %}
+    {% if d.has_karte %}
+    <a class="kt-dip-row" href="{% url 'karte:detail' d.stock.display_code %}">
+      <span class="kt-dip-code">{{ d.stock.display_code }}</span>
+      <span class="kt-dip-name">{{ d.stock.name }}</span>
+      <span class="kt-dip-bar"><span class="kt-dip-fill" style="width: {{ d.width|floatformat:1 }}%"></span></span>
+      <span class="kt-dip-val">{{ d.dd|floatformat:1 }}%</span>
+    </a>
+    {% else %}
+    <div class="kt-dip-row kt-dip-nokarte">
+      <span class="kt-dip-code">{{ d.stock.display_code }}</span>
+      <span class="kt-dip-name">{{ d.stock.name }}<span class="kt-dip-tag">日記のみ</span></span>
+      <span class="kt-dip-bar"><span class="kt-dip-fill" style="width: {{ d.width|floatformat:1 }}%"></span></span>
+      <span class="kt-dip-val">{{ d.dd|floatformat:1 }}%</span>
+    </div>
+    {% endif %}
+    {% endfor %}
+    <p class="kt-note">
+      下落が深い順。カルテ銘柄に加え、売買日記に登場した銘柄も含む。
+      1年と3年で下落率が大きく違う銘柄は、数年前の高値から未回復であることを示す。
+    </p>
+  </section>
+  {% endif %}
+
   {% if rows %}
   <div class="kt-grid">
     {% for r in rows %}

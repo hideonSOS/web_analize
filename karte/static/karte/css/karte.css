@@ -119,6 +119,71 @@
   border-radius:999px; padding:2px 10px;
 }
 
+/* 株価レンジ（買い場の目安） */
+.kt-price-now{ margin:0 0 12px; font-size:14px; color:#e5e7eb; }
+.kt-price-now strong{ font-size:20px; color:#fff; }
+.kt-price-asof{ color:#6b7280; font-size:11px; margin-left:8px; }
+
+/* 外枠=3年レンジ、内側の帯=1年レンジ、縦線=現在値 */
+.kt-range{
+  position:relative; height:14px; margin:4px 0 4px;
+  background:#0f172a; border:1px solid #1e3a5f; border-radius:999px; overflow:hidden;
+}
+.kt-range-inner{
+  position:absolute; top:0; bottom:0;
+  background:linear-gradient(90deg, rgba(59,130,246,.35), rgba(59,130,246,.55));
+}
+.kt-range-marker{
+  position:absolute; top:-3px; bottom:-3px; width:3px; margin-left:-1.5px;
+  background:#fcd34d; box-shadow:0 0 8px rgba(252,211,77,.9); border-radius:2px;
+}
+.kt-range-ends{
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:11px; color:#6b7280; margin-bottom:14px;
+}
+.kt-range-cap{ color:#4b5563; }
+
+.kt-price-tbl{ width:100%; border-collapse:collapse; font-size:13px; }
+.kt-price-tbl th, .kt-price-tbl td{
+  padding:6px 8px; border-bottom:1px solid #1f2937; text-align:right;
+}
+.kt-price-tbl tr th:first-child{ text-align:left; color:#93c5fd; font-weight:normal; }
+.kt-price-tbl tr:first-child th{ color:#6b7280; font-size:11px; border-bottom:1px solid #1e3a5f; }
+.kt-price-tbl td{ color:#e5e7eb; font-variant-numeric:tabular-nums; }
+.kt-price-tbl .kt-dd{ color:#f87171; font-weight:700; }
+
+.kt-price-chart-wrap{
+  border:1px solid #1f2937; background:#0b1220; border-radius:10px;
+  padding:10px 6px; height:220px; box-sizing:border-box; margin-top:14px;
+}
+.kt-price-caveat{ font-size:11px; }
+
+/* 一覧: 押し目ランキング */
+.kt-dips{ margin-bottom:24px; }
+.kt-dip-row{
+  display:flex; align-items:center; gap:10px;
+  padding:7px 10px; border-bottom:1px solid #111827;
+  text-decoration:none; color:inherit;
+}
+.kt-dip-row:hover{ background:rgba(59,130,246,.08); }
+.kt-dip-name{ flex:1 1 auto; min-width:0; font-size:13px; color:#e5e7eb;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kt-dip-code{ color:#93c5fd; font-size:11px; flex:0 0 auto; }
+.kt-dip-bar{
+  flex:0 0 120px; height:6px; background:#0f172a;
+  border:1px solid #1e3a5f; border-radius:999px; overflow:hidden;
+}
+.kt-dip-fill{ height:100%; background:linear-gradient(90deg,#7f1d1d,#f87171); }
+.kt-dip-val{ flex:0 0 62px; text-align:right; font-size:13px; font-weight:700;
+  color:#f87171; font-variant-numeric:tabular-nums; }
+/* カルテ未作成（日記のみ）の行はリンクしないので、ホバー反応も出さない */
+.kt-dip-nokarte{ cursor:default; }
+.kt-dip-nokarte:hover{ background:none; }
+.kt-dip-tag{
+  font-size:10px; color:#9ca3af; border:1px solid #374151;
+  border-radius:999px; padding:1px 7px; margin-left:6px;
+}
+
 /* 経営陣の顔写真カード（写真は枠いっぱいの正方形） */
 .kt-execs{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
 .kt-exec{

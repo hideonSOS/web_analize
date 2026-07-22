@@ -77,6 +77,33 @@ class FinancialReport(models.Model):
         return f"{self.stock_id} {self.per_type} {self.per_end}"
 
 
+class DailyPrice(models.Model):
+    """日次終値の履歴（カルテ/売買日記に登録した銘柄のみ・約3年分）
+
+    高値からの下落率（ドローダウン）とレンジ内位置の算出に使う。
+
+    設計上の決めごと:
+    - **終値ベースで保持する**。日中の高値/安値（ヒゲ）を使うと、たった1日の
+      瞬間的な値で高安が決まり数字が不安定になるため採用しない。
+    - **必ず調整後終値を入れる**（JP:AdjC / US:auto_adjust）。未調整のまま
+      1年をまたぐと、株式分割時に株価が数分の1に飛び、高値が実態の数倍という
+      壊れた数字になる（例: NVDAの10:1分割）。
+    - 全銘柄ではなく登録銘柄のみ。12銘柄×3年でも約9,000行にしかならない。
+    """
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name='daily_prices')
+    date = models.DateField(db_index=True)
+    close = models.FloatField()                                   # 調整後終値
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['stock', 'date'], name='uniq_dailyprice_stock_date'),
+        ]
+        ordering = ['date']
+
+    def __str__(self):
+        return f"{self.stock_id} {self.date} {self.close}"
+
+
 class DailyVolume(models.Model):
     """日次出来高の履歴（出来高異常度の計算用に直近分だけローリング保持する）"""
     stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name='daily_volumes')
