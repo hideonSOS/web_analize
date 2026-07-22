@@ -37,7 +37,13 @@
   transition:border-color .15s, box-shadow .15s;
 }
 .kt-card:hover{ border-color:#3b82f6; box-shadow:0 0 14px rgba(59,130,246,.25); }
-.kt-card-name{ margin:0; font-weight:700; color:#e5e7eb; font-size:15px; }
+/* 削除ボタンを重ねるためのラッパー。カードはグリッドの高さいっぱいに伸ばす */
+.kt-card-wrap{ position:relative; }
+.kt-card-wrap .kt-card{ height:100%; box-sizing:border-box; }
+.kt-card-del{ position:absolute; top:6px; right:6px; z-index:2; }
+.kt-card-del .kt-del{ background:rgba(0,0,0,.55); }
+/* 🗑ボタンの下に銘柄名が潜り込まないよう右側を空ける */
+.kt-card-name{ margin:0; font-weight:700; color:#e5e7eb; font-size:15px; padding-right:26px; }
 .kt-card-code{ margin:2px 0 10px; color:#93c5fd; font-size:12px; }
 .kt-card-meta{ margin:8px 0 0; color:#9ca3af; font-size:11px; }
 .kt-us{

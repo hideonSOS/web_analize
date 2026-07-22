@@ -53,17 +53,26 @@
   {% if rows %}
   <div class="kt-grid">
     {% for r in rows %}
-    <a class="kt-card" href="{% url 'karte:detail' r.k.stock.display_code %}">
-      <p class="kt-card-name">{{ r.k.stock.name }}</p>
-      <p class="kt-card-code">
-        {{ r.k.stock.display_code }}
-        {% if r.k.stock.country == 'US' %}<span class="kt-us">US</span>{% endif %}
-      </p>
-      <div class="kt-progress">
-        <div class="kt-progress-bar" style="width: {{ r.pct }}%"></div>
-      </div>
-      <p class="kt-card-meta">記入 {{ r.filled }}/{{ r.total }}項目　更新 {{ r.k.updated_at|date:"Y/m/d" }}</p>
-    </a>
+    <!-- カード全体が<a>のため、削除フォームは入れ子にできない（HTML的に不正）。
+         ラッパーで包み、フォームはカードの外に重ねて配置する -->
+    <div class="kt-card-wrap">
+      <a class="kt-card" href="{% url 'karte:detail' r.k.stock.display_code %}">
+        <p class="kt-card-name">{{ r.k.stock.name }}</p>
+        <p class="kt-card-code">
+          {{ r.k.stock.display_code }}
+          {% if r.k.stock.country == 'US' %}<span class="kt-us">US</span>{% endif %}
+        </p>
+        <div class="kt-progress">
+          <div class="kt-progress-bar" style="width: {{ r.pct }}%"></div>
+        </div>
+        <p class="kt-card-meta">記入 {{ r.filled }}/{{ r.total }}項目　更新 {{ r.k.updated_at|date:"Y/m/d" }}</p>
+      </a>
+      <form method="post" action="{% url 'karte:delete' r.k.stock.display_code %}"
+            class="kt-del-form kt-card-del"
+            onsubmit="return confirm('「{{ r.k.stock.name|escapejs }}」のカルテを削除します。\n手入力した内容は元に戻せません。よろしいですか？');">
+        {% csrf_token %}<button type="submit" class="kt-del" title="このカルテを削除">🗑</button>
+      </form>
+    </div>
     {% endfor %}
   </div>
   {% else %}
