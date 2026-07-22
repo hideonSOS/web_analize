@@ -213,7 +213,7 @@
         </form>
         {% if sc.image %}
         <a href="{{ sc.image.url }}" target="_blank" rel="noopener noreferrer">
-          <img src="{{ sc.image.url }}" alt="" class="kt-shot-img" loading="lazy" />
+          <img src="{{ sc.image.url }}" alt="" class="kt-shot-img" />
         </a>
         {% endif %}
         {% if sc.note %}<p class="kt-shot-note">{{ sc.note|linebreaksbr }}</p>{% endif %}
