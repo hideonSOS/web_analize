@@ -64,7 +64,7 @@ CREATE DATABASE web_kabuanalize ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C
 ### ⚠️ migrations/ を .gitignore に入れないこと
 migrations を除外すると、サーバーで `migrate` してもテーブルが作られず
 「テーブル/カラムが無い」という DB不整合エラーになる。`.gitignore` にも警告を明記済み。
-現在のマイグレーションは全13ファイル（japan_kabu 6・diary 3・karte 4）。
+現在のマイグレーションは全23ファイル（japan_kabu 7・diary 3・karte 13）。
 デプロイ後は `python manage.py migrate` を必ず実行する。
 
 ### 開発環境のデータ規模（2026-07-21 時点・移行量の目安）
@@ -254,8 +254,28 @@ TTMの計算は `japan_kabu/views.py` の `_ttm_np`（日本株）と `_ttm_np_u
   ティッカーだけ」なので数十コールで済む。**yfinance と外部HTTP接続が必要**（requirements.txt に含む）。
 - 米国株は `japan_kabu.Stock` に `country='US'` / `code="US-<ティッカー>"` で保存。JP専用の
   ランキング・指標ページは `market_cap` 等の isnull フィルタで US を自然に除外している。
-- 銘柄マスタ（JP+US 約2MB）は売買日記の `/diary/stock-options.json` で配信し、ブラウザに
-  1時間キャッシュさせている（ページ埋め込みだと毎回2MBになるため分離した）。本番では gzip 必須。
+- 銘柄マスタ（JP+US 約1.7MB / 16,199件）は `/karte/stock-options.json` と
+  `/diary/stock-options.json` で配信する（ページ埋め込みだと毎回1.7MBになるため分離した）。
+  本番では gzip 必須。
+
+### ⚠️ 銘柄マスタ配信のキャッシュ（事故が起きた箇所）
+当初は `Cache-Control: public, max-age=3600` にしていたが、**サーバーで
+`import_us_master` を後から実行した際、ブラウザに古いJSON（日本株のみ3,715件）が
+1時間貼り付き、NVDA等を検索してもヒットしない**事故が発生した。
+
+`/karte/stock-options.json` は **ETag + 条件付きGET** に変更済み（`karte/views.py`）:
+- ETag は「銘柄件数 + `updated_at` の最大値」から生成する
+- `Cache-Control: no-cache` で毎回サーバに再確認させる。
+  **`no-cache` は「キャッシュ禁止」ではなく「毎回再検証」の意味**
+- マスタが変わらなければ **304 / 0バイト** を返し、1.7MBの本文は転送しない
+
+**⚠️ `/diary/stock-options.json` は未対応で、同じバグが残っている**
+（`diary/views.py` に `max-age=3600` のまま）。売買日記の銘柄選択で
+同じ事故が起きうるので、対応する場合は karte 側と同じ実装にすること。
+
+補足: バッチの `bulk_update` は更新対象フィールドを明示指定しているため
+`updated_at` は動かない。ただし銘柄の増減は件数に出るため、上記の事故ケースは
+ETagで確実に検知できる。
 
 ## J-Quants API の知見（重要）
 
@@ -274,6 +294,18 @@ TTMの計算は `japan_kabu/views.py` の `_ttm_np`（日本株）と `_ttm_np_u
 | `website` | 共通レイアウト（base.html）・トップページ。ナビの機能割当は `website/views.py` の FEATURES |
 | `japan_kabu` | 時価総額ランキング(`/japan_kabu/`)・出来高急増(`/japan_kabu/volume/`)・銘柄別指標(`/japan_kabu/stock/<code>/`) |
 | `diary` | 売買日記(`/diary/`)。判断記録は編集不可・振り返りのみ追記の設計 |
+| `karte` | 銘柄カルテ(`/karte/`)。IR資料を読みながら手入力する定性分析＋株価レンジ |
+
+### karte（銘柄カルテ）の構成
+- 自由記述4項目（経営陣の考課／事業理解／投資判断／競争環境）。
+  **項目は細分化せず1項目=1テキストエリア**（過去に細分化して書く気が失せた経緯あり。戻さないこと）
+- 付随データ: 経営陣の顔写真・参照動画(YouTube)・スクリーンショット・中期経営計画・独自KPI
+- **セクションの表示順は銘柄ごとに保存**（`StockKarte.section_order`）。
+  ドラッグハンドル(⠿)で並び替え、ドロップ時に `karte:reorder` へ自動保存する。
+  順序の解決は `resolve_section_order()` が行い、**未知キーは除去・欠落キーは既定順で補完**する。
+  そのためセクションを追加しても既存カルテを手直しする必要はない
+- 一覧(`/karte/`)には**押し目一覧**（1年高値からの下落率順）を表示。
+  母集団は**カルテ＋売買日記**の銘柄。カルテ未作成の銘柄は詳細ページが無いためリンクしない
 
 - 銘柄別指標ページは**全銘柄データ（約5MB）をページに一括埋め込み**、銘柄切替はフロント完結。
   これはユーザーの明示要件（切替時にバックエンド通信ゼロ）。**API化・都度取得に変えないこと**。
@@ -323,7 +355,7 @@ SECRET_KEY の生成:
 
 ### 5. マイグレーションと静的ファイル
 ```bash
-./venv/bin/python manage.py migrate          # 全13マイグレーションが適用される
+./venv/bin/python manage.py migrate          # 全23マイグレーションが適用される
 ./venv/bin/python manage.py collectstatic    # STATIC_ROOT 設定後に実行
 mkdir -p media && chmod 775 media            # 顔写真アップロード用。書き込み権限が必要
 ```
@@ -355,6 +387,35 @@ python manage.py dumpdata karte diary -o handdata.json
 ### 補足: HTTPS化する場合のみ必要な設定
 `check --deploy` で出る HSTS・SECURE_SSL_REDIRECT・SESSION_COOKIE_SECURE・
 CSRF_COOKIE_SECURE の4警告は、SSL導入時に対応すればよい。
+
+## テキストエリアの自動拡張（触る前に読むこと）
+
+カルテ・売買日記の入力欄は **スクロールバーを出さず、入力量に応じて高さを伸ばす**方針。
+実装は `website/static/website/js/base.js` の1箇所に集約され、全ページの
+`<textarea>` に適用される（`window.autoGrowTextareas` で再初期化も可能）。
+
+### ⚠️ height = scrollHeight は間違い（実際に文字が消えた）
+```js
+ta.style.height = ta.scrollHeight + 'px';   // ← これはバグ
+```
+CSSが `box-sizing: border-box` + `border:1px` のため、**`height` には border が
+含まれるが `scrollHeight` には含まれない**。そのまま代入すると border分だけ高さが
+不足し、最終行がはみ出す。`overflow-y:hidden` なのでスクロールバーも出ず、
+**文字が黙って消える**（気付けない）。必ず border を足し戻すこと。
+
+### ⚠️ 横スクロールバーも高さを削る
+長いURL等で横方向にあふれると横スクロールバーが出て、その高さ分だけ表示領域が
+削られ、再び最終行が隠れる。`overflow-x:hidden; overflow-wrap:anywhere;` で
+折り返して防いでいる。**この2つを外すと再発する。**
+
+### 手動リサイズとの共存
+`resize:vertical` でハンドルを出している。手動で高さを変えた欄は
+`data-manual-resize="1"` を付けて**以後の自動調整を止める**。止めないと
+次の入力で高さが戻り、手動調整が無駄になる。
+
+### base.js 冒頭の存在確認は外さないこと
+ファイル先頭のナビ開閉処理で例外が出ると、**同じファイル内の自動拡張処理まで
+丸ごと停止する**（＝全ページで文字が隠れる）。要素の存在確認は必須。
 
 ## 既知のハマりどころ
 
