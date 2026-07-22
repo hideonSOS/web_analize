@@ -90,8 +90,15 @@
   border-radius:8px; padding:10px 12px; font-size:14px; line-height:1.7;
   outline:none;
 }
-/* 入力量に応じてJSが高さを伸ばすため、手動リサイズとスクロールは無効にする */
-.kt-field textarea{ resize:none; overflow-y:hidden; min-height:5.5em; }
+/* 入力量に応じてJSが高さを伸ばす（スクロールバーは出さない方針）。
+   それでも自分で広げたい場合に備え、右下のハンドルで縦方向だけ手動リサイズできる。
+   手動で動かした欄は base.js が以後の自動調整を止める */
+.kt-field textarea{
+  resize:vertical; overflow-y:hidden; min-height:5.5em;
+  /* 長いURL等で横スクロールバーが出ると、その分だけ表示高さが削られて
+     最終行が隠れる。強制的に折り返して横方向のあふれ自体を防ぐ */
+  overflow-x:hidden; overflow-wrap:anywhere;
+}
 .kt-field textarea:focus, .kt-field input:focus{ border-color:#3b82f6; }
 /* 未記入の項目は枠を控えめな点線にして「まだ調べていない箇所」を可視化 */
 .kt-empty-field textarea{ border-style:dashed; border-color:#334155; }
@@ -224,7 +231,8 @@
   width:100%; flex:1 1 100%; box-sizing:border-box;
   background:#0f172a; color:#e5e7eb; border:1px solid #334155;
   border-radius:8px; padding:10px 12px; font-size:14px; line-height:1.7;
-  outline:none; resize:none; overflow-y:hidden; min-height:5.5em;
+  outline:none; resize:vertical; overflow-y:hidden; min-height:5.5em;
+  overflow-x:hidden; overflow-wrap:anywhere;
 }
 .kt-add-form textarea:focus, .kt-exec-form textarea:focus{ border-color:#3b82f6; }
 .kt-exec-form button{
