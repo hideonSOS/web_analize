@@ -1,6 +1,7 @@
 import json
 from collections import OrderedDict
 
+from django.db.models import Count, Max
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -91,14 +92,29 @@ def index(request):
 
 
 def stock_options(request):
-    """新規カルテ作成用の銘柄検索リスト（JSON・1時間キャッシュ）"""
-    from django.http import JsonResponse
+    """新規カルテ作成用の銘柄検索リスト（JSON・ETagで条件付きGET）
+
+    銘柄マスタの件数や最終更新時刻を ETag にして、変わらなければ 304 で返す。
+    max-age を長く取ると US 銘柄の初回取り込み直後などに古いJSONが1時間貼り付き、
+    検索候補に反映されない事故が起きるため、Cache-Control は no-cache で
+    毎回サーバに再確認させる（1.7MBの本文は無変更なら 304 で転送されない）。
+    """
+    from django.http import HttpResponseNotModified, JsonResponse
+    agg = Stock.objects.aggregate(n=Count('code'), mx=Max('updated_at'))
+    mx = agg['mx'].strftime('%Y%m%d%H%M%S') if agg['mx'] else '0'
+    etag = f'W/"{agg["n"] or 0}-{mx}"'
+    if request.META.get('HTTP_IF_NONE_MATCH') == etag:
+        resp = HttpResponseNotModified()
+        resp['ETag'] = etag
+        resp['Cache-Control'] = 'no-cache'
+        return resp
     options = [
         {'code': s.code, 'ticker': s.display_code, 'name': s.name, 'country': s.country}
         for s in Stock.objects.all().order_by('country', 'code')
     ]
     resp = JsonResponse({'stocks': options})
-    resp['Cache-Control'] = 'public, max-age=3600'
+    resp['ETag'] = etag
+    resp['Cache-Control'] = 'no-cache'
     return resp
 
 
