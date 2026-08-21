@@ -134,19 +134,40 @@ japan_kabu_* はバッチで再生成できるが、**銘柄カルテ(karte_*)�
 実際にローカル開発機では登録を忘れており、5日間データが止まっていた。
 **サーバーでは必ず下記の cron を登録すること。**
 
-### cron 登録（これ1行でよい）
+### cron 登録
+
+> 📄 **サーバーでの cron セットアップ作業手順は `scripts/SETUP_CRON.md` に単体で
+> 完結する手順書としてまとめてある**（作業者/AI向け）。以下は要約。
 
 更新用スクリプト `scripts/daily_update.sh` をリポジトリに同梱済み。
-3コマンドを正しい順番で実行し、ログ出力と30日でのログ削除まで行う。
+複数コマンドを正しい順番で実行し、ログ出力と30日でのログ削除まで行う。
 
 ```bash
 chmod +x scripts/daily_update.sh
 crontab -e
 ```
 ```cron
-# 平日21:10に実行（サーバーのタイムゾーンがJSTの場合）
+# 日本株の夜バッチ: 平日21:10（サーバーのタイムゾーンがJSTの場合）
 10 21 * * 1-5 /path/to/web_analize/scripts/daily_update.sh
+# 米国株ランキング: 毎朝7:00（US 16:00 ET クローズ確定後。詳細は下記）
+0 7 * * * /path/to/web_analize/scripts/us_ranking_update.sh
 ```
+
+### ⚠️ 米国株ランキングは JST 朝に別建てで実行する（時間帯が重要）
+`update_us_ranking` は **`scripts/us_ranking_update.sh` で JST 朝7:00 に実行**する
+（日本株の夜バッチ `daily_update.sh` には**入れない**。現に外してある）。理由:
+- yfinanceは**場中に取ると当日の未確定バー（途中の株価・出来高）**を返す。
+  JST 0:00 = US 11:00 ET は**取引時間中**なので、回すと出来高z-scoreが過小になり
+  時価総額も日中値で上書きされる。**0時ちょうどでの実行は不可**。
+- US クローズは 16:00 ET = JST 翌朝6:00頃に確定。**JST 7:00 なら当日の確定
+  クローズ**を取得できる。
+- `us_ranking_update.sh` は**日曜だけ自動で `--refresh-shares`**（発行済株式数の
+  取り直し）を付ける。曜日判定を内蔵しているので cron は1行でよい。
+
+**⚠️ cron はOSのタイムゾーンで動く**（DjangoのTIME_ZONE=Asia/Tokyoとは別物）。
+`timedatectl`（または `date +%Z%z`）でサーバーTZを確認してから時刻を決める:
+- サーバーが **JST** → `0 7 * * *`（そのまま朝7時）
+- サーバーが **UTC** → `0 22 * * *`（JST7:00 = UTC22:00・前日）
 
 **⚠️ サーバーが UTC の場合は時刻を変換すること**（JST 21:10 = UTC 12:10）:
 ```cron
@@ -167,6 +188,8 @@ crontab -e
 python manage.py update_marketcap   # マスタ・株価・決算・時価総額・期末株価
 python manage.py update_volume      # 日次出来高と出来高異常度(z-score)
 python manage.py update_us_prices   # 売買日記で使われた米国株の株価（yfinance）
+python manage.py update_us_financials # 登録した米国株の決算（yfinance）
+python manage.py update_us_ranking  # 米国株ランキング（S&P500の時価総額・出来高／yfinance）
 python manage.py update_daily_prices # 登録銘柄の日次終値（ドローダウン算出用・差分のみ）
 ```
 1つが失敗しても後続は実行する設計（yfinance障害で日本株の更新まで止めないため）。
@@ -246,6 +269,53 @@ python manage.py update_us_financials --ticker MSTR   # 1銘柄だけ試す
 TTMの計算は `japan_kabu/views.py` の `_ttm_np`（日本株）と `_ttm_np_us`（米国株）で
 分岐している。**混同すると利益が4倍や1/4になるので注意。**
 
+## 米国株ランキング（時価総額・出来高）— 国別タブ
+
+時価総額ランキング(`/japan_kabu/`)と出来高急増ランキング(`/japan_kabu/volume/`)は
+**`?country=JP|US` の国別タブ**で日本株/米国株を切り替える（既定JP）。
+**ページは増やさず**、既存2ページにタブを足す方針（`日本株 | 米国株`）。
+
+### 対象は S&P500 構成銘柄のみ（約500件）
+全米国株12,484件は yfinance が1銘柄1コールのため日次取得が非現実的。そこで
+ランキング対象を **S&P500級の約500銘柄に限定**した（ユーザー合意済み）。
+
+```bash
+python manage.py update_us_ranking                # 日次（約2.5〜3分。daily_update.sh に同梱済み）
+python manage.py update_us_ranking --refresh-shares  # 週1想定。発行済株式数を取り直す
+python manage.py update_us_ranking --tickers AAPL,MSFT,NVDA   # 少数で動作確認
+python manage.py update_us_ranking --limit 20     # 先頭N銘柄だけ
+python manage.py update_us_ranking --no-marketcap # 出来高だけ更新
+python manage.py update_us_ranking --refresh-list # 構成銘柄CSVを再取得
+```
+
+### ⚠️ 実行コストの考え方（サーバーの日次cron向け・実測値）
+- **日次は約2.5〜3分**。律速は `yf.download`（約500銘柄・40日分）の一括取得で
+  **約150秒**。yfinance無料エンドポイントのスループット上限で、これ以上は縮まない
+  （チャンク分割しても時間は同じ。既存の update_marketcap 約10分より軽いので、
+  夜間バッチとして現実的）。
+- **時価総額は fast_info を毎日は叩かない**。発行済株式数(`Stock.shares`)を保存して
+  再利用し、時価総額 = 最新終値 × 保存株式数 を**ネット呼び出しゼロ**で計算する。
+  そのため日次のネット呼び出しは実質「一括ダウンロード1系統」だけ。
+- 発行済株式数は変動が遅いので **週1で `--refresh-shares`**（約500コールを並列
+  取得・数分）。初回や銘柄入れ替え直後は自動で未保存分だけ取りに行く。
+
+### 実装メモ（`japan_kabu/management/commands/update_us_ranking.py`）
+- 構成銘柄は DataHub の公開CSV（プレーンテキスト・**依存追加なし**）から取得し、
+  成功時に `japan_kabu/data/sp500.csv` へ保存する。次回ネット断でも同梱CSVで
+  フォールバックする（外部依存でバッチを止めない設計）。**このCSVはコミットする**。
+- 出来高異常度は `update_volume` と同じ対数z-score。米国株は `yf.download` の
+  一括取得で完結するため **DailyVolume には保存せず** in-memory で計算して Stock に
+  直接書く。薄商い除外の閾値だけドル建て（`MIN_TURNOVER_USD = 1e6`）。
+- **500銘柄を1回で download すると一部が "possibly delisted" で取りこぼれる**
+  （McDonald's 等の実在銘柄でも起きる一時的な癖）。`DOWNLOAD_CHUNK = 100` 件ずつに
+  分けて投げることで取得漏れを減らしている（所要時間は一括とほぼ同じ）。
+- **時価総額($)は `Stock.market_cap` にドルのまま格納**する（列コメントは「円」だが、
+  表示・集計は必ず `country` で絞るので混ざらない）。JS(`marketcap.js`)は
+  `chart_data.currency` を見て `$X.XXT`/`兆円` を切り替える。
+- S&P500銘柄は `update_us_ranking` 自身が `Stock` へ upsert する。`import_us_master`
+  が英数字のみで除外していた**ドット付きティッカー(BRK.B等)もここで追加**される
+  （yfinance呼び出し時のみ `.`→`-` に変換）。**マイグレーション不要**（既存列を使う）。
+
 ## 米国株マスタ（売買日記の銘柄選択用）
 
 - 売買日記は米国株も記録できる。銘柄マスタは `import_us_master` が NASDAQ Trader の
@@ -292,7 +362,7 @@ ETagで確実に検知できる。
 | アプリ | 内容 |
 |---|---|
 | `website` | 共通レイアウト（base.html）・トップページ。ナビの機能割当は `website/views.py` の FEATURES |
-| `japan_kabu` | 時価総額ランキング(`/japan_kabu/`)・出来高急増(`/japan_kabu/volume/`)・銘柄別指標(`/japan_kabu/stock/<code>/`) |
+| `japan_kabu` | 時価総額ランキング(`/japan_kabu/`)・出来高急増(`/japan_kabu/volume/`)・銘柄別指標(`/japan_kabu/stock/<code>/`)。ランキング2ページは`?country=JP/US`の国別タブで日米切替 |
 | `diary` | 売買日記(`/diary/`)。判断記録は編集不可・振り返りのみ追記の設計 |
 | `karte` | 銘柄カルテ(`/karte/`)。IR資料を読みながら手入力する定性分析＋株価レンジ |
 
@@ -366,6 +436,7 @@ mkdir -p media && chmod 775 media            # 顔写真アップロード用。
 ./venv/bin/python manage.py import_us_master                      # 数分（米国株12,484件）
 ./venv/bin/python manage.py update_volume                         # 約10分
 ./venv/bin/python manage.py update_us_prices                      # 数秒（日記に米国株がある場合のみ）
+./venv/bin/python manage.py update_us_ranking                     # 数分（S&P500の時価総額・出来高）
 ```
 
 ### 7. 手入力データの移行（自動再生成できないもの）

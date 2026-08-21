@@ -5,8 +5,14 @@
   const data = JSON.parse(el.textContent);
   if (!data.labels || !data.labels.length) return;
 
-  // 円 → 「X.XX兆円」「X,XXX億円」表記
+  const isUsd = data.currency === 'USD';
+
+  // 円 → 「X.XX兆円」「X,XXX億円」／ ドル → 「$X.XXT」「$X,XXXB」表記
   const fmtYen = (v) => {
+    if (isUsd) {
+      if (v >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+      return '$' + Math.round(v / 1e9).toLocaleString() + 'B';
+    }
     if (v >= 1e12) return (v / 1e12).toFixed(2) + '兆円';
     return Math.round(v / 1e8).toLocaleString() + '億円';
   };

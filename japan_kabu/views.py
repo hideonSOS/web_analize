@@ -8,6 +8,14 @@ from .models import FinancialReport, Stock
 RANKING_LIMIT_DEFAULT = 50
 RANKING_LIMIT_MAX = 200
 
+# 国別タブ（時価総額・出来高ランキング共通）。円と$を混ぜず国ごとに表示する
+COUNTRIES = [('JP', '日本株'), ('US', '米国株')]
+
+
+def _parse_country(request):
+    c = request.GET.get('country', 'JP')
+    return c if c in dict(COUNTRIES) else 'JP'
+
 # 指標ごとの表示レンジ（棒グラフのx軸min/max）。日本株の一般的な水準を目安に設定
 INDICATOR_DEFS = [
     # (キー, 表示名, 単位, min, max)
@@ -21,17 +29,19 @@ INDICATOR_DEFS = [
 
 
 def index(request):
-    """日本株 時価総額ランキング（横棒グラフ）"""
+    """時価総額ランキング（横棒グラフ）。国別タブで日本株/米国株を切替"""
     try:
         limit = int(request.GET.get('limit', RANKING_LIMIT_DEFAULT))
     except ValueError:
         limit = RANKING_LIMIT_DEFAULT
     limit = max(1, min(limit, RANKING_LIMIT_MAX))
 
-    # セクター（17業種）フィルタ
+    country = _parse_country(request)
+    base = Stock.objects.filter(country=country, market_cap__isnull=False)
+
+    # セクター（JP:17業種 / US:GICSセクター）フィルタ。選択中の国の値だけ出す
     sectors = list(
-        Stock.objects.filter(market_cap__isnull=False)
-        .exclude(sector17='')
+        base.exclude(sector17='')
         .values_list('sector17', flat=True)
         .distinct().order_by('sector17')
     )
@@ -39,7 +49,7 @@ def index(request):
     if sector not in sectors:
         sector = ''
 
-    qs = Stock.objects.filter(market_cap__isnull=False)
+    qs = base
     if sector:
         qs = qs.filter(sector17=sector)
 
@@ -49,6 +59,7 @@ def index(request):
         'values': [s.market_cap for s in stocks],
         'markets': [s.market for s in stocks],
         'sectors': [s.sector33 for s in stocks],
+        'currency': 'USD' if country == 'US' else 'JPY',
     }
     price_date = stocks[0].price_date if stocks else None
     context = {
@@ -59,6 +70,9 @@ def index(request):
         'total_count': qs.count(),
         'sectors': sectors,
         'sector': sector,
+        'country': country,
+        'countries': COUNTRIES,
+        'is_us': country == 'US',
     }
     return render(request, 'japan_kabu/index.html', context)
 
@@ -78,7 +92,8 @@ def volume_ranking(request):
     表示は倍率（過去20日平均比）と確率値 p = Φ(z) を併記する。
     """
     limit = _parse_limit(request)
-    qs = Stock.objects.filter(volume_z__isnull=False)
+    country = _parse_country(request)
+    qs = Stock.objects.filter(country=country, volume_z__isnull=False)
     stocks = list(qs.order_by('-volume_z')[:limit])
 
     rows = []
@@ -99,6 +114,9 @@ def volume_ranking(request):
         'limit': limit,
         'volume_date': stocks[0].volume_date if stocks else None,
         'total_count': qs.count(),
+        'country': country,
+        'countries': COUNTRIES,
+        'is_us': country == 'US',
     }
     return render(request, 'japan_kabu/volume.html', context)
 

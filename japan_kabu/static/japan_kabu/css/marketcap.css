@@ -9,6 +9,20 @@
 }
 .mc-meta{ text-align:center; color:#87cefa; font-size:13px; margin:0 0 12px; }
 
+/* 国別タブ（日本株/米国株）。ページを増やさず1画面で切替する */
+.mc-country{ display:flex; justify-content:center; gap:0; margin:4px 0 16px; }
+.mc-country a{
+  color:#93c5fd; text-decoration:none; font-size:15px; font-weight:700;
+  border:1px solid #1e3a5f; padding:8px 26px; letter-spacing:2px;
+}
+.mc-country a:first-child{ border-radius:10px 0 0 10px; }
+.mc-country a:last-child{ border-radius:0 10px 10px 0; border-left:none; }
+.mc-country a:hover{ background:rgba(59,130,246,.12); }
+.mc-country a.active{
+  color:#fff; border-color:#3b82f6; background:rgba(59,130,246,.3);
+  box-shadow:0 0 10px rgba(59,130,246,.4);
+}
+
 .mc-limit{ display:flex; justify-content:center; gap:10px; margin-bottom:16px; }
 .mc-limit a{
   color:#93c5fd; text-decoration:none; font-size:13px; font-weight:700;

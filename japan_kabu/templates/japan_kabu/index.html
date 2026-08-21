@@ -11,20 +11,27 @@
 <main class="mc">
   <h1 class="mc-title">時価総額ランキング</h1>
 
+  <div class="mc-country">
+    {% for code, label in countries %}
+    <a href="?country={{ code }}&limit={{ limit }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+
   {% if stocks %}
   <p class="mc-meta">
     株価基準日: {{ price_date|date:"Y/m/d" }} ／
     {% if sector %}{{ sector }}{% else %}全業種{% endif %} {{ total_count }}銘柄中 TOP{{ limit }}
+    {% if is_us %}<br><span style="color:#9ca3af">米国株はS&P500構成銘柄が対象・金額はドル建て</span>{% endif %}
   </p>
   <div class="mc-limit">
-    <a href="?limit=20&sector={{ sector|urlencode }}" {% if limit == 20 %}class="active"{% endif %}>TOP20</a>
-    <a href="?limit=50&sector={{ sector|urlencode }}" {% if limit == 50 %}class="active"{% endif %}>TOP50</a>
-    <a href="?limit=100&sector={{ sector|urlencode }}" {% if limit == 100 %}class="active"{% endif %}>TOP100</a>
+    <a href="?country={{ country }}&limit=20&sector={{ sector|urlencode }}" {% if limit == 20 %}class="active"{% endif %}>TOP20</a>
+    <a href="?country={{ country }}&limit=50&sector={{ sector|urlencode }}" {% if limit == 50 %}class="active"{% endif %}>TOP50</a>
+    <a href="?country={{ country }}&limit=100&sector={{ sector|urlencode }}" {% if limit == 100 %}class="active"{% endif %}>TOP100</a>
   </div>
   <div class="mc-sector">
-    <a href="?limit={{ limit }}" {% if not sector %}class="active"{% endif %}>全て</a>
+    <a href="?country={{ country }}&limit={{ limit }}" {% if not sector %}class="active"{% endif %}>全て</a>
     {% for s in sectors %}
-    <a href="?limit={{ limit }}&sector={{ s|urlencode }}" {% if s == sector %}class="active"{% endif %}>{{ s }}</a>
+    <a href="?country={{ country }}&limit={{ limit }}&sector={{ s|urlencode }}" {% if s == sector %}class="active"{% endif %}>{{ s }}</a>
     {% endfor %}
   </div>
 
@@ -55,7 +62,7 @@
   {% else %}
   <div class="mc-empty">
     <p>データが未取得です。以下のコマンドでデータを取得してください。</p>
-    <pre>python manage.py update_marketcap</pre>
+    <pre>python manage.py {% if is_us %}update_us_ranking{% else %}update_marketcap{% endif %}</pre>
   </div>
   {% endif %}
 </main>
