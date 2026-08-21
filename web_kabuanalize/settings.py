@@ -172,6 +172,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# collectstatic の出力先（本番で nginx 等が配信する実体）。
+# 開発(DEBUG=True)では未使用。本番では collectstatic 後にここを配信する。
+STATIC_ROOT = BASE_DIR / "static"
+
 # アップロードファイル（銘柄カルテの経営陣写真など）
 # 本番では Web サーバー（nginx等）から /media/ を配信すること
 MEDIA_URL = '/media/'
