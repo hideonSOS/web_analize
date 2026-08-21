@@ -5,16 +5,15 @@ from django.shortcuts import render
 
 from .models import FinancialReport, Stock
 
-RANKING_LIMIT_DEFAULT = 50
-RANKING_LIMIT_MAX = 200
+RANKING_LIMIT = 100  # 常に上位100件を表示（TOP選択UIは廃止）
 
-# 国別タブ（時価総額・出来高ランキング共通）。円と$を混ぜず国ごとに表示する
-COUNTRIES = [('JP', '日本株'), ('US', '米国株')]
+# 国別タブ（時価総額・出来高ランキング共通）。主戦場が米国株なのでUSを先頭・既定にする
+COUNTRIES = [('US', '米国株'), ('JP', '日本株')]
 
 
 def _parse_country(request):
-    c = request.GET.get('country', 'JP')
-    return c if c in dict(COUNTRIES) else 'JP'
+    c = request.GET.get('country', 'US')
+    return c if c in dict(COUNTRIES) else 'US'
 
 # 指標ごとの表示レンジ（棒グラフのx軸min/max）。日本株の一般的な水準を目安に設定
 INDICATOR_DEFS = [
@@ -29,31 +28,12 @@ INDICATOR_DEFS = [
 
 
 def index(request):
-    """時価総額ランキング（横棒グラフ）。国別タブで日本株/米国株を切替"""
-    try:
-        limit = int(request.GET.get('limit', RANKING_LIMIT_DEFAULT))
-    except ValueError:
-        limit = RANKING_LIMIT_DEFAULT
-    limit = max(1, min(limit, RANKING_LIMIT_MAX))
-
+    """時価総額ランキング（横棒グラフ）。国別タブで日本株/米国株を切替。
+    常に上位100件を表示（TOP選択・セクター絞り込みUIは廃止）。"""
     country = _parse_country(request)
-    base = Stock.objects.filter(country=country, market_cap__isnull=False)
+    qs = Stock.objects.filter(country=country, market_cap__isnull=False)
 
-    # セクター（JP:17業種 / US:GICSセクター）フィルタ。選択中の国の値だけ出す
-    sectors = list(
-        base.exclude(sector17='')
-        .values_list('sector17', flat=True)
-        .distinct().order_by('sector17')
-    )
-    sector = request.GET.get('sector', '')
-    if sector not in sectors:
-        sector = ''
-
-    qs = base
-    if sector:
-        qs = qs.filter(sector17=sector)
-
-    stocks = list(qs.order_by('-market_cap')[:limit])
+    stocks = list(qs.order_by('-market_cap')[:RANKING_LIMIT])
     chart_data = {
         'labels': [f'{s.display_code} {s.name}' for s in stocks],
         'values': [s.market_cap for s in stocks],
@@ -65,11 +45,8 @@ def index(request):
     context = {
         'stocks': stocks,
         'chart_data': chart_data,
-        'limit': limit,
         'price_date': price_date,
         'total_count': qs.count(),
-        'sectors': sectors,
-        'sector': sector,
         'country': country,
         'countries': COUNTRIES,
         'is_us': country == 'US',
@@ -77,24 +54,16 @@ def index(request):
     return render(request, 'japan_kabu/index.html', context)
 
 
-def _parse_limit(request):
-    try:
-        limit = int(request.GET.get('limit', RANKING_LIMIT_DEFAULT))
-    except ValueError:
-        limit = RANKING_LIMIT_DEFAULT
-    return max(1, min(limit, RANKING_LIMIT_MAX))
-
-
 def volume_ranking(request):
     """出来高急増ランキング
 
     並び順は対数出来高のz-score（標準化された異常度）、
     表示は倍率（過去20日平均比）と確率値 p = Φ(z) を併記する。
+    常に上位100件を表示（TOP選択UIは廃止）。
     """
-    limit = _parse_limit(request)
     country = _parse_country(request)
     qs = Stock.objects.filter(country=country, volume_z__isnull=False)
-    stocks = list(qs.order_by('-volume_z')[:limit])
+    stocks = list(qs.order_by('-volume_z')[:RANKING_LIMIT])
 
     rows = []
     for rank, s in enumerate(stocks, 1):
@@ -111,7 +80,6 @@ def volume_ranking(request):
     context = {
         'rows': rows,
         'chart_data': chart_data,
-        'limit': limit,
         'volume_date': stocks[0].volume_date if stocks else None,
         'total_count': qs.count(),
         'country': country,

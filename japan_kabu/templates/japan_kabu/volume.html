@@ -13,21 +13,16 @@
 
   <div class="mc-country">
     {% for code, label in countries %}
-    <a href="?country={{ code }}&limit={{ limit }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    <a href="?country={{ code }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
     {% endfor %}
   </div>
 
   {% if rows %}
   <p class="mc-meta">
-    基準日: {{ volume_date|date:"Y/m/d" }} ／ 対象 {{ total_count }}銘柄中 TOP{{ limit }}<br>
+    基準日: {{ volume_date|date:"Y/m/d" }} ／ 対象 {{ total_count }}銘柄・上位100<br>
     並び順は対数出来高のz-score（過去20日比の統計的異常度）。薄商い銘柄（売買代金中央値{% if is_us %}100万ドル{% else %}1億円{% endif %}未満）は除外
     {% if is_us %}<br><span style="color:#9ca3af">米国株はS&P500構成銘柄が対象</span>{% endif %}
   </p>
-  <div class="mc-limit">
-    <a href="?country={{ country }}&limit=20" {% if limit == 20 %}class="active"{% endif %}>TOP20</a>
-    <a href="?country={{ country }}&limit=50" {% if limit == 50 %}class="active"{% endif %}>TOP50</a>
-    <a href="?country={{ country }}&limit=100" {% if limit == 100 %}class="active"{% endif %}>TOP100</a>
-  </div>
 
   <div class="mc-chart-wrap">
     <div id="vol-chart" class="ec-canvas"></div>

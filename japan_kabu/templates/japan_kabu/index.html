@@ -13,27 +13,15 @@
 
   <div class="mc-country">
     {% for code, label in countries %}
-    <a href="?country={{ code }}&limit={{ limit }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    <a href="?country={{ code }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
     {% endfor %}
   </div>
 
   {% if stocks %}
   <p class="mc-meta">
-    株価基準日: {{ price_date|date:"Y/m/d" }} ／
-    {% if sector %}{{ sector }}{% else %}全業種{% endif %} {{ total_count }}銘柄中 TOP{{ limit }}
+    株価基準日: {{ price_date|date:"Y/m/d" }} ／ {{ total_count }}銘柄中 上位100
     {% if is_us %}<br><span style="color:#9ca3af">米国株はS&P500構成銘柄が対象・金額はドル建て</span>{% endif %}
   </p>
-  <div class="mc-limit">
-    <a href="?country={{ country }}&limit=20&sector={{ sector|urlencode }}" {% if limit == 20 %}class="active"{% endif %}>TOP20</a>
-    <a href="?country={{ country }}&limit=50&sector={{ sector|urlencode }}" {% if limit == 50 %}class="active"{% endif %}>TOP50</a>
-    <a href="?country={{ country }}&limit=100&sector={{ sector|urlencode }}" {% if limit == 100 %}class="active"{% endif %}>TOP100</a>
-  </div>
-  <div class="mc-sector">
-    <a href="?country={{ country }}&limit={{ limit }}" {% if not sector %}class="active"{% endif %}>全て</a>
-    {% for s in sectors %}
-    <a href="?country={{ country }}&limit={{ limit }}&sector={{ s|urlencode }}" {% if s == sector %}class="active"{% endif %}>{{ s }}</a>
-    {% endfor %}
-  </div>
 
   <div class="mc-chart-wrap">
     <div id="mc-chart" class="ec-canvas"></div>

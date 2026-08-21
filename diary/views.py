@@ -63,16 +63,10 @@ def index(request):
         })
 
     all_entries = DiaryEntry.objects.all()
-    reviewed = all_entries.exclude(review_result='')
-    success = reviewed.filter(review_result='success').count()
-    failure = reviewed.filter(review_result='failure').count()
     stats = {
         'total': all_entries.count(),
         'buy': all_entries.filter(action='buy').count(),
         'sell': all_entries.filter(action='sell').count(),
-        'pass': all_entries.filter(action='pass').count(),
-        'success_rate': round(success / (success + failure) * 100) if (success + failure) else None,
-        'reviewed': reviewed.count(),
     }
 
     context = {

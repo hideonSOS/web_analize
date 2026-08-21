@@ -16,11 +16,6 @@
     <div class="dy-stat"><span class="dy-stat-num">{{ stats.total }}</span>記録</div>
     <div class="dy-stat"><span class="dy-stat-num">{{ stats.buy }}</span>買い</div>
     <div class="dy-stat"><span class="dy-stat-num">{{ stats.sell }}</span>売り</div>
-    <div class="dy-stat"><span class="dy-stat-num">{{ stats.pass }}</span>見送り</div>
-    <div class="dy-stat">
-      <span class="dy-stat-num">{% if stats.success_rate is not None %}{{ stats.success_rate }}%{% else %}―{% endif %}</span>
-      成功率（評価済 {{ stats.reviewed }}件）
-    </div>
   </div>
 
   <div class="dy-toolbar">
