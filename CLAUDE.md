@@ -455,7 +455,34 @@ python manage.py dumpdata karte diary -o handdata.json
 ### 8. Webサーバー設定と定期実行
 - gunicorn/uWSGI + nginx を想定。nginx から `/static/` と `/media/` を配信する
   （`DEBUG=False` では Django は静的ファイルを配信しない）
+- **⚠️ nginx の `location /static/` の `alias` は `STATIC_ROOT` に一致させる**:
+  ```nginx
+  location /static/ { alias /srv/web_analize/static/; expires 7d; }  # 末尾スラッシュ必須
+  location /media/  { alias /srv/web_analize/media/; }
+  ```
 - 平日夜のバッチを cron に登録（下の「データ更新バッチ」節）
+
+### ⚠️ デプロイしても反映されない（静的ファイルが古いまま）
+実際に踏んだ事故。`git pull` しても**CSS/JSが古いまま**になる典型原因は2つ:
+1. **アプリを再起動していない** → Pythonコード・テンプレートは
+   `sudo systemctl restart web_analize.service`（本番のサービス名）で反映される。
+2. **nginx が旧い収集先を配信している** → 当初 `STATIC_ROOT` 未設定時代の
+   `/srv/web_analize/staticfiles/` を nginx が指したまま、`STATIC_ROOT` を
+   `/srv/web_analize/static/` に変えたため不一致になった。`alias` を上記に合わせる。
+
+**反映の正しい手順（変更種別で必要な操作が違う）**:
+```bash
+cd /srv/web_analize && git pull
+./venv/bin/python manage.py collectstatic --noinput   # CSS/JS/画像を変えたとき
+sudo systemctl reload nginx                           # nginx設定を変えたとき（無停止）
+sudo systemctl restart web_analize.service            # Pythonコード/テンプレを変えたとき
+```
+**配信結果の直接確認**（サーバー内で最新が出ているか。1以上なら最新）:
+```bash
+curl -s http://localhost/static/diary/css/diary.css | grep -c dy-price-when
+```
+CSS/JSは `?v={% now 'U' %}` のキャッシュ避け付きなので、これが古い場合は
+ブラウザ側ではなく**サーバーの配信ファイルが古い**（上記1か2を疑う）。
 
 ### 補足: HTTPS化する場合のみ必要な設定
 `check --deploy` で出る HSTS・SECURE_SSL_REDIRECT・SESSION_COOKIE_SECURE・
