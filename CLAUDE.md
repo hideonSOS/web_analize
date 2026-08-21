@@ -185,13 +185,26 @@ crontab -e
 
 ### スクリプトが実行する内容（順番に意味がある）
 ```bash
-python manage.py update_marketcap   # マスタ・株価・決算・時価総額・期末株価
-python manage.py update_volume      # 日次出来高と出来高異常度(z-score)
+python manage.py update_jp_ranking  # 日本株ランキング（時価総額・出来高／yfinance）★J-Quants代替
 python manage.py update_us_prices   # 売買日記で使われた米国株の株価（yfinance）
 python manage.py update_us_financials # 登録した米国株の決算（yfinance）
 python manage.py update_us_ranking  # 米国株ランキング（S&P500の時価総額・出来高／yfinance）
 python manage.py update_daily_prices # 登録銘柄の日次終値（ドローダウン算出用・差分のみ）
 ```
+
+### ⚠️ J-Quants は無料プランのみ（2026-08〜）→ 日本株はハイブリッド構成
+課金プランを解約したため、**当日の日本株株価は J-Quants では取れない**（無料プランは
+直近データが遅延し `/equities/bars/daily` の直近は 400/403）。そこで役割を分けた:
+- **株価・時価総額・出来高（ランキング）＝ yfinance**（`update_jp_ranking`・東証は
+  `<コード>.T`）。US版のミラー。時価総額は既存の `Stock.shares`（J-Quants由来・DBに
+  残存）を再利用して「終値×株式数」。週1で `--refresh-shares`。
+- **銘柄マスタ＋決算（銘柄別指標用）＝ J-Quants無料**（`update_marketcap`）。無料プランは
+  直近が**約12週遅延**なので、取れない直近日は**スキップして継続**する（落とさない）。
+  ＝指標ページの財務は「最新四半期が約1Q遅れ」になるが、履歴は揃う。
+- `update_volume` は廃止（出来高は `update_jp_ranking` が算出）。無料プランのキーは
+  `config.json` の `api_key`。**キーは公開リポジトリに書かないこと**。
+- **まだ未移行で凍結**: JP銘柄のドローダウン用日次終値（`update_daily_prices` のJP分は
+  無料プランの遅延で直近が取れない）。必要になれば yfinance 化する。
 1つが失敗しても後続は実行する設計（yfinance障害で日本株の更新まで止めないため）。
 失敗時はスクリプトの終了コードが 1 になる。
 

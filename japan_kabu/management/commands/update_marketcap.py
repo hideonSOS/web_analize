@@ -1,13 +1,17 @@
-"""J-Quants APIから銘柄マスタ・株価・発行済株式数・通期決算を取得し時価総額を更新する
+"""J-Quants API（無料プラン）から銘柄マスタと決算（銘柄別指標用）を取得する
+
+⚠️ 株価・時価総額・出来高は yfinance（update_jp_ranking）が担当する。
+J-Quants無料プランは直近データに遅延があり当日株価を取れないため、この
+コマンドは「マスタ＋決算＋発行済株式数＋期末株価」だけを更新する。
+無料プランの遅延で直近日が取れない分はスキップして継続する（落とさない）。
 
 使い方:
     python manage.py update_marketcap                     # 通常更新（前回開示日以降の差分のみ）
     python manage.py update_marketcap --full              # 過去380日分を取り直す
-    python manage.py update_marketcap --backfill-years 5  # 通期決算を過去5年分バックフィル（初回のみ）
+    python manage.py update_marketcap --backfill-years 5  # 決算を過去N年分バックフィル（初回のみ）
 
-決算走査では発行済株式数（時価総額用）と通期決算サマリー（銘柄別指標用）を
-同じAPIレスポンスから取り込むため、追加のAPIコールは発生しない。
-cron/タスクスケジューラで平日夜に実行する想定。
+決算走査では発行済株式数と決算サマリー（銘柄別指標用）を同じAPIレスポンスから
+取り込むため、追加のAPIコールは発生しない。cron で平日夜に実行する想定。
 """
 import time
 from datetime import date, datetime, timedelta
@@ -53,15 +57,16 @@ class Command(BaseCommand):
                             help='決算走査を指定年数分遡る（通期決算の初回バックフィル用）')
 
     def handle(self, *args, **options):
+        # J-Quants無料プランは直近データに遅延があり、当日株価は取得できない。
+        # 株価・時価総額・出来高は yfinance（update_jp_ranking）が担当する。
+        # ここは無料プランで取れる「銘柄マスタ＋決算（銘柄別指標用）」だけを更新する。
         self.update_master()
-        latest_date = self.update_prices()
         self.update_shares(full=options['full'],
                            backfill_years=options['backfill_years'])
-        self.compute_market_cap()
         self.fill_period_prices()
-        total = Stock.objects.filter(market_cap__isnull=False).count()
+        total = FinancialReport.objects.count()
         self.stdout.write(self.style.SUCCESS(
-            f'完了: 時価総額算出済み {total}銘柄（株価基準日 {latest_date}）'))
+            f'完了: マスタ＋決算を更新（FinancialReport {total}件）'))
 
     def update_master(self):
         """銘柄マスタの取り込み（普通株式・国内3市場のみ）"""
@@ -85,30 +90,6 @@ class Command(BaseCommand):
         removed, _ = Stock.objects.filter(country='JP').exclude(code__in=codes).delete()
         self.stdout.write(f'マスタ更新: {len(rows)}銘柄（削除 {removed}）')
 
-    def update_prices(self):
-        """最新営業日の終値を全銘柄に反映する"""
-        # 基準銘柄（トヨタ）の直近データから最新営業日を得る
-        from_date = (date.today() - timedelta(days=14)).isoformat()
-        ref = jquants.get_bars_by_code('7203', from_date=from_date)
-        if not ref:
-            self.stderr.write('株価の最新日付が取得できませんでした')
-            return None
-        latest = ref[-1]['Date']
-
-        bars = jquants.get_bars_by_date(latest)
-        price_date = datetime.strptime(latest, '%Y-%m-%d').date()
-        stocks = {s.code: s for s in Stock.objects.all()}
-        updates = []
-        for b in bars:
-            s = stocks.get(b['Code'])
-            if s and b.get('C') is not None:
-                s.close = b['C']
-                s.price_date = price_date
-                updates.append(s)
-        Stock.objects.bulk_update(updates, ['close', 'price_date'], batch_size=500)
-        self.stdout.write(f'株価更新: {len(updates)}銘柄（{latest}）')
-        return latest
-
     def update_shares(self, full=False, backfill_years=0):
         """開示日ベースで決算サマリーを走査し、発行済株式数と通期決算を更新する"""
         last = Stock.objects.aggregate(m=Max('shares_disc_date'))['m']
@@ -124,11 +105,16 @@ class Command(BaseCommand):
             (r.stock_id, r.per_end): r
             for r in FinancialReport.objects.all()
         }
-        count = report_count = 0
+        count = report_count = skipped = 0
         d = start
         while d <= date.today():
             if d.weekday() < 5:  # 土日は開示なし
-                for r in jquants.get_fins_by_date(d.isoformat()):
+                try:
+                    fins = jquants.get_fins_by_date(d.isoformat())
+                except Exception:  # noqa: BLE001  無料プランは直近が遅延で400。取れる範囲だけ使う
+                    skipped += 1
+                    fins = []
+                for r in fins:
                     s = stocks.get(r.get('Code'))
                     if s is None:
                         continue
@@ -143,8 +129,9 @@ class Command(BaseCommand):
             d += timedelta(days=1)
         Stock.objects.bulk_update(
             stocks.values(), ['shares', 'shares_disc_date'], batch_size=500)
+        note = f'（直近{skipped}日は無料プランの遅延で取得不可・スキップ）' if skipped else ''
         self.stdout.write(
-            f'株式数更新: {count}件 ／ 通期決算更新: {report_count}件（{start} 以降の開示分）')
+            f'株式数更新: {count}件 ／ 決算更新: {report_count}件（{start} 以降の開示分）{note}')
 
     @staticmethod
     def _store_report(stock, r, disc, existing):
@@ -184,15 +171,6 @@ class Command(BaseCommand):
         rep.save()
         return True
 
-    def compute_market_cap(self):
-        updates = []
-        for s in Stock.objects.all():
-            if s.close and s.shares:
-                s.market_cap = int(s.close * s.shares)
-                updates.append(s)
-        Stock.objects.bulk_update(updates, ['market_cap'], batch_size=500)
-        self.stdout.write(f'時価総額算出: {len(updates)}銘柄')
-
     def fill_period_prices(self):
         """決算期末時点の終値をFinancialReportへ埋める（PER/PBR推移の計算用）
 
@@ -227,7 +205,10 @@ class Command(BaseCommand):
             if d.weekday() >= 5:
                 continue
             time.sleep(jquants.REQUEST_WAIT)
-            bars = jquants.get_bars_by_date(d.isoformat())
+            try:
+                bars = jquants.get_bars_by_date(d.isoformat())
+            except Exception:  # noqa: BLE001  無料プランは直近日が遅延で400。古い期末日は取れる
+                bars = []
             if bars:
                 return (
                     {b['Code']: b['C'] for b in bars if b.get('C') is not None},
