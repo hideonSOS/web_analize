@@ -63,7 +63,7 @@
           <td class="num">{% if r.e.price %}{{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}{% endif %}</td>
           <td class="num">{% if r.e.shares %}{{ r.e.shares|intcomma }}{% endif %}</td>
           <td class="num">{% if r.change is not None %}<span class="dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">{% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>{% endif %}</td>
-          <td class="num">{% if r.pnl is not None %}<span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">{% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{{ r.pnl|floatformat:0|intcomma }}{{ r.cur_suf }}</span>{% endif %}</td>
+          <td class="num">{% if r.pnl is not None %}<span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">{% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{% if r.is_us %}{{ r.pnl|floatformat:2|intcomma }}{% else %}{{ r.pnl|floatformat:0|intcomma }}{% endif %}{{ r.cur_suf }}</span>{% endif %}</td>
           <td class="num">{% if r.rr is not None %}{{ r.rr|floatformat:1 }}{% endif %}</td>
           <td>{% if r.hit == 'target' %}<span class="dy-hit dy-hit-target">目標到達</span>{% elif r.hit == 'stop' %}<span class="dy-hit dy-hit-stop">損切到達</span>{% endif %}</td>
           <td>{% if r.e.review_result %}<span class="dy-result dy-result-{{ r.e.review_result }}">{{ r.e.get_review_result_display }}</span>{% endif %}</td>
@@ -107,7 +107,7 @@
         <span class="dy-price-cell"><span class="dy-price-val">{{ r.cur_pre }}{{ r.current_close|floatformat:1 }}{{ r.cur_suf }}</span><span class="dy-price-when">：価格（現在）</span></span>
         <span class="dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">その後 {% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
         {% if r.pnl is not None %}
-        <span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">概算損益 {% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{{ r.pnl|floatformat:0|intcomma }}{{ r.cur_suf }}</span>
+        <span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">概算損益 {% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{% if r.is_us %}{{ r.pnl|floatformat:2|intcomma }}{% else %}{{ r.pnl|floatformat:0|intcomma }}{% endif %}{{ r.cur_suf }}</span>
         {% endif %}
       </div>
       {% endif %}

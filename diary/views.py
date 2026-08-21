@@ -57,6 +57,7 @@ def index(request):
             'current_close': current_close,
             'tag_list': [t for t in e.tags.split(',') if t],
             # 通貨表示: 日本株は「…円」、米国株は「$…」
+            'is_us': is_us,
             'cur_pre': '$' if is_us else '',
             'cur_suf': '' if is_us else '円',
         })
