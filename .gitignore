@@ -37,10 +37,11 @@ db.sqlite3-journal
 # 実データなのでgit管理せず、サーバー側で永続ディレクトリを用意する
 /media/
 
-# collectstatic の出力先。
-# ※ BoatRaceSite では staticfiles/ をコミットして配信する運用のため、
-#   同じ方式を採るならこの行はコメントアウトしたままにしておく
-# /staticfiles/
+# collectstatic の出力先（settings.py の STATIC_ROOT = BASE_DIR/static）。
+# 生成物なのでコミットせず、各環境で collectstatic して作る。
+# ※ 先頭スラッシュでリポジトリ直下の static/ だけを対象にする
+#   （website/static・japan_kabu/static 等のソースは除外しない）
+/static/
 
 *.log
 # 日次バッチのログ出力先（scripts/daily_update.sh が30日で自動削除する）

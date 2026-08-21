@@ -409,14 +409,16 @@ sudo -u postgres psql -c "CREATE DATABASE web_kabuanalize ENCODING 'UTF8' LC_COL
 **DBパスワードはサーバー用に変更すること**（開発機の値をそのまま使わない）。
 
 ### 4. 本番用の設定変更（`web_kabuanalize/settings.py`）
-現状は開発用のままなので、以下4点を必ず変更する。**未対応だとサイトが表示されない。**
+現状は開発用のままなので、以下3点を必ず変更する。**未対応だとサイトが表示されない。**
 
 | 項目 | 現状 | 変更内容 |
 |---|---|---|
 | `DEBUG` | `True` | `False` |
-| `ALLOWED_HOSTS` | `[]` | `['ドメイン名', 'サーバーIP']`。**空のままだと全リクエストを拒否** |
+| `ALLOWED_HOSTS` | `[]`（DEBUG時のみ`['*']`） | `['ドメイン名', 'サーバーIP']`。**空のままだと全リクエストを拒否** |
 | `SECRET_KEY` | `django-insecure-...` | 新規生成して差し替え |
-| `STATIC_ROOT` | 未設定 | `BASE_DIR / 'staticfiles'` を追記（collectstaticに必須） |
+
+`STATIC_ROOT` は `BASE_DIR / "static"` に**設定済み**（collectstaticの出力先）。
+この `static/` は `.gitignore` 済みで、各環境で collectstatic して生成する。
 
 SECRET_KEY の生成:
 ```bash
@@ -426,7 +428,7 @@ SECRET_KEY の生成:
 ### 5. マイグレーションと静的ファイル
 ```bash
 ./venv/bin/python manage.py migrate          # 全23マイグレーションが適用される
-./venv/bin/python manage.py collectstatic    # STATIC_ROOT 設定後に実行
+./venv/bin/python manage.py collectstatic    # STATIC_ROOT(=BASE_DIR/static)へ出力
 mkdir -p media && chmod 775 media            # 顔写真アップロード用。書き込み権限が必要
 ```
 
