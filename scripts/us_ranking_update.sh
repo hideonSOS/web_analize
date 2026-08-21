@@ -50,6 +50,17 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
+# セクター別インパルス用の日次終値（JP/US 数銘柄・数コール）。
+# JP前日バーは朝に出そろい、USはこの時刻ならクローズ確定後なので同枠で回す。
+# コマンド側に「クローズ前の未確定当日バーは保存しない」ガードあり。
+echo "===== $(date '+%F %T') manage.py update_impulse_prices =====" >> "$LOG"
+if "$PY" manage.py update_impulse_prices >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'us_ranking_*.log' -mtime +30 -delete 2>/dev/null
 

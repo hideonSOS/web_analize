@@ -18,6 +18,7 @@ FEATURES = {
     4: {'name': '売買日記', 'description': '売買判断の記録と振り返り。その後の値動きを自動表示', 'url': 'diary:index'},
     5: {'name': '銘柄別指標', 'description': 'PER/PBR/ROE/ROA等を棒グラフで表示（現在はソニーグループのみ）',
         'url': 'japan_kabu:stock_detail', 'url_args': ['6758']},
+    6: {'name': 'セクター別インパルス', 'description': '独自セクターの日次騰落を時系列で並べモメンタムを見る', 'url': 'japan_kabu:impulse'},
 }
 
 

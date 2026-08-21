@@ -79,12 +79,12 @@ class Command(BaseCommand):
 
         stocks = self._upsert_stocks(constituents)
 
-        vol_result, closes_map, price_date = self._fetch_volume(constituents)
+        vol_result, closes_map, chg_map, price_date = self._fetch_volume(constituents)
         caps = {} if options['no_marketcap'] else self._fetch_marketcaps(
             constituents, stocks, closes_map,
             refresh_shares=options['refresh_shares'], workers=options['workers'])
 
-        updated = self._apply(stocks, vol_result, caps, price_date)
+        updated = self._apply(stocks, vol_result, caps, chg_map, price_date)
         self.stdout.write(self.style.SUCCESS(
             f'完了: 米国株ランキング更新 {updated}銘柄'
             f'（時価総額 {len(caps)}件 / 出来高 {len(vol_result)}件 / 基準日 {price_date}）'))
@@ -173,19 +173,20 @@ class Command(BaseCommand):
 
         result = {}
         closes_map = {}
+        chg_map = {}
         price_date = None
         for i in range(0, len(symbols), DOWNLOAD_CHUNK):
             chunk = symbols[i:i + DOWNLOAD_CHUNK]
             pd_chunk = self._download_chunk([yf_map[s] for s in chunk], chunk, yf_map,
-                                            result, closes_map)
+                                            result, closes_map, chg_map)
             if pd_chunk is not None:
                 price_date = pd_chunk
         if price_date is None:
             self.stderr.write('yf.download が全チャンクで空を返しました')
-        return result, closes_map, price_date
+        return result, closes_map, chg_map, price_date
 
-    def _download_chunk(self, yf_tickers, symbols, yf_map, result, closes_map):
-        """1チャンクを取得し result/closes_map を埋める。基準日を返す"""
+    def _download_chunk(self, yf_tickers, symbols, yf_map, result, closes_map, chg_map):
+        """1チャンクを取得し result/closes_map/chg_map を埋める。基準日を返す"""
         import yfinance as yf
 
         try:
@@ -218,9 +219,11 @@ class Command(BaseCommand):
                     for v, c in zip(v_ser.tolist(), c_vals)
                     if v == v and c == c and v > 0  # NaN除外
                 ]
-                last_close = next((float(c) for c in reversed(c_vals) if c == c), None)
-                if last_close is not None:
-                    closes_map[sym] = last_close
+                valid_closes = [float(c) for c in c_vals if c == c]  # NaN除外
+                if valid_closes:
+                    closes_map[sym] = valid_closes[-1]
+                if len(valid_closes) >= 2 and valid_closes[-2] > 0:
+                    chg_map[sym] = (valid_closes[-1] / valid_closes[-2] - 1) * 100
             except Exception:  # noqa: BLE001
                 continue
             score = self._score(pairs)
@@ -328,7 +331,7 @@ class Command(BaseCommand):
         return None
 
     # ---- Stock へ書き戻し ----------------------------------------------
-    def _apply(self, stocks, vol_result, caps, price_date):
+    def _apply(self, stocks, vol_result, caps, chg_map, price_date):
         touched = []
         for sym, (mc, price, shares) in caps.items():
             s = stocks.get(f'US-{sym}')
@@ -341,6 +344,14 @@ class Command(BaseCommand):
             if shares is not None:
                 s.shares = shares
             touched.append(s)
+
+        chg_touched = []
+        for sym, pct in chg_map.items():
+            s = stocks.get(f'US-{sym}')
+            if not s:
+                continue
+            s.change_pct = pct
+            chg_touched.append(s)
 
         vol_touched = []
         for sym, (vol, ratio, z) in vol_result.items():
@@ -357,8 +368,10 @@ class Command(BaseCommand):
         if touched:
             Stock.objects.bulk_update(
                 touched, ['market_cap', 'close', 'price_date', 'shares'], batch_size=500)
+        if chg_touched:
+            Stock.objects.bulk_update(chg_touched, ['change_pct'], batch_size=500)
         if vol_touched:
             Stock.objects.bulk_update(
                 vol_touched, ['volume', 'volume_ratio', 'volume_z', 'volume_date'],
                 batch_size=500)
-        return len({s.code for s in touched + vol_touched})
+        return len({s.code for s in touched + chg_touched + vol_touched})

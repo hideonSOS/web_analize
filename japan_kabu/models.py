@@ -25,6 +25,9 @@ class Stock(models.Model):
     price_date = models.DateField(null=True, blank=True)          # 終値の日付
     market_cap = models.BigIntegerField(null=True, blank=True)    # 時価総額（円）
 
+    # 前日比（セクターヒートマップ用。update_jp_ranking / update_us_ranking で更新）
+    change_pct = models.FloatField(null=True, blank=True)         # 前日終値比（%）
+
     # 出来高異常度（update_volume 管理コマンドで更新）
     volume = models.BigIntegerField(null=True, blank=True)        # 最新営業日の出来高（株）
     volume_date = models.DateField(null=True, blank=True)         # その日付

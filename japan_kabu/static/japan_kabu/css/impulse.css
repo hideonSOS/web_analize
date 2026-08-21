@@ -1,0 +1,81 @@
+/* セクター別インパルス（時系列ヒートマップ）
+   横軸=日付・縦軸=独自セクターのグリッド。参考画像（薄赤/薄緑/薄青+同色ドット）に準拠。
+   サイトはダークテーマなのでセルはパステル、文字は明色のまま */
+
+.imp-scroll{ overflow-x:auto; }   /* 日数が増えたら横スクロール（画面は崩さない） */
+
+.imp-grid{
+  border-collapse:separate; border-spacing:3px 6px;
+  margin:0 auto;
+}
+
+/* セクター名の列は横スクロールしても左に貼り付ける（スマホでラベルが消えるのを防ぐ）。
+   ⚠️ 背景 #000（body と同色）は必須。透過だとセルが下を通り抜けて重なって見える */
+.imp-sector-col{
+  position:sticky; left:0; z-index:3;
+  background:#000;
+  color:#e5e7eb; font-size:13px; font-weight:700;
+  text-align:right; padding-right:10px; white-space:nowrap;
+}
+.imp-members{
+  display:block; font-size:10px; font-weight:400; color:#9ca3af; letter-spacing:0;
+  max-width:15ch; overflow:hidden; text-overflow:ellipsis;  /* 長い銘柄列で列幅が伸びるのを抑える */
+  margin-left:auto;                                          /* セクター名と同じく右寄せ */
+}
+
+.imp-date{
+  color:#cbd5e1; font-size:11px; font-weight:400;
+  writing-mode:vertical-rl;         /* 参考画像と同じ縦書きの日付 */
+  padding:4px 0; white-space:nowrap;
+}
+thead .imp-date{ vertical-align:bottom; }
+
+/* セルは正方形。⚠️ td の高さは行の高さに引っ張られるので、
+   セクター名列（2行ぶん）がセルより高くならないよう line-height を詰めてある */
+.imp-cell{
+  width:34px; min-width:26px; height:34px;
+  border-radius:4px;
+  text-align:center; vertical-align:middle;
+}
+.imp-dot{
+  display:inline-block; width:14px; height:14px; border-radius:50%;
+}
+
+/* 3値分類: 上昇=緑 / 下落=赤 / 中立=青（参考画像の配色） */
+.imp-up{   background:#c9f2c9; }
+.imp-up   .imp-dot{ background:#1a8a1a; }
+.imp-down{ background:#ffc9c9; }
+.imp-down .imp-dot{ background:#e02020; }
+.imp-flat{ background:#dbe9fa; }
+.imp-flat .imp-dot{ background:#2044e0; }
+.imp-na{   background:#1f2937; }   /* 休場・データ無し */
+
+/* ダミー行（構成銘柄が未定義）。実データと取り違えないよう斜線を重ねる */
+.imp-dummy{
+  background-image:repeating-linear-gradient(
+    45deg, rgba(255,255,255,.35) 0 4px, rgba(255,255,255,0) 4px 8px);
+}
+.imp-dummy .imp-dot{ opacity:.55; }
+.imp-dummy-row{ color:#9ca3af; }
+.imp-badge{
+  display:inline-block; margin-left:6px; padding:1px 6px;
+  font-size:10px; font-weight:700; letter-spacing:0;
+  color:#0b1220; background:#9ca3af; border-radius:999px;
+  vertical-align:middle;
+}
+
+/* 凡例（mc-meta 内） */
+.imp-key-up{   color:#1a8a1a; }
+.imp-key-down{ color:#e02020; }
+.imp-key-flat{ color:#2044e0; }
+
+@media (max-width:768px){
+  /* min-width も一緒に下げないと幅だけ 26px に留まって正方形にならない */
+  .imp-cell{ width:26px; min-width:26px; height:26px; }
+  .imp-dot{ width:10px; height:10px; }
+  /* 行の高さはセクター名列（2行）で決まる。詰めないとセルが縦に伸びて長方形になる */
+  .imp-sector-col{ font-size:11px; line-height:1.15; }
+  .imp-members{ font-size:9px; line-height:1.15; }
+  /* 説明文はスマホだと2行に折り返して領域を食うだけなので隠す。凡例は残す */
+  .imp-desc{ display:none; }
+}

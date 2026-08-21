@@ -1,0 +1,69 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}セクター別インパルス | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'japan_kabu/css/marketcap.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'japan_kabu/css/impulse.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="mc">
+  <h1 class="mc-title">セクター別インパルス</h1>
+
+  <div class="mc-country">
+    {% for code, label in countries %}
+    <a href="?country={{ code }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  {% if has_data %}
+  <p class="mc-meta">
+    {# スマホでは2行に折り返して無駄に領域を取るので隠す（凡例だけ残す） #}
+    <span class="imp-desc">独自セクターの日次騰落（構成銘柄の単純平均・直近{{ dates|length }}営業日）<br>
+    判定は各セクター自身のボラティリティ基準（±{{ sigma_band }}σ）<br></span>
+    <span class="imp-key imp-key-up">●</span> 上昇
+    ／ <span class="imp-key imp-key-flat">●</span> 中立
+    ／ <span class="imp-key imp-key-down">●</span> 下落
+  </p>
+
+  <div class="imp-scroll">
+    <table class="imp-grid">
+      <thead>
+        <tr>
+          <th class="imp-sector-col"></th>
+          {% for d in dates %}<th class="imp-date">{{ d|date:"m/d" }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <th class="imp-sector-col {% if row.is_dummy %}imp-dummy-row{% endif %}"
+              title="{{ row.name }}: 判定幅 ±{{ row.band }}%（±{{ sigma_band }}σ）">
+            {{ row.name }}{% if row.is_dummy %}<span class="imp-badge">ダミー</span>{% endif %}
+            <span class="imp-members"
+                  {% if row.members %}title="{% for m in row.members %}{{ m.display_code }} {{ m.name }}{% if not forloop.last %} / {% endif %}{% endfor %}"{% endif %}>
+              {% if row.is_dummy %}銘柄未定義{% else %}{{ row.members_label }}{% endif %}
+            </span>
+          </th>
+          {% for c in row.cells %}
+          <td class="imp-cell imp-{{ c.state }}{% if row.is_dummy %} imp-dummy{% endif %}"
+              {% if c.chg is not None %}title="{{ row.name }}{% if row.is_dummy %}（ダミー値）{% endif %}: {% if c.chg > 0 %}+{% endif %}{{ c.chg }}%（{% if c.sigma > 0 %}+{% endif %}{{ c.sigma }}σ）"{% endif %}>
+            {% if c.state != 'na' %}<span class="imp-dot"></span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <div class="mc-empty">
+    <p>データが未取得です。以下のコマンドでデータを取得してください。</p>
+    <pre>python manage.py update_impulse_prices --days 60</pre>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

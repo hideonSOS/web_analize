@@ -1,9 +1,10 @@
 import math
+import statistics
 from collections import defaultdict
 
 from django.shortcuts import render
 
-from .models import FinancialReport, Stock
+from .models import DailyPrice, FinancialReport, Stock
 
 RANKING_LIMIT = 100  # 常に上位100件を表示（TOP選択UIは廃止）
 
@@ -87,6 +88,207 @@ def volume_ranking(request):
         'is_us': country == 'US',
     }
     return render(request, 'japan_kabu/volume.html', context)
+
+
+IMPULSE_MEMBERS_SHOWN = 3   # セクター名の下に出す銘柄コードの数。以降は「他N」に畳む
+
+
+def _impulse_band(values):
+    """セクター自身のボラティリティから色の判定幅（±%）を決める
+
+    σは**外れ値に強いMAD基準**（中央絶対偏差×1.4826）で推定する。単純な標準偏差だと、
+    1日の異常値でσが跳ね上がり、その行が全部「中立（青）」に潰れて無音になる
+    （実測: IBMの7/14に-25.2%という日があり、σが2.16→4.50と倍増した。
+    その1日を含むだけで判定幅が倍になり、通常の値動きが全て中立扱いになる）。
+    """
+    from .impulse import MIN_BAND, MIN_HISTORY, NEUTRAL_BAND, SIGMA_BAND
+
+    if len(values) < MIN_HISTORY:
+        return NEUTRAL_BAND        # 履歴不足では推定できないので固定値に退避
+    med = statistics.median(values)
+    mad = statistics.median([abs(v - med) for v in values])
+    # MADが0になるのは値が全く動かない場合。そのときだけ標準偏差で代替する
+    sigma = mad * 1.4826 if mad > 0 else statistics.pstdev(values)
+    return max(sigma * SIGMA_BAND, MIN_BAND)
+
+
+def _members_label(members):
+    """"AAPL,MSFT,GOOGL 他2" 形式の短いラベル
+
+    構成銘柄を全部並べるとセクター列が横に伸び、スマホでヒートマップ本体を
+    押し出してしまうため先頭数件で打ち切る（全銘柄は title 属性で見られる）。
+    """
+    codes = [m.display_code for m in members]
+    head = ','.join(codes[:IMPULSE_MEMBERS_SHOWN])
+    rest = len(codes) - IMPULSE_MEMBERS_SHOWN
+    return f'{head} 他{rest}' if rest > 0 else head
+
+
+def impulse(request):
+    """独自セクター別インパルス（時系列ヒートマップ）。国別タブで日本株/米国株を切替。
+
+    横軸=直近20営業日、縦軸=独自セクター（impulse.py で定義した数銘柄のグループ）。
+    各セルはその日のセクター騰落率（構成銘柄の単純平均）を3値分類して色で示す。
+    **判定はセクター自身のボラティリティ基準（±SIGMA_BAND σ）** で行う。理由は
+    impulse.py の SIGMA_BAND のコメント参照（固定%だと行間比較が壊れる）。
+    数日並べることでモメンタムの継続・転換を見る（1日分ならTradingViewで足りる）。
+
+    データは update_impulse_prices が DailyPrice に蓄積した調整後終値。
+    サーバー側で全計算し、テンプレートは色分けセルを並べるだけ（JS不要）。
+    """
+    from .impulse import (DAYS_SHOWN, IMPULSE_SECTORS, SIGMA_BAND,
+                          dummy_change, impulse_universe)
+
+    country = _parse_country(request)
+    codes = impulse_universe(country)
+    if country == 'JP':
+        stocks = {s.display_code: s for s in
+                  Stock.objects.filter(country='JP', display_code__in=codes)}
+    else:
+        stocks = {s.display_code: s for s in
+                  Stock.objects.filter(country='US', code__in=[f'US-{c}' for c in codes])}
+
+    # 銘柄ごとの騰落率系列 {display_code: {date: pct}}（その銘柄自身の直前営業日比）
+    changes = {}
+    all_dates = set()
+    prices = DailyPrice.objects.filter(
+        stock__in=stocks.values()).order_by('stock_id', 'date')
+    series = defaultdict(list)
+    for p in prices.values_list('stock__display_code', 'date', 'close'):
+        series[p[0]].append((p[1], p[2]))
+    for code, rows in series.items():
+        chg = {}
+        for (d0, c0), (d1, c1) in zip(rows, rows[1:]):
+            if c0 > 0:
+                chg[d1] = (c1 / c0 - 1) * 100
+        changes[code] = chg
+        all_dates.update(chg)
+
+    all_sorted = sorted(all_dates)
+    dates = all_sorted[-DAYS_SHOWN:]
+
+    rows = []
+    for sec in IMPULSE_SECTORS.get(country, []):
+        codes = sec.get('codes') or []
+        # 構成銘柄が未定義の行はダミー値で描く（レイアウト確認用。銘柄を入れれば実データに）
+        is_dummy = not codes
+
+        # セクター日次騰落率の**全履歴**（σ推定用）。表示20日だけで推定すると
+        # 標本が少なく、窓がずれるたびに判定幅が動いて色がちらつく
+        full = {}
+        for d in all_sorted:
+            if is_dummy:
+                full[d] = dummy_change(sec['name'], d)
+                continue
+            vals = [changes[c][d] for c in codes if c in changes and d in changes[c]]
+            if vals:
+                full[d] = sum(vals) / len(vals)
+
+        band = _impulse_band(list(full.values()))
+        cells = []
+        for d in dates:
+            pct = full.get(d)
+            if pct is None:
+                cells.append({'state': 'na', 'chg': None, 'sigma': None})  # 休場・データ未取得
+                continue
+            cells.append({
+                'state': 'up' if pct > band else 'down' if pct < -band else 'flat',
+                'chg': round(pct, 2),
+                'sigma': round(pct / band * SIGMA_BAND, 1),   # 何σ動いたか
+            })
+
+        members = [stocks[c] for c in codes if c in stocks]
+        rows.append({
+            'name': sec['name'],
+            'members': members,
+            'members_label': _members_label(members),
+            'is_dummy': is_dummy,
+            'band': round(band, 2),
+            'cells': cells,
+        })
+
+    context = {
+        'rows': rows,
+        'dates': dates,
+        'has_data': bool(dates),
+        'sigma_band': SIGMA_BAND,
+        'country': country,
+        'countries': COUNTRIES,
+        'is_us': country == 'US',
+    }
+    return render(request, 'japan_kabu/impulse.html', context)
+
+
+# セクターヒートマップ: 1セクターに個別表示する銘柄数の上限。
+# それ以下の小型株は「その他」1タイルに合算する（タイルが米粒化して読めなくなるため）
+HEATMAP_TILES_PER_SECTOR = 20
+
+
+def heatmap(request):
+    """セクター別ヒートマップ（Finviz風ツリーマップ）。国別タブで日本株/米国株を切替。
+
+    面積=時価総額、色=前日比（change_pct）。セクターは JP=17業種 / US=GICS（sector17）。
+    セクターの前日比は時価総額加重平均（全構成銘柄で算出）。
+    個別タイルは時価総額上位 HEATMAP_TILES_PER_SECTOR 銘柄まで、残りは「その他」に合算。
+    描画は自前JS（heatmap.js の squarified treemap）で外部ライブラリ依存なし。
+    """
+    country = _parse_country(request)
+    qs = Stock.objects.filter(
+        country=country, market_cap__isnull=False, change_pct__isnull=False,
+    ).exclude(sector17='')
+
+    by_sector = defaultdict(list)
+    for s in qs.only('code', 'display_code', 'name', 'sector17',
+                     'market_cap', 'change_pct', 'price_date'):
+        by_sector[s.sector17].append(s)
+
+    sectors = []
+    price_date = None
+    for name, stocks in by_sector.items():
+        stocks.sort(key=lambda s: s.market_cap, reverse=True)
+        total_cap = sum(s.market_cap for s in stocks)
+        if total_cap <= 0:
+            continue
+        # セクターの前日比 = 時価総額加重平均（全構成銘柄）
+        w_change = sum(s.market_cap * s.change_pct for s in stocks) / total_cap
+        tiles = [{
+            'code': s.display_code,
+            'name': s.name,
+            'cap': s.market_cap,
+            'chg': round(s.change_pct, 2),
+        } for s in stocks[:HEATMAP_TILES_PER_SECTOR]]
+        rest = stocks[HEATMAP_TILES_PER_SECTOR:]
+        if rest:
+            rest_cap = sum(s.market_cap for s in rest)
+            rest_chg = sum(s.market_cap * s.change_pct for s in rest) / rest_cap
+            tiles.append({'code': '', 'name': f'その他{len(rest)}銘柄',
+                          'cap': rest_cap, 'chg': round(rest_chg, 2)})
+        sectors.append({
+            'name': name,
+            'cap': total_cap,
+            'chg': round(w_change, 2),
+            'count': len(stocks),
+            'tiles': tiles,
+        })
+        d = stocks[0].price_date
+        if d and (price_date is None or d > price_date):
+            price_date = d
+
+    sectors.sort(key=lambda x: x['cap'], reverse=True)
+
+    context = {
+        'heatmap_data': {
+            'sectors': sectors,
+            'currency': 'USD' if country == 'US' else 'JPY',
+        },
+        'sectors': sectors,
+        'price_date': price_date,
+        'total_count': qs.count(),
+        'country': country,
+        'countries': COUNTRIES,
+        'is_us': country == 'US',
+    }
+    return render(request, 'japan_kabu/heatmap.html', context)
 
 
 def _indicator_values(close, rep, ttm_np=None):

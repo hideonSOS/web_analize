@@ -1,0 +1,75 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}セクターヒートマップ | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'japan_kabu/css/marketcap.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'japan_kabu/css/heatmap.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="mc">
+  <h1 class="mc-title">セクターヒートマップ</h1>
+
+  <div class="mc-country">
+    {% for code, label in countries %}
+    <a href="?country={{ code }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  {% if sectors %}
+  <p class="mc-meta">
+    基準日: {{ price_date|date:"Y/m/d" }} ／ 対象 {{ total_count }}銘柄<br>
+    面積=時価総額、色=前日比。セクターの騰落率は時価総額加重平均
+    {% if is_us %}<br><span style="color:#9ca3af">米国株はS&amp;P500構成銘柄が対象（GICSセクター）</span>
+    {% else %}<br><span style="color:#9ca3af">日本株は17業種区分</span>{% endif %}
+  </p>
+
+  <div class="hm-legend">
+    <span class="hm-legend-label">-3%以下</span>
+    <span class="hm-swatch" data-chg="-3"></span>
+    <span class="hm-swatch" data-chg="-2"></span>
+    <span class="hm-swatch" data-chg="-1"></span>
+    <span class="hm-swatch" data-chg="0"></span>
+    <span class="hm-swatch" data-chg="1"></span>
+    <span class="hm-swatch" data-chg="2"></span>
+    <span class="hm-swatch" data-chg="3"></span>
+    <span class="hm-legend-label">+3%以上</span>
+  </div>
+
+  <div id="hm-treemap" class="hm-treemap"></div>
+  <div id="hm-tooltip" class="hm-tooltip" hidden></div>
+
+  <details class="mc-table-wrap">
+    <summary>セクター一覧表を表示</summary>
+    <table class="mc-table">
+      <thead>
+        <tr><th>セクター</th><th class="num">前日比</th><th class="num">時価総額</th><th class="num">銘柄数</th></tr>
+      </thead>
+      <tbody>
+        {% for sec in sectors %}
+        <tr>
+          <td>{{ sec.name }}</td>
+          <td class="num hm-cell-chg" data-chg="{{ sec.chg }}">{{ sec.chg|floatformat:2 }}%</td>
+          <td class="num" data-cap="{{ sec.cap }}"></td>
+          <td class="num">{{ sec.count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% else %}
+  <div class="mc-empty">
+    <p>データが未取得です。以下のコマンドでデータを取得してください。</p>
+    <pre>python manage.py {% if is_us %}update_us_ranking{% else %}update_jp_ranking{% endif %}</pre>
+  </div>
+  {% endif %}
+</main>
+
+{{ heatmap_data|json_script:"heatmap-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'japan_kabu/js/heatmap.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

@@ -59,12 +59,12 @@ class Command(BaseCommand):
             return
         self.stdout.write(f'対象: {len(stocks)}銘柄')
 
-        vol_result, closes_map, price_date = self._fetch_volume(stocks)
+        vol_result, closes_map, chg_map, price_date = self._fetch_volume(stocks)
         caps = {} if options['no_marketcap'] else self._fetch_marketcaps(
             stocks, closes_map,
             refresh_shares=options['refresh_shares'], workers=options['workers'])
 
-        updated = self._apply(stocks, vol_result, caps, price_date)
+        updated = self._apply(stocks, vol_result, caps, chg_map, price_date)
         self.stdout.write(self.style.SUCCESS(
             f'完了: 日本株ランキング更新 {updated}銘柄'
             f'（時価総額 {len(caps)}件 / 出来高 {len(vol_result)}件 / 基準日 {price_date}）'))
@@ -76,26 +76,28 @@ class Command(BaseCommand):
 
     # ---- 出来高（一括ダウンロード・チャンク分割） -----------------------
     def _fetch_volume(self, stocks):
-        """{code:(volume,ratio,z)}, {code:latest_close}, 基準日 を返す
+        """{code:(volume,ratio,z)}, {code:latest_close}, {code:前日比%}, 基準日 を返す
 
         500銘柄を超えると1回のdownloadで取りこぼれるため DOWNLOAD_CHUNK 件ずつ投げる。
         ここで得た最新終値は時価総額の再計算にも使い回す。
+        前日比はセクターヒートマップ用（同じ取得データから算出・追加コールなし）。
         """
         result = {}
         closes_map = {}
+        chg_map = {}
         price_date = None
         for i in range(0, len(stocks), DOWNLOAD_CHUNK):
             chunk = stocks[i:i + DOWNLOAD_CHUNK]
-            pd_chunk = self._download_chunk(chunk, result, closes_map)
+            pd_chunk = self._download_chunk(chunk, result, closes_map, chg_map)
             if pd_chunk is not None:
                 price_date = pd_chunk
             if (i // DOWNLOAD_CHUNK) % 5 == 4:
                 self.stdout.write(f'  出来高取得 {min(i + DOWNLOAD_CHUNK, len(stocks))}/{len(stocks)} ...')
         if price_date is None:
             self.stderr.write('yf.download が全チャンクで空を返しました')
-        return result, closes_map, price_date
+        return result, closes_map, chg_map, price_date
 
-    def _download_chunk(self, chunk, result, closes_map):
+    def _download_chunk(self, chunk, result, closes_map, chg_map):
         import yfinance as yf
 
         by_ticker = {self._yf(s): s for s in chunk}
@@ -129,9 +131,11 @@ class Command(BaseCommand):
                     for v, c in zip(v_ser.tolist(), c_vals)
                     if v == v and c == c and v > 0  # NaN除外
                 ]
-                last_close = next((float(c) for c in reversed(c_vals) if c == c), None)
-                if last_close is not None:
-                    closes_map[s.code] = last_close
+                valid_closes = [float(c) for c in c_vals if c == c]  # NaN除外
+                if valid_closes:
+                    closes_map[s.code] = valid_closes[-1]
+                if len(valid_closes) >= 2 and valid_closes[-2] > 0:
+                    chg_map[s.code] = (valid_closes[-1] / valid_closes[-2] - 1) * 100
             except Exception:  # noqa: BLE001
                 continue
             score = self._score(pairs)
@@ -229,7 +233,7 @@ class Command(BaseCommand):
         return None
 
     # ---- Stock へ書き戻し ----------------------------------------------
-    def _apply(self, stocks, vol_result, caps, price_date):
+    def _apply(self, stocks, vol_result, caps, chg_map, price_date):
         by_code = {s.code: s for s in stocks}
         touched = []
         for code, (mc, price, shares) in caps.items():
@@ -243,6 +247,14 @@ class Command(BaseCommand):
             if shares is not None:
                 s.shares = shares
             touched.append(s)
+
+        chg_touched = []
+        for code, pct in chg_map.items():
+            s = by_code.get(code)
+            if not s:
+                continue
+            s.change_pct = pct
+            chg_touched.append(s)
 
         vol_touched = []
         for code, (vol, ratio, z) in vol_result.items():
@@ -258,8 +270,10 @@ class Command(BaseCommand):
         if touched:
             Stock.objects.bulk_update(
                 touched, ['market_cap', 'close', 'price_date', 'shares'], batch_size=500)
+        if chg_touched:
+            Stock.objects.bulk_update(chg_touched, ['change_pct'], batch_size=500)
         if vol_touched:
             Stock.objects.bulk_update(
                 vol_touched, ['volume', 'volume_ratio', 'volume_z', 'volume_date'],
                 batch_size=500)
-        return len({s.code for s in touched + vol_touched})
+        return len({s.code for s in touched + chg_touched + vol_touched})
