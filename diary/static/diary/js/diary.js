@@ -36,6 +36,7 @@
   function openModal() {
     loadStocks();
     overlay.hidden = false;
+    setCurrency('JP');   // 既定は円。米国株を選んだ時点で$へ切替
     if (!recordedAt.value) recordedAt.value = nowLocalValue();
     // 非表示のままでは高さを測れないため、表示後に自動リサイズを効かせ直す
     if (window.autoGrowTextareas) window.autoGrowTextareas(overlay);
@@ -49,13 +50,26 @@
     }
   });
 
-  // 概算金額 = 株価 × 株数 を自動表示
+  // 通貨単位（銘柄の国で切替）。米国株は$・日本株は円で入力/保存する。
+  // ※アプリは米国株を一貫してドルで扱う（Stock.close・指標・ランキングも$）。
+  //   円換算して混ぜると損益に為替が混入するため、記録もドルのまま持つ。
+  let selectedCurrency = 'JPY';
+  function setCurrency(country) {
+    selectedCurrency = country === 'US' ? 'USD' : 'JPY';
+    const unit = selectedCurrency === 'USD' ? '$' : '円';
+    document.querySelectorAll('#dy-form .dy-cur-unit').forEach((el) => { el.textContent = unit; });
+    updateAmount();
+  }
+
+  // 概算金額 = 株価 × 株数 を自動表示（選択中の通貨に合わせる）
   const sharesInput = document.getElementById('dy-shares');
   const amountInput = document.getElementById('dy-amount');
   function updateAmount() {
     const p = parseFloat(priceInput.value);
     const n = parseInt(sharesInput.value, 10);
-    amountInput.value = (p > 0 && n > 0) ? Math.round(p * n).toLocaleString() + ' 円' : '';
+    if (!(p > 0 && n > 0)) { amountInput.value = ''; return; }
+    const amt = Math.round(p * n).toLocaleString();
+    amountInput.value = selectedCurrency === 'USD' ? '$' + amt : amt + ' 円';
   }
   priceInput.addEventListener('input', updateAmount);
   sharesInput.addEventListener('input', updateAmount);
@@ -166,6 +180,7 @@
         e.preventDefault();
         searchInput.value = label(s);
         codeInput.value = s.code;  // マスタのPK（JP:数字 / US:"US-<ticker>"）
+        setCurrency(s.country);    // 米国株なら入力単位を$へ（保存はドルのまま）
         if (s.close !== null) priceInput.value = s.close;
         updateAmount();
         list.hidden = true;

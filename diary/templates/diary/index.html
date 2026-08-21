@@ -188,7 +188,7 @@
         <label class="dy-field">日時
           <input type="datetime-local" name="recorded_at" id="dy-recorded-at" required />
         </label>
-        <label class="dy-field">株価（円）
+        <label class="dy-field">株価（<span class="dy-cur-unit">円</span>）
           <input type="number" name="price" id="dy-price" step="0.1" inputmode="decimal" placeholder="銘柄選択で自動入力" />
         </label>
       </div>
@@ -196,7 +196,7 @@
         <label class="dy-field">株数
           <input type="number" name="shares" id="dy-shares" step="1" min="1" inputmode="numeric" placeholder="例: 100" />
         </label>
-        <label class="dy-field">概算金額（円）
+        <label class="dy-field">概算金額（<span class="dy-cur-unit">円</span>）
           <input type="text" id="dy-amount" readonly placeholder="株価×株数で自動計算" tabindex="-1" />
         </label>
       </div>
@@ -211,7 +211,7 @@
       <div id="dy-exit">
         <div class="dy-field-row">
           <div class="dy-field">
-            <span class="dy-field-label">目標株価（円）</span>
+            <span class="dy-field-label">目標株価（<span class="dy-cur-unit">円</span>）</span>
             <div class="dy-pct-row">
               <select id="dy-target-pct">
                 <option value="">%選択</option>
@@ -224,7 +224,7 @@
             </div>
           </div>
           <div class="dy-field">
-            <span class="dy-field-label">損切りライン（円）</span>
+            <span class="dy-field-label">損切りライン（<span class="dy-cur-unit">円</span>）</span>
             <div class="dy-pct-row">
               <select id="dy-stop-pct">
                 <option value="">%選択</option>
