@@ -43,6 +43,11 @@ SECRET_KEY = 'django-insecure-tot_73$-4x))d5p^(g+1@t+=g$f-_omng=%un#ze)dhba-9u#c
 DEBUG = True
 
 ALLOWED_HOSTS = []
+# 開発時のみLAN内の実機（スマホ等）からIPアクセスして表示確認できるよう全許可する。
+# DEBUG=True 限定なので本番(DEBUG=False)には影響しない。本番デプロイ時は
+# DEBUG=False に切り替えたうえで ALLOWED_HOSTS にドメイン/IPを明示すること（CLAUDE.md 参照）。
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
 
 
 # Application definition

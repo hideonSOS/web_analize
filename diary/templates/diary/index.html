@@ -87,7 +87,7 @@
       <span class="dy-badge dy-badge-{{ r.e.action }}">{{ r.e.get_action_display }}</span>
       <span class="dy-stock">
         {% if r.e.stock and r.e.stock.country == 'JP' %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}
-        {% if r.e.stock_code %}（{{ r.e.stock_code }}）{% endif %}
+        {% if r.e.stock_code %}<span class="dy-stock-code">（{{ r.e.stock_code }}）</span>{% endif %}
         {% if r.e.stock and r.e.stock.country == 'US' %}<span class="dy-us-tag">US</span>{% endif %}
       </span>
       <span class="dy-date">{{ r.e.recorded_at|date:"Y/m/d H:i" }}</span>
@@ -99,20 +99,20 @@
 
     <div class="dy-price-row">
       {% if r.e.price %}
-      <span>記録時 {{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}{% if r.e.shares %} × {{ r.e.shares|intcomma }}株{% endif %}</span>
+      <div class="dy-price-line">
+        <span class="dy-price-cell"><span class="dy-price-val">{{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}{% if r.e.shares %} × {{ r.e.shares|intcomma }}株{% endif %}</span><span class="dy-price-when">：価格（記録時）</span></span>
+      </div>
       {% if r.current_close %}
-      <span>→ 現在 {{ r.cur_pre }}{{ r.current_close|floatformat:1 }}{{ r.cur_suf }}</span>
-      <span class="dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">
-        その後 {% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%
-      </span>
-      {% if r.pnl is not None %}
-      <span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">
-        概算損益 {% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{{ r.pnl|floatformat:0|intcomma }}{{ r.cur_suf }}
-      </span>
+      <div class="dy-price-line">
+        <span class="dy-price-cell"><span class="dy-price-val">{{ r.cur_pre }}{{ r.current_close|floatformat:1 }}{{ r.cur_suf }}</span><span class="dy-price-when">：価格（現在）</span></span>
+        <span class="dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">その後 {% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
+        {% if r.pnl is not None %}
+        <span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">概算損益 {% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{{ r.pnl|floatformat:0|intcomma }}{{ r.cur_suf }}</span>
+        {% endif %}
+      </div>
       {% endif %}
       {% endif %}
-      {% endif %}
-      {% if r.e.mood %}<span class="dy-mood">心理: {{ r.e.mood }}</span>{% endif %}
+      {% if r.e.mood %}<div class="dy-price-line"><span class="dy-mood">心理: {{ r.e.mood }}</span></div>{% endif %}
     </div>
 
     {% if r.e.target_price or r.e.stop_price %}

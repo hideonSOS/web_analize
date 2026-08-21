@@ -36,6 +36,7 @@
 .dy-card{
   border:1px solid #1f2937; background:#0b1220; border-radius:12px;
   padding:14px 18px; margin-bottom:14px;
+  position:relative;   /* スマホでゴミ箱を最下部へ絶対配置する基準 */
 }
 .dy-card-head{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
 .dy-badge{ font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; }
@@ -60,7 +61,13 @@
 .dy-del-icon:hover{ color:#fca5a5; border-color:#7f1d1d; background:rgba(239,68,68,.1); }
 .dy-card-head .dy-del-icon{ margin-left:4px; }
 
-.dy-price-row{ display:flex; flex-wrap:wrap; gap:12px; margin:8px 0 0; font-size:13px; color:#e5e7eb; }
+/* 価格は「値：ラベル」を縦に並べる。値を先頭にして左端で揃え、比較しやすくする */
+.dy-price-row{ display:flex; flex-direction:column; gap:4px; margin:8px 0 0; font-size:13px; color:#e5e7eb; }
+.dy-price-line{ display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; }
+/* 値＋ラベルはひとまとまり（間に隙間を空けない）。その後/概算損益はgapで離す */
+.dy-price-cell{ white-space:nowrap; }
+.dy-price-val{ font-weight:700; }
+.dy-price-when{ color:#93c5fd; font-weight:400; font-size:.82em; }
 .dy-change{ font-weight:700; }
 .dy-change.up{ color:#22c55e; }
 .dy-change.down{ color:#ef4444; }
@@ -205,5 +212,16 @@
 
 @media (max-width:600px){
   .dy-field-row{ grid-template-columns:1fr; }
-  .dy-date{ margin-left:0; width:100%; }
+  /* 日付を「買い」バッジの横に置いて行数を減らす。銘柄名だけ次の行に送る */
+  .dy-card-head .dy-badge{ order:0; }
+  .dy-card-head .dy-date{ order:1; margin-left:0; width:auto; }
+  .dy-card-head .dy-stock{ order:2; width:100%; }
+  /* ゴミ箱ボタンはカード最下部・右寄せに配置（ヘッダーから絶対配置で移動） */
+  .dy-card{ padding-bottom:42px; }
+  .dy-card-head .dy-del-form{ position:absolute; right:12px; bottom:8px; margin:0; }
+  .dy-card-head .dy-del-icon{ font-size:18px; padding:5px 9px; }
+  /* 銘柄ラベルはティッカーコードを省いて行数を減らす（銘柄名のみ表示） */
+  .dy-stock-code{ display:none; }
+  /* 価格表示をさらに大きく読みやすく */
+  .dy-price-row{ font-size:17px; }
 }

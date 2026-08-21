@@ -1,7 +1,18 @@
+/* モバイルブラウザの自動フォント拡大(text inflation / font boosting)を無効化する。
+   放置すると幅の広いブロック内の長いテキストだけ勝手に巨大化し、レイアウトが崩れる。
+   （実機で売買日記カードの銘柄名が巨大化し、下の価格行に重なる不具合の原因だった。
+   PC/devtoolsのデバイスモードでは再現しないので気付きにくい） */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
 body { margin:0; font-family: sans-serif; background:#000; color:#fff; }
-header, nav { padding:20px; border-bottom:1px solid #1e90ff; }
-header { background:#000; padding:20px 20px 0; }
-header p { margin:5px 0 0; color:#87cefa; }
+/* サイト共通ヘッダーは body 直下の <header> のみを対象にする。
+   ここを素の `header` セレクタにすると、売買日記カードなど各コンポーネントの
+   <header> にも padding/background/height が漏れてレイアウトが壊れる
+   （実際、下のモバイル指定 height:40px がカードヘッダーを潰し、銘柄名が
+   価格行に重なる不具合の原因になっていた）。 */
+body > header, nav { padding:20px; border-bottom:1px solid #1e90ff; }
+body > header { background:#000; padding:20px 20px 0; }
+body > header p { margin:5px 0 0; color:#87cefa; }
 
 .site-title { font-size:20px; font-weight:bold; letter-spacing:2px; }
 .site-title a { color:#1e90ff; text-decoration:none; text-shadow:0 0 8px rgba(30,144,255,.8); }
@@ -28,8 +39,9 @@ nav a.nav-logout { color:#6b7280; font-weight:normal; font-size:13px; }
 .ham-btn{display:none;}
 @media (max-width: 768px) {
     /* ナビはオーバーレイ表示になり通常フローから外れるため、
-       ヘッダーはハンバーガーボタンを収める高さだけ確保する */
-    header { height:40px; }
+       ヘッダーはハンバーガーボタンを収める高さだけ確保する。
+       body 直下のサイトヘッダー限定（カード等の<header>に漏らさない） */
+    body > header { height:40px; }
     .ham-nav{
         margin:0;
         position:fixed;
