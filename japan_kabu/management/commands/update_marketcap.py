@@ -85,10 +85,21 @@ class Command(BaseCommand):
                     'sector17': r.get('S17Nm', ''),
                 },
             )
-        # 上場廃止銘柄の削除（日本株のみ。米国株マスタには触れない）
+        # 上場廃止銘柄の削除（日本株のみ。米国株マスタには触れない）。
+        # ⚠️ StockKarte.stock は OneToOne CASCADE、DiaryEntry.stock も紐づく。
+        #   マスタに一時的に載らない銘柄を削除すると、手入力のカルテ/日記が道連れで
+        #   消える事故が起きる（実際にサーバーで発生）。**手入力データが紐づく銘柄は
+        #   絶対に削除しない**（上場廃止でもマスタから外れるだけで実害はない）。
+        from diary.models import DiaryEntry
+        from karte.models import StockKarte
         codes = {r['Code'] for r in rows}
-        removed, _ = Stock.objects.filter(country='JP').exclude(code__in=codes).delete()
-        self.stdout.write(f'マスタ更新: {len(rows)}銘柄（削除 {removed}）')
+        protected = set(StockKarte.objects.values_list('stock_id', flat=True))
+        protected |= set(DiaryEntry.objects.filter(stock__isnull=False)
+                         .values_list('stock_id', flat=True))
+        removed, _ = (Stock.objects.filter(country='JP')
+                      .exclude(code__in=codes)
+                      .exclude(code__in=protected).delete())
+        self.stdout.write(f'マスタ更新: {len(rows)}銘柄（削除 {removed}・カルテ/日記銘柄は保護）')
 
     def update_shares(self, full=False, backfill_years=0):
         """開示日ベースで決算サマリーを走査し、発行済株式数と通期決算を更新する"""

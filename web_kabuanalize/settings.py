@@ -36,18 +36,21 @@ SITE_PASSWORD = _config.get('site_password', '')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-tot_73$-4x))d5p^(g+1@t+=g$f-_omng=%un#ze)dhba-9u#c'
+# ⚠️ 本番/開発の差は settings.py を書き換えず config.json で与えること。
+#   settings.py を環境ごとに編集すると git pull のたびに衝突して更新できなくなる
+#   （実際にサーバーで発生）。以下は config.json 未設定なら開発既定になる。
+#   本番の config.json 例:
+#     "secret_key": "<新規生成した鍵>", "debug": false,
+#     "allowed_hosts": ["ドメイン", "サーバーIP"]
+SECRET_KEY = _config.get('secret_key') \
+    or 'django-insecure-tot_73$-4x))d5p^(g+1@t+=g$f-_omng=%un#ze)dhba-9u#c'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# 本番は config.json で "debug": false にする。未指定は開発扱いで True。
+DEBUG = _config.get('debug', True)
 
-ALLOWED_HOSTS = []
-# 開発時のみLAN内の実機（スマホ等）からIPアクセスして表示確認できるよう全許可する。
-# DEBUG=True 限定なので本番(DEBUG=False)には影響しない。本番デプロイ時は
-# DEBUG=False に切り替えたうえで ALLOWED_HOSTS にドメイン/IPを明示すること（CLAUDE.md 参照）。
-if DEBUG:
-    ALLOWED_HOSTS = ['*']
+# 本番は config.json の "allowed_hosts" を使う。開発(DEBUG=True)で未指定なら
+# LAN内の実機（スマホ等）から確認できるよう全許可にする。
+ALLOWED_HOSTS = _config.get('allowed_hosts') or (['*'] if DEBUG else [])
 
 
 # Application definition

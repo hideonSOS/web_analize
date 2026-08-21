@@ -103,9 +103,13 @@ japan_kabu_* はバッチで再生成できるが、**銘柄カルテ(karte_*)�
 `.gitignore` で除外しているため、**サーバーには手動で設置する**。プロジェクト直下に:
 ```json
 {
-    "api_key": "<J-Quants APIキー>",
+    "api_key": "<J-Quants APIキー（無料プラン）>",
     "edinet_api_key": "<EDINET APIキー>",
     "site_password": "<サイト閲覧用の合言葉>",
+    "_本番のみ": "以下3つは本番の config.json だけに入れる（開発は未指定＝開発既定）",
+    "secret_key": "<本番用に新規生成した鍵>",
+    "debug": false,
+    "allowed_hosts": ["ドメイン名", "サーバーIP"],
     "database": {
         "NAME": "web_kabuanalize",
         "USER": "postgres",
@@ -421,17 +425,19 @@ sudo -u postgres psql -c "CREATE DATABASE web_kabuanalize ENCODING 'UTF8' LC_COL
 プロジェクト直下に配置する。書式は下の「config.json」節を参照。
 **DBパスワードはサーバー用に変更すること**（開発機の値をそのまま使わない）。
 
-### 4. 本番用の設定変更（`web_kabuanalize/settings.py`）
-現状は開発用のままなので、以下3点を必ず変更する。**未対応だとサイトが表示されない。**
-
-| 項目 | 現状 | 変更内容 |
-|---|---|---|
-| `DEBUG` | `True` | `False` |
-| `ALLOWED_HOSTS` | `[]`（DEBUG時のみ`['*']`） | `['ドメイン名', 'サーバーIP']`。**空のままだと全リクエストを拒否** |
-| `SECRET_KEY` | `django-insecure-...` | 新規生成して差し替え |
-
-`STATIC_ROOT` は `BASE_DIR / "static"` に**設定済み**（collectstaticの出力先）。
-この `static/` は `.gitignore` 済みで、各環境で collectstatic して生成する。
+### 4. 本番用の設定（**settings.py は編集しない。config.json に書く**）
+本番/開発の差は **`config.json`（git管理外）** で与える。**`settings.py` を環境ごとに
+編集してはいけない**——編集すると `git pull` のたびに衝突して更新できなくなる
+（実際にサーバーで発生した）。本番の `config.json` に以下を追加する:
+```json
+{
+    "secret_key": "<新規生成した鍵>",
+    "debug": false,
+    "allowed_hosts": ["ドメイン名", "サーバーIP"]
+}
+```
+未指定なら開発既定（`debug:true` / `allowed_hosts:['*']` / 開発用SECRET_KEY）になる。
+`STATIC_ROOT` は `BASE_DIR / "static"` に固定（`.gitignore` 済み。各環境で collectstatic）。
 
 SECRET_KEY の生成:
 ```bash
