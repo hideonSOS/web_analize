@@ -9,5 +9,7 @@ urlpatterns = [
     path('volume/', views.volume_ranking, name='volume'),
     path('heatmap/', views.heatmap, name='heatmap'),
     path('impulse/', views.impulse, name='impulse'),
+    path('drawdown/', views.drawdown, name='drawdown'),
+    path('macro/', views.macro, name='macro'),
     path('stock/<str:code>/', views.stock_detail, name='stock_detail'),
 ]

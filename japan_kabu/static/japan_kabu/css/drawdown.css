@@ -1,0 +1,92 @@
+/* セクター別ドローダウン（高値からの下落率・深い順）
+   「下がりきったセクター」を探す逆張り用ページ。karteの押し目一覧と同系の横棒だが、
+   こちらはセクター等加重指数が対象。ダークテーマ・JSなし（<details>で内訳を開閉） */
+
+.dd-desc{ line-height:1.7; }
+.dd-link{ color:#87cefa; text-decoration:underline; }
+
+.dd-list{ max-width:860px; margin:0 auto; }
+
+/* 行: [セクター名 | バー | サブ指標] の3カラム。summary なのでクリックで内訳が開く */
+.dd-row{
+  display:grid;
+  grid-template-columns: 150px 1fr 300px;
+  gap:10px; align-items:center;
+  padding:9px 10px;
+}
+.dd-item{ border-bottom:1px solid #1f2937; }
+.dd-item summary{ cursor:pointer; list-style:none; }
+.dd-item summary::-webkit-details-marker{ display:none; }
+.dd-item summary:hover{ background:#0b1220; }
+.dd-item[open] summary{ background:#0b1220; }
+
+.dd-head{
+  color:#6b7280; font-size:11px; padding:4px 10px;
+  border-bottom:1px solid #374151;
+}
+
+.dd-name{
+  color:#e5e7eb; font-size:14px; font-weight:700;
+  text-align:right; white-space:nowrap;
+}
+.dd-members{
+  display:block; font-size:10px; font-weight:400; color:#9ca3af;
+  overflow:hidden; text-overflow:ellipsis;
+}
+
+/* 下落バー。深いほど長い（最深=100%）。⚠️ 値はマイナスなので右向きに「深さ」を描く */
+.dd-bar-wrap{ display:flex; align-items:center; gap:8px; min-width:0; }
+.dd-bar{
+  flex:1; height:14px; background:#111827; border-radius:3px; overflow:hidden;
+}
+.dd-fill{
+  display:block; height:100%;
+  background:linear-gradient(90deg, #7f1d1d, #e5484d);
+  border-radius:3px;
+}
+.dd-val{
+  width:60px; text-align:right; flex:none;
+  color:#f87171; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums;
+}
+
+.dd-sub{ display:flex; gap:12px; align-items:center; white-space:nowrap; }
+.dd-stat{ color:#9ca3af; font-size:11px; }
+.dd-stat b{ color:#e5e7eb; font-weight:700; font-variant-numeric:tabular-nums; }
+.dd-stat b.neg{ color:#f87171; }
+.dd-stat b.pos{ color:#4ade80; }
+.dd-warn{
+  color:#0b1220; background:#fbbf24; border-radius:999px;
+  font-size:10px; font-weight:700; padding:1px 7px;
+}
+
+/* 構成銘柄の内訳（<details>の中身） */
+.dd-detail{ padding:2px 10px 10px 170px; }
+.dd-member{
+  display:grid; grid-template-columns: 70px 1fr 70px 70px;
+  gap:10px; align-items:center;
+  padding:3px 0; font-size:12px; color:#9ca3af;
+}
+.dd-m-code{ color:#87cefa; font-weight:700; }
+.dd-m-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dd-m-dd{ text-align:right; color:#e5e7eb; font-variant-numeric:tabular-nums; }
+.dd-m-dd.deep{ color:#f87171; font-weight:700; }
+.dd-m-since{ text-align:right; font-size:10px; color:#6b7280; }
+
+.dd-note{
+  max-width:860px; margin:18px auto 0; text-align:center;
+  color:#6b7280; font-size:11px; line-height:1.8;
+}
+
+@media (max-width:768px){
+  /* 3カラム → 2段組（名前+バー / サブ指標）。バーの主役感は保つ */
+  .dd-row{
+    grid-template-columns: 92px 1fr;
+    gap:6px 8px; padding:8px 6px;
+  }
+  .dd-name{ font-size:12px; }
+  .dd-sub{ grid-column: 2; gap:10px; }
+  .dd-head .dd-sub{ display:none; }
+  .dd-detail{ padding-left:16px; }
+  .dd-m-since{ display:none; }
+  .dd-member{ grid-template-columns: 64px 1fr 60px; }
+}

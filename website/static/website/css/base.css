@@ -106,3 +106,27 @@ nav a.nav-logout { color:#6b7280; font-weight:normal; font-size:13px; }
     .ham-btn span:nth-of-type(2){top:20px;}
     .ham-btn span:nth-of-type(3){top:30px;}
 }
+
+
+/* ---- ナビのグループ化（市場/銘柄/記録）。2026-08-23に項目増加で導入 ----
+   デスクトップ: カテゴリ札+リンク列を縦線で区切って横に並べる。
+   モバイル(ハンバーガー): グループごとに縦積みし、カテゴリ札を見出しにする。
+   ⚠️ 既存の `nav ul` セレクタが内側の <ul> にも効くため、内側は .nav-group > ul で上書きする */
+nav ul.nav-main{ display:flex; gap:0; align-items:center; flex-wrap:wrap; row-gap:8px; }
+.nav-group{ display:flex; align-items:center; gap:12px; }
+.nav-group > ul{ display:flex; gap:14px; margin:0; padding:0; }
+.nav-cap{
+  color:#6b7280; font-size:11px; letter-spacing:1px;
+  border:1px solid #374151; border-radius:999px; padding:1px 9px;
+  white-space:nowrap;
+}
+.nav-group + .nav-group{ border-left:1px solid #1e3a5f; margin-left:18px; padding-left:18px; }
+.nav-group-etc{ margin-left:auto; border-left:none !important; padding-left:0 !important; }
+
+@media (max-width: 768px){
+  nav ul.nav-main{ flex-direction:column; gap:26px; text-align:center; }
+  .nav-group{ flex-direction:column; gap:10px; }
+  .nav-group > ul{ flex-direction:column; gap:16px; }
+  .nav-group + .nav-group{ border-left:none; margin-left:0; padding-left:0; }
+  .nav-group-etc{ margin-left:0; }
+}

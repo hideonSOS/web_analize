@@ -13,19 +13,46 @@
   <h1 class="mc-title">セクター別インパルス</h1>
 
   <div class="mc-country">
+    {# タブを跨いでも mode / country は保つ（片方を切り替えるともう片方が既定に戻るのを防ぐ） #}
     {% for code, label in countries %}
-    <a href="?country={{ code }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    <a href="?country={{ code }}&amp;mode={{ mode }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="mc-country imp-mode">
+    {% for code, label in modes %}
+    <a href="?country={{ country }}&amp;mode={{ code }}"
+       {% if code == mode %}class="active"{% endif %}
+       title="{% if code == 'abs' %}素の騰落率。市場が動いた日は全行が同じ色になる{% else %}その日の市場（全セクター等加重平均）を差し引いた残差。どのテーマに資金が入ったかが残る{% endif %}">{{ label }}</a>
     {% endfor %}
   </div>
 
   {% if has_data %}
   <p class="mc-meta">
     {# スマホでは2行に折り返して無駄に領域を取るので隠す（凡例だけ残す） #}
-    <span class="imp-desc">独自セクターの日次騰落（構成銘柄の単純平均・直近{{ dates|length }}営業日）<br>
-    判定は各セクター自身のボラティリティ基準（±{{ sigma_band }}σ）<br></span>
-    <span class="imp-key imp-key-up">●</span> 上昇
-    ／ <span class="imp-key imp-key-flat">●</span> 中立
-    ／ <span class="imp-key imp-key-down">●</span> 下落
+    <span class="imp-desc">{% if is_rel %}<b>対市場</b>: 各セクターからその日の市場ぶんを引いた残差（＝どのテーマに資金が入ったか）{% else %}独自セクターの日次騰落（構成銘柄の単純平均）{% endif %}・直近{{ dates|length }}営業日<br>
+    判定は各セクター自身のボラティリティ基準。|z| を {% for t in sigma_steps %}{{ t }}{% if not forloop.last %} / {% endif %}{% endfor %}σ で区切った7段階<br>
+    ここで見えるのは<b>勢い</b>。水準（下がりきったか）は<a class="imp-link" href="{% url 'japan_kabu:drawdown' %}?country={{ country }}">セクター別ドローダウン</a>で<br></span>
+    {# 凡例はセル本体と同じクラスを使う。色を二重定義すると必ず片方が腐るため #}
+    <span class="imp-legend-cap">下落</span>
+    <span class="imp-legend">
+      <i class="imp-down3" title="2.0σ超の下落（極）"></i>
+      <i class="imp-down2" title="1.2〜2.0σの下落（強）"></i>
+      <i class="imp-down1" title="0.5〜1.2σの下落（弱）"></i>
+      <i class="imp-flat"  title="±0.5σ以内（中立）"></i>
+      <i class="imp-up1"   title="0.5〜1.2σの上昇（弱）"></i>
+      <i class="imp-up2"   title="1.2〜2.0σの上昇（強）"></i>
+      <i class="imp-up3"   title="2.0σ超の上昇（極）"></i>
+    </span>
+    <span class="imp-legend-cap">上昇</span>
+    <span class="imp-legend-sep">|</span>
+    <span class="imp-legend-cap">分散度</span>
+    <span class="imp-legend">
+      <i class="imp-d0" title="低い＝全セクターが同方向（マクロ要因が支配）"></i>
+      <i class="imp-d1" title="並"></i>
+      <i class="imp-d2" title="高い"></i>
+      <i class="imp-d3" title="極めて高い＝セクターの明暗が割れた（ローテーション）"></i>
+    </span>
   </p>
 
   <div class="imp-scroll">
@@ -36,11 +63,34 @@
           {% for d in dates %}<th class="imp-date">{{ d|date:"m/d" }}</th>{% endfor %}
         </tr>
       </thead>
+      {# マクロ2行。個別セクターの色を解釈するための土台なので**上**に置き、罫線で区切る #}
+      <tbody class="imp-macro">
+        {% for row in macro_rows %}
+        <tr>
+          <th class="imp-sector-col imp-macro-label" title="{{ row.name }}: {{ row.hint }}">
+            {{ row.name }}
+            <span class="imp-members">{{ row.sub }}</span>
+          </th>
+          {% for c in row.cells %}
+          <td class="imp-cell imp-{{ c.state }}"
+              {% if c.chg is not None %}title="{{ row.name }}: {% if row.kind == 'market' %}{% if c.chg > 0 %}+{% endif %}{{ c.chg }}%（{% if c.sigma > 0 %}+{% endif %}{{ c.sigma }}σ）{% else %}{{ c.chg }}%（過去分布の {{ c.sigma }}%点）{% endif %}"{% endif %}>
+            {% if c.state != 'na' %}<span class="imp-dot"></span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+
+      {# マクロ行と個別セクターの区切り線。専用行なので上下に border-spacing ぶんの空きが入る #}
+      <tbody class="imp-sep" aria-hidden="true">
+        <tr><th class="imp-sector-col"></th><td colspan="{{ dates|length }}"></td></tr>
+      </tbody>
+
       <tbody>
         {% for row in rows %}
         <tr>
           <th class="imp-sector-col {% if row.is_dummy %}imp-dummy-row{% endif %}"
-              title="{{ row.name }}: 判定幅 ±{{ row.band }}%（±{{ sigma_band }}σ）">
+              title="{{ row.name }} の判定幅（このセクター自身のσ基準）&#10;{% for b in row.bands %}{% if forloop.first %}中立: ±{{ b.pct }}% 未満（{{ b.sigma }}σ）&#10;{% else %}{% if forloop.counter == 2 %}強{% else %}極{% endif %}: ±{{ b.pct }}% 超（{{ b.sigma }}σ）&#10;{% endif %}{% endfor %}">
             {{ row.name }}{% if row.is_dummy %}<span class="imp-badge">ダミー</span>{% endif %}
             <span class="imp-members"
                   {% if row.members %}title="{% for m in row.members %}{{ m.display_code }} {{ m.name }}{% if not forloop.last %} / {% endif %}{% endfor %}"{% endif %}>

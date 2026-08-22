@@ -16,15 +16,43 @@
         <span></span><span></span><span></span>
       </button>
       <!-- ナビゲーション -->
+      {% comment %}
+        ナビは「市場/銘柄/記録」の3グループ+ログアウト。項目が9個に増えて1列では
+        読みにくくなったためグループ化した（ラベルも短縮）。機能を足すときは
+        該当グループの <ul> に1行足すだけ。CSSは base.css の .nav-group 一式。
+        ⚠️ {# #} コメントは単一行専用。複数行は必ずこの comment タグを使うこと
+        （実際に {# #} で複数行を書いて全ページの先頭に生テキストが出た）
+      {% endcomment %}
       <nav class="ham-nav" id="js-nav">
-        <ul>
-          <li><a href="{% url 'japan_kabu:index' %}">時価総額ランキング</a></li>
-          <li><a href="{% url 'japan_kabu:volume' %}">出来高急増ランキング</a></li>
-          <li><a href="{% url 'japan_kabu:impulse' %}">セクター別インパルス</a></li>
-          <li><a href="{% url 'karte:index' %}">銘柄カルテ</a></li>
-          <li><a href="{% url 'diary:index' %}">売買日記</a></li>
-          <li><a href="{% url 'japan_kabu:stock_detail' '6758' %}">銘柄別指標</a></li>
-          <li><a href="{% url 'website:logout' %}" class="nav-logout">ログアウト</a></li>
+        <ul class="nav-main">
+          <li class="nav-group">
+            <span class="nav-cap">市場</span>
+            <ul>
+              <li><a href="{% url 'japan_kabu:index' %}">時価総額</a></li>
+              <li><a href="{% url 'japan_kabu:volume' %}">出来高急増</a></li>
+              <li><a href="{% url 'japan_kabu:impulse' %}">インパルス</a></li>
+              <li><a href="{% url 'japan_kabu:drawdown' %}">ドローダウン</a></li>
+              <li><a href="{% url 'japan_kabu:macro' %}">マクロ</a></li>
+            </ul>
+          </li>
+          <li class="nav-group">
+            <span class="nav-cap">銘柄</span>
+            <ul>
+              <li><a href="{% url 'japan_kabu:stock_detail' '6758' %}">銘柄指標</a></li>
+              <li><a href="{% url 'karte:index' %}">カルテ</a></li>
+            </ul>
+          </li>
+          <li class="nav-group">
+            <span class="nav-cap">記録</span>
+            <ul>
+              <li><a href="{% url 'diary:index' %}">売買日記</a></li>
+            </ul>
+          </li>
+          <li class="nav-group nav-group-etc">
+            <ul>
+              <li><a href="{% url 'website:logout' %}" class="nav-logout">ログアウト</a></li>
+            </ul>
+          </li>
         </ul>
       </nav>
     </header>

@@ -61,6 +61,16 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
+# マクロ指標（日米のCPI・失業率）。FRED/DBnomicsから月次系列を取得（数秒・キー不要）。
+# 月次データだが、季節調整の遡及改定に追従するため日次で回す（差分のみ書き込み）
+echo "===== $(date '+%F %T') manage.py update_macro =====" >> "$LOG"
+if "$PY" manage.py update_macro >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'us_ranking_*.log' -mtime +30 -delete 2>/dev/null
 

@@ -1,0 +1,81 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}セクター別ドローダウン | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'japan_kabu/css/marketcap.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'japan_kabu/css/drawdown.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="mc">
+  <h1 class="mc-title">セクター別ドローダウン</h1>
+
+  <div class="mc-country">
+    {% for code, label in countries %}
+    <a href="?country={{ code }}" {% if code == country %}class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  {% if has_data %}
+  <p class="mc-meta">
+    <span class="dd-desc">独自セクターの等加重指数が<b>高値から何%下がっているか</b>（深い順）<br>
+    下がりきったセクターを絞り込み、下げ止まりは
+    <a class="dd-link" href="{% url 'japan_kabu:impulse' %}?country={{ country }}&amp;mode=rel">セクター別インパルス（対市場）</a>で確認する<br></span>
+  </p>
+
+  <div class="dd-list">
+    {# 凡例行 #}
+    <div class="dd-row dd-head" aria-hidden="true">
+      <span class="dd-name"></span>
+      <span class="dd-bar-wrap">高値からの下落率（全期間）</span>
+      <span class="dd-sub">1年高値比 / 1年騰落 / 直近5日</span>
+    </div>
+
+    {% for row in rows %}
+    <details class="dd-item">
+      <summary class="dd-row">
+        <span class="dd-name">
+          {{ row.name }}
+          <span class="dd-members">{{ row.members_label }}</span>
+        </span>
+        <span class="dd-bar-wrap" title="{{ row.since|date:'Y-m' }}以降の高値比 {{ row.dd_all }}%・レンジ内位置 {{ row.pos|floatformat:0 }}%（0%=安値・100%=高値）">
+          <span class="dd-bar"><span class="dd-fill" style="width: {{ row.bar }}%"></span></span>
+          <span class="dd-val">{{ row.dd_all }}%</span>
+        </span>
+        <span class="dd-sub">
+          <span class="dd-stat" title="直近1年の高値からの下落率">1年高値比 <b>{{ row.dd_1y }}%</b></span>
+          <span class="dd-stat" title="1年前と比べた騰落率">1年騰落 <b class="{% if row.chg_1y < 0 %}neg{% else %}pos{% endif %}">{% if row.chg_1y > 0 %}+{% endif %}{{ row.chg_1y }}%</b></span>
+          <span class="dd-stat" title="直近5営業日の累積騰落。下げ止まりの気配の早見">5日 <b class="{% if row.chg_5d < 0 %}neg{% else %}pos{% endif %}">{% if row.chg_5d > 0 %}+{% endif %}{{ row.chg_5d }}%</b></span>
+          {% if row.short_history %}<span class="dd-warn" title="履歴が{{ row.days }}日しかないため数字が浅く出ます">履歴短</span>{% endif %}
+        </span>
+      </summary>
+      {# 構成銘柄の内訳。平均が1銘柄に引っ張られていないかを確認する #}
+      <div class="dd-detail">
+        {% for m in row.members %}
+        <div class="dd-member">
+          <span class="dd-m-code">{{ m.code }}</span>
+          <span class="dd-m-name">{% if m.stock %}{{ m.stock.name }}{% endif %}</span>
+          <span class="dd-m-dd {% if m.dd <= -30 %}deep{% endif %}">{{ m.dd|floatformat:1 }}%</span>
+          <span class="dd-m-since">{{ m.since|date:'Y-m' }}〜</span>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+
+  <p class="dd-note">
+    指数は構成銘柄の日次騰落率の単純平均を複利で積んだもの（毎日等ウェートにリバランス・調整後終値）。<br>
+    高値・安値は取得済み履歴（{{ rows.0.since|date:'Y-m' }}頃〜）の中での終値ベース。行をタップすると構成銘柄の内訳が開く。
+  </p>
+
+  {% else %}
+  <div class="mc-empty">
+    <p>データが未取得です。以下のコマンドでデータを取得してください。</p>
+    <pre>python manage.py update_impulse_prices --full --days 900</pre>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

@@ -59,3 +59,6 @@ desktop.ini
 
 # Claude Code のローカル設定（端末固有のため共有しない）
 .claude/settings.local.json
+
+# Claude Code のプレビュー用dev-server設定（Windows固有パスのためサーバーでは使えない）
+.claude/launch.json

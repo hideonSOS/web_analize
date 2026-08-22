@@ -73,8 +73,11 @@ class Command(BaseCommand):
         """[(Stock, yfinanceティッカー)] を返す。マスタに無いコードは警告なしで飛ばさず例外に出る"""
         codes = impulse_universe(country)
         if country == 'JP':
+            # ⚠️ display_code で引かないこと（views.py の _impulse_series と同じ理由）。
+            # 優先株が同じ表示コードを持つため（9434など）、code=表示コード+'0'（普通株）
+            # で確定させる。過去に優先株の行へ9434.Tの株価を書き込む事故が起きた
             found = {s.display_code: s for s in
-                     Stock.objects.filter(country='JP', display_code__in=codes)}
+                     Stock.objects.filter(country='JP', code__in=[f'{c}0' for c in codes])}
             return [(found[c], f'{c}.T') for c in codes if c in found]
         found = {s.display_code: s for s in
                  Stock.objects.filter(country='US', code__in=[f'US-{c}' for c in codes])}

@@ -121,3 +121,29 @@ class DailyVolume(models.Model):
 
     def __str__(self):
         return f"{self.stock_id} {self.date} {self.volume}"
+
+
+class MacroIndicator(models.Model):
+    """米国マクロ経済指標の月次系列（CPI・失業率など）
+
+    FRED（セントルイス連銀）の公開CSV（fredgraph.csv・APIキー不要）から
+    `update_us_macro` が取得して蓄積する。マクロ指標ページ（/japan_kabu/macro/）用。
+
+    設計上の決めごと:
+    - **指数の原数値のまま保存する**（CPIは1982-84=100の指数値）。前年比などの
+      加工はビューで計算する。季節調整済み系列は**過去分も遡って改定される**ため、
+      バッチは毎回全期間を取得して差分を上書きする（月次×約80年でも1,000行未満）。
+    - series は FRED の系列ID（CPIAUCSL=総合CPI / CPILFESL=コアCPI / UNRATE=失業率）。
+    """
+    series = models.CharField(max_length=20, db_index=True)   # FRED系列ID
+    date = models.DateField()                                 # 対象月（月初日付）
+    value = models.FloatField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['series', 'date'], name='uniq_macro_series_date'),
+        ]
+        ordering = ['date']
+
+    def __str__(self):
+        return f"{self.series} {self.date} {self.value}"

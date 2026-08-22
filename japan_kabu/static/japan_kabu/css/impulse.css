@@ -1,11 +1,18 @@
 /* セクター別インパルス（時系列ヒートマップ）
-   横軸=日付・縦軸=独自セクターのグリッド。参考画像（薄赤/薄緑/薄青+同色ドット）に準拠。
-   サイトはダークテーマなのでセルはパステル、文字は明色のまま */
+   横軸=日付・縦軸=独自セクターのグリッド。
+
+   ⚠️ 配色は「中立=暗い / 動いた日ほど明るい」の発散ランプ（7段階）。
+   3値時代のパステル3色（薄緑・薄赤・薄青が同じ明るさ）から**意図的に変えてある**。
+   段階を増やすと同じ明るさの色並びでは順序が読めず、特に中立の青は「弱い」ではなく
+   第3のカテゴリとして読まれて -2σ→0→+2σ の連続性が壊れるため。
+   動きのある行だけが光るので、モメンタムの継続・転換をスキャンで拾える。 */
 
 .imp-scroll{ overflow-x:auto; }   /* 日数が増えたら横スクロール（画面は崩さない） */
 
 .imp-grid{
-  border-collapse:separate; border-spacing:3px 6px;
+  /* 横の間隔は 2px。30列 × (30+2)px = 960px で .mc の max-width:1100px に収まり、
+     デスクトップでは横スクロールせず30営業日を一望できる（日数を増やすときは要再計算） */
+  border-collapse:separate; border-spacing:2px 6px;
   margin:0 auto;
 }
 
@@ -16,9 +23,14 @@
   background:#000;
   color:#e5e7eb; font-size:13px; font-weight:700;
   text-align:right; padding-right:10px; white-space:nowrap;
+  /* ⚠️ td の高さは行の高さ＝この2行ラベルの高さに引っ張られる。
+     line-height を詰めないと 13px+10px の2行が .imp-cell の 30px を超え、
+     セルが縦長の長方形になる（実測: 詰める前は 31×36px だった） */
+  line-height:1.15;
 }
 .imp-members{
   display:block; font-size:10px; font-weight:400; color:#9ca3af; letter-spacing:0;
+  line-height:1.15;
   max-width:15ch; overflow:hidden; text-overflow:ellipsis;  /* 長い銘柄列で列幅が伸びるのを抑える */
   margin-left:auto;                                          /* セクター名と同じく右寄せ */
 }
@@ -33,22 +45,78 @@ thead .imp-date{ vertical-align:bottom; }
 /* セルは正方形。⚠️ td の高さは行の高さに引っ張られるので、
    セクター名列（2行ぶん）がセルより高くならないよう line-height を詰めてある */
 .imp-cell{
-  width:34px; min-width:26px; height:34px;
+  width:30px; min-width:26px; height:30px;
   border-radius:4px;
   text-align:center; vertical-align:middle;
 }
+/* ドットのサイズは段階そのものを表す**色相に依らない冗長符号**（色覚特性への配慮も兼ねる）。
+   下の各段階クラスで width/height を上書きする */
 .imp-dot{
-  display:inline-block; width:14px; height:14px; border-radius:50%;
+  display:inline-block; width:8px; height:8px; border-radius:50%;
 }
 
-/* 3値分類: 上昇=緑 / 下落=赤 / 中立=青（参考画像の配色） */
-.imp-up{   background:#c9f2c9; }
-.imp-up   .imp-dot{ background:#1a8a1a; }
-.imp-down{ background:#ffc9c9; }
-.imp-down .imp-dot{ background:#e02020; }
-.imp-flat{ background:#dbe9fa; }
-.imp-flat .imp-dot{ background:#2044e0; }
-.imp-na{   background:#1f2937; }   /* 休場・データ無し */
+/* ---- 7段階の発散ランプ -------------------------------------------------
+   中立(|z|<=0.5σ) を最も暗く、|z| が大きいほど明るく彩度を上げる。
+   1=弱(0.5〜1.2σ) / 2=強(1.2〜2.0σ) / 3=極(2.0σ超)。境界は impulse.py の SIGMA_STEPS。 */
+.imp-flat{ background:#223046; }
+.imp-flat .imp-dot{ background:#6b8ac4; width:6px; height:6px; }
+
+.imp-up1{ background:#0e4429; }
+.imp-up1 .imp-dot{ background:#26a641; width:8px;  height:8px;  }
+.imp-up2{ background:#1f8a3c; }
+.imp-up2 .imp-dot{ background:#56d364; width:11px; height:11px; }
+.imp-up3{ background:#3fb950; }
+.imp-up3 .imp-dot{ background:#c6f6d5; width:14px; height:14px; }
+
+.imp-down1{ background:#4d1519; }
+.imp-down1 .imp-dot{ background:#a8302c; width:8px;  height:8px;  }
+.imp-down2{ background:#9b2c28; }
+.imp-down2 .imp-dot{ background:#f28b82; width:11px; height:11px; }
+.imp-down3{ background:#e5484d; }
+.imp-down3 .imp-dot{ background:#ffd9d6; width:14px; height:14px; }
+
+/* 「極」(2.0σ超)は月に1回程度しか出ない“イベント日”。白縁で拾いやすくする */
+.imp-up3, .imp-down3{ box-shadow:0 0 0 1px rgba(255,255,255,.45); }
+
+/* 休場・データ無し。⚠️ 塗りではなく**枠線だけ**にしてある。
+   中立が暗色になったので、旧実装の暗いグレー塗り(#1f2937)だと中立と見分けがつかない */
+.imp-na{ background:transparent; box-shadow:inset 0 0 0 1px #232c3a; }
+
+/* ---- 分散度の4段階（片側スケール） -------------------------------------
+   ⚠️ 常に正の量なので**発散ランプを当ててはいけない**（低い＝下落と誤読される）。
+   赤緑・中立の青と衝突しない琥珀の単色ランプで「暗い→明るい」だけを使う。
+   暗い日=全セクターが同方向（マクロ要因が支配） / 明るい日=明暗が割れた（ローテーション） */
+/* ⚠️ d0/d1（=大半の日）は意図的に暗く抑えてある。ここを明るくすると分散度行が
+   グリッド本体より目立ち、主役の入れ替わりが起きる（マクロ行はあくまで土台） */
+.imp-d0{ background:#291d05; }
+.imp-d0 .imp-dot{ background:#6b5316; width:6px;  height:6px;  }
+.imp-d1{ background:#513c09; }
+.imp-d1 .imp-dot{ background:#9c7c1c; width:8px;  height:8px;  }
+.imp-d2{ background:#a8790f; }
+.imp-d2 .imp-dot{ background:#f5d76e; width:11px; height:11px; }
+.imp-d3{ background:#f0b429; }
+.imp-d3 .imp-dot{ background:#fff3cd; width:14px; height:14px; }
+.imp-d3{ box-shadow:0 0 0 1px rgba(255,255,255,.45); }
+
+/* ---- マクロ2行（市場・分散度） -----------------------------------------
+   個別セクターの色を解釈するための土台なので、グリッドの**上**に置いて罫線で切る */
+.imp-macro-label{ color:#facc15 !important; }
+.imp-macro-label .imp-members{ color:#a1885a; }
+/* ⚠️ 区切りの罫線はマクロ行のセルに直接引かないこと。td の背景（色セル）は
+   padding まで塗られるため、border を引くと色セルが線に接して「かぶさって」見える
+   （実際に指摘があった）。専用のセパレータ行に引き、border-spacing(6px) を
+   上下のすき間として使うことで、色セルと線の間に空白ができる。
+   tbody への border も border-collapse:separate では効かないので不可 */
+.imp-sep td, .imp-sep th{
+  border-top:2px solid #374151;
+  height:4px; padding:0;
+  background:transparent;
+}
+.imp-sep th{ background:#000; }   /* sticky のセクター名列は黒背景を維持（透過だと下が透ける） */
+
+/* モード切替タブ（絶対 / 対市場）。国タブの直下に同じ見た目で並べる */
+.imp-mode{ margin-top:-4px; }
+.imp-legend-sep{ color:#374151; margin:0 8px; }
 
 /* ダミー行（構成銘柄が未定義）。実データと取り違えないよう斜線を重ねる */
 .imp-dummy{
@@ -64,18 +132,31 @@ thead .imp-date{ vertical-align:bottom; }
   vertical-align:middle;
 }
 
-/* 凡例（mc-meta 内） */
-.imp-key-up{   color:#1a8a1a; }
-.imp-key-down{ color:#e02020; }
-.imp-key-flat{ color:#2044e0; }
+.imp-link{ color:#87cefa; text-decoration:underline; }
+
+/* 凡例（mc-meta 内）: 7段階を実際のセル色そのままで並べた帯 */
+.imp-legend{
+  display:inline-flex; align-items:center; gap:2px; vertical-align:middle;
+  margin:0 6px;
+}
+.imp-legend i{
+  display:block; width:20px; height:14px; border-radius:3px;
+}
+.imp-legend .imp-up3, .imp-legend .imp-down3{ box-shadow:0 0 0 1px rgba(255,255,255,.45); }
+.imp-legend-cap{ color:#9ca3af; font-size:12px; }
 
 @media (max-width:768px){
   /* min-width も一緒に下げないと幅だけ 26px に留まって正方形にならない */
   .imp-cell{ width:26px; min-width:26px; height:26px; }
-  .imp-dot{ width:10px; height:10px; }
-  /* 行の高さはセクター名列（2行）で決まる。詰めないとセルが縦に伸びて長方形になる */
-  .imp-sector-col{ font-size:11px; line-height:1.15; }
-  .imp-members{ font-size:9px; line-height:1.15; }
+  /* ドットも段階ぶん比例縮小する（サイズが段階を表すので潰すと情報が落ちる） */
+  .imp-flat .imp-dot, .imp-d0 .imp-dot{ width:5px;  height:5px;  }
+  .imp-up1 .imp-dot, .imp-down1 .imp-dot, .imp-d1 .imp-dot{ width:7px;  height:7px;  }
+  .imp-up2 .imp-dot, .imp-down2 .imp-dot, .imp-d2 .imp-dot{ width:9px;  height:9px;  }
+  .imp-up3 .imp-dot, .imp-down3 .imp-dot, .imp-d3 .imp-dot{ width:12px; height:12px; }
+  /* 行の高さはセクター名列（2行）で決まる。詰めないとセルが縦に伸びて長方形になる
+     （line-height:1.15 はデスクトップ側で共通指定済み） */
+  .imp-sector-col{ font-size:11px; }
+  .imp-members{ font-size:9px; }
   /* 説明文はスマホだと2行に折り返して領域を食うだけなので隠す。凡例は残す */
   .imp-desc{ display:none; }
 }

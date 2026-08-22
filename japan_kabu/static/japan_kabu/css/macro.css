@@ -1,0 +1,55 @@
+/* 米国マクロ指標ページ（CPI・失業率）。学習用の解説を含むワンページ構成 */
+
+.mac-src{ color:#6b7280; font-size:11px; }
+
+/* ---- 最新値チップ（基準値との照合） ---- */
+.mac-chips{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+  gap:10px; max-width:960px; margin:0 auto 22px;
+}
+.mac-chip{
+  border-radius:10px; padding:10px 14px;
+  background:#0b1220; border:1px solid #1f2937;
+  display:flex; flex-direction:column; gap:2px;
+}
+.mac-chip-label{ color:#9ca3af; font-size:11px; }
+.mac-chip-value{ font-size:22px; font-weight:700; color:#e5e7eb; font-variant-numeric:tabular-nums; }
+.mac-chip-date{ color:#6b7280; font-size:10px; }
+.mac-chip-note{ font-size:11px; margin-top:4px; }
+/* 状態色: ok=基準値圏 / warn=注意 / alert=警戒。左縁と注記の色で示す */
+.mac-ok{ border-left:3px solid #3fb950; }
+.mac-ok .mac-chip-note{ color:#4ade80; }
+.mac-warn{ border-left:3px solid #f0b429; }
+.mac-warn .mac-chip-note{ color:#facc15; }
+.mac-alert{ border-left:3px solid #e5484d; }
+.mac-alert .mac-chip-note{ color:#f87171; }
+
+/* ---- セクション ---- */
+.mac-sec{ max-width:960px; margin:0 auto 26px; }
+.mac-sec h2{
+  color:#1e90ff; font-size:16px; margin:0 0 6px;
+  border-bottom:1px solid #1e3a5f; padding-bottom:4px;
+}
+.mac-desc{ color:#9ca3af; font-size:12.5px; line-height:1.7; margin:0 0 8px; }
+.mac-chart{ width:100%; height:340px; }
+
+/* ---- 学習コンテンツ ---- */
+.mac-learn h3{ color:#e5e7eb; font-size:13.5px; margin:18px 0 6px; }
+.mac-learn p{ color:#c7ced9; font-size:12.5px; line-height:1.9; margin:0 0 8px; }
+.mac-learn b{ color:#fff; }
+.mac-table{
+  width:100%; border-collapse:collapse; margin:4px 0 10px;
+  font-size:12.5px; line-height:1.7;
+}
+.mac-table th{
+  width:9.5em; text-align:left; vertical-align:top;
+  color:#87cefa; font-weight:700; padding:6px 10px;
+  background:#0b1220; border:1px solid #1f2937;
+}
+.mac-table td{ color:#c7ced9; padding:6px 10px; border:1px solid #1f2937; }
+.mac-note{ color:#6b7280 !important; font-size:11.5px !important; }
+
+@media (max-width:768px){
+  .mac-chart{ height:280px; }
+  .mac-table th{ width:6.5em; }
+}
