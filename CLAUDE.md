@@ -802,6 +802,17 @@ CSSが `box-sizing: border-box` + `border:1px` のため、**`height` には bor
 
 ## 既知のハマりどころ
 
+- **scripts/ に新しい .sh を追加したら、コミット前に必ず実行ビットを付けること**:
+  ```bash
+  git update-index --chmod=+x scripts/<新ファイル>.sh
+  ```
+  Windows開発機はファイルシステムに実行ビットが無く、普通に add すると 100644 で
+  コミットされる。**cron はスクリプトを直接パス実行するため、サーバーで exit 126
+  （Permission denied）で即死する**（2026-08-30に実際に発生。経緯は
+  `docs/HANDOVER_CRON_EXECBIT.md`）。既存の daily_update.sh / us_ranking_update.sh
+  は 100755 で登録済み。chmod +x を手順書に書くだけでは、手順を踏み忘れた環境で
+  必ず再発するので、リポジトリ側で 100755 にしておくのが正解。
+
 - **コードを直したのに挙動が変わらない** → 古い runserver プロセスがポートを握って旧コードで
   応答していることがある（Windows で実際に発生）。プロセス残骸を kill してから再起動。
 - 旧 `db.sqlite3` は SQLite 時代のバックアップとして残置（PostgreSQL 移行済み・参照されない）。

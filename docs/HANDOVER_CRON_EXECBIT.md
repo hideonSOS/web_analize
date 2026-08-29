@@ -1,0 +1,6 @@
+- 事象: cron が exit 126 で即死。cron はスクリプトを直接パス実行しているため実行ビットが機能上必須
+- 原因: Windows にファイルシステム上の実行ビットが無く、Git インデックスに 100644 で登録されている
+- これまでの対処が不十分な理由: CLAUDE.md・SETUP_CRON.md の chmod +x はその場しのぎで、手順を踏み忘れた環境で必ず再発する
+- 対処手順: git update-index --chmod=+x（Windows で使える唯一の方法）、git diff --cached での確認方法つき
+- サーバー側の後処理: pull --rebase で重複コミットが落ちること、揃わない場合の reset --hard、反映後の検証コマンド
+- 再発防止: scripts/ に新規 .sh を追加するたびに同じ作業が必要
