@@ -645,6 +645,7 @@ ETagで確実に検知できる。
 | `japan_kabu` | 時価総額ランキング(`/japan_kabu/`)・出来高急増(`/japan_kabu/volume/`)・銘柄別指標(`/japan_kabu/stock/<code>/`)。ランキング2ページは`?country=JP/US`の国別タブで日米切替 |
 | `diary` | 売買日記(`/diary/`)。判断記録は編集不可・振り返りのみ追記の設計 |
 | `karte` | 銘柄カルテ(`/karte/`)。IR資料を読みながら手入力する定性分析＋株価レンジ |
+| `portfolio` | 資産ダッシュボード(`/portfolio/`)と棚卸し登録(`/portfolio/register/`)。株・投信・金銀・現金を円換算で自動評価。**サーバー反映手順は `docs/DEPLOY_PORTFOLIO.md`**（migrate→collectstatic→`seed_fund_products`→`update_product_prices`→restart。投信のプルダウン候補はDBデータなのでseedコマンド実行が必須） |
 
 ### karte（銘柄カルテ）の構成
 - 自由記述4項目（経営陣の考課／事業理解／投資判断／競争環境）。
