@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'japan_kabu',
     'diary',
     'karte',
+    'portfolio',
 ]
 
 MIDDLEWARE = [

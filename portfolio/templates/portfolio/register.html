@@ -1,0 +1,287 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}資産の登録 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">資産の登録</h1>
+  <p class="pf-sub">保有数を一度登録すれば、以後の評価額は毎晩自動で更新されます
+    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">← ダッシュボードへ戻る</a></p>
+
+  {% for msg in messages %}
+    <div class="pf-msg">{{ msg }}</div>
+  {% endfor %}
+
+  <div class="pf-card">
+    <div class="pf-note" style="margin-top:0">
+      <b style="color:#87cefa">売買日記との役割分担:</b>
+      日記＝売買した「とき」の記録／ここ＝「いま」何をいくつ持っているかの登録。
+      保有はこのページの登録が正で、売買したら数量をここで更新します。
+      同じ銘柄・商品（同じ口座区分）を再登録すると棚卸しのやり直し（上書き）になります。
+      日記から保有数を自動反映したい場合は、下の「売買日記との連動」でONにできます（既定OFF）。
+    </div>
+  </div>
+
+  <!-- 登録済み一覧 -->
+  <div class="pf-card">
+    <h2>登録済みの期首残高（{{ holdings|length }}件
+      {% if setting.baseline_cash %} ＋ 現金{% endif %}）</h2>
+    {% if holdings or setting.baseline_cash %}
+    <div class="pf-scroll">
+      <table class="pf-table num">
+        <tr><th>資産</th><th>区分</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
+        {% for h in holdings %}
+        <tr>
+          <td>{% if h.stock %}<span class="pf-code">{{ h.stock.display_code }}</span>{{ h.stock.name }}
+              {% else %}<span class="pf-code">{{ h.product.get_category_display }}</span>{{ h.product.display_name }}{% endif %}</td>
+          <td>{{ h.account|default:"―" }}</td>
+          <td>{{ h.quantity|floatformat:"-2"|intcomma }}{% if h.product %}{{ h.product.unit_label }}{% else %}株{% endif %}</td>
+          <td>{{ h.avg_cost|floatformat:"-2"|intcomma }}</td>
+          <td>{{ h.baseline_date|date:"Y/n/j" }}</td>
+          <td>
+            <form method="post" style="display:inline"
+                  onsubmit="return confirm('この保有行を削除しますか？');">
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="holding_delete">
+              <input type="hidden" name="holding_id" value="{{ h.id }}">
+              <button type="submit" class="pf-link" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f87171">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if setting.baseline_cash %}
+        <tr>
+          <td><span class="pf-code">￥</span>現金（期首）</td>
+          <td>―</td>
+          <td>¥{{ setting.baseline_cash|floatformat:0|intcomma }}</td>
+          <td>{{ setting.baseline_cash_date|date:"Y/n/j" }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+    {% else %}
+    <div class="pf-note" style="margin-top:0">まだ何も登録されていません。下のフォームから棚卸しを始めてください。</div>
+    {% endif %}
+  </div>
+
+  <div class="pf-grid2">
+    <!-- 個別株 -->
+    <div class="pf-card">
+      <h2>日本株・米国株を追加</h2>
+      <form method="post" class="pf-frm">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="stock">
+        {% with f=forms.stock %}
+          {% if f.non_field_errors %}<div class="pf-errors">{{ f.non_field_errors }}</div>{% endif %}
+          <label class="pf-fld">銘柄コード（日本株4桁）またはティッカー（米国株）
+            {{ f.code }}{{ f.code.errors }}</label>
+          <div class="pf-row2">
+            <label class="pf-fld">株数 {{ f.quantity }}{{ f.quantity.errors }}</label>
+            <label class="pf-fld">平均取得単価（日本株=円 / 米国株=$）
+              {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
+          </div>
+          <div class="pf-row2">
+            <label class="pf-fld">口座区分（積立枠/成長枠で単価が違うときは行を分ける）
+              {{ f.account }}{{ f.account.errors }}</label>
+            <label class="pf-fld">棚卸し日（この日より後の売買日記を自動加算）
+              {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
+          </div>
+        {% endwith %}
+        <button class="pf-btn" type="submit">登録する</button>
+      </form>
+    </div>
+
+    <!-- 投資信託 -->
+    <div class="pf-card">
+      <h2>投資信託を追加</h2>
+      <form method="post" class="pf-frm">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="fund">
+        {% with f=forms.fund %}
+          {% if f.non_field_errors %}<div class="pf-errors">{{ f.non_field_errors }}</div>{% endif %}
+          {% if has_fund_products %}
+            <label class="pf-fld">商品 {{ f.product }}{{ f.product.errors }}</label>
+            <div class="pf-row2">
+              <label class="pf-fld">口数 {{ f.quantity }}{{ f.quantity.errors }}</label>
+              <label class="pf-fld">取得時基準価額（1万口あたり円）
+                {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
+            </div>
+            <div class="pf-row2">
+              <label class="pf-fld">口座区分 {{ f.account }}{{ f.account.errors }}</label>
+              <label class="pf-fld">棚卸し日 {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
+            </div>
+          {% else %}
+            <div class="pf-note" style="margin-top:0">
+              選べる商品がまだ設定されていません。商品の追加（名前とコードの設定）が必要です。
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% if has_fund_products %}<button class="pf-btn" type="submit">登録する</button>{% endif %}
+      </form>
+    </div>
+
+    <!-- 金・銀 -->
+    <div class="pf-card">
+      <h2>金・銀を追加</h2>
+      <form method="post" class="pf-frm">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="metal">
+        {% with f=forms.metal %}
+          {% if f.non_field_errors %}<div class="pf-errors">{{ f.non_field_errors }}</div>{% endif %}
+          <label class="pf-fld">種類 {{ f.metal }}{{ f.metal.errors }}</label>
+          <div class="pf-row2">
+            <label class="pf-fld">グラム数 {{ f.quantity }}{{ f.quantity.errors }}</label>
+            <label class="pf-fld">平均取得単価（円/g） {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
+          </div>
+          <div class="pf-row2">
+            <label class="pf-fld">口座区分 {{ f.account }}{{ f.account.errors }}</label>
+            <label class="pf-fld">棚卸し日 {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
+          </div>
+        {% endwith %}
+        <button class="pf-btn" type="submit">登録する</button>
+      </form>
+    </div>
+
+    <!-- 現金 -->
+    <div class="pf-card">
+      <h2>現金の期首残高</h2>
+      <form method="post" class="pf-frm">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="cash">
+        {% with f=forms.cash %}
+          {% if f.non_field_errors %}<div class="pf-errors">{{ f.non_field_errors }}</div>{% endif %}
+          <div class="pf-row2">
+            <label class="pf-fld">現金残高（円） {{ f.amount }}{{ f.amount.errors }}</label>
+            <label class="pf-fld">棚卸し日 {{ f.date }}{{ f.date.errors }}</label>
+          </div>
+        {% endwith %}
+        <div class="pf-note" style="margin-top:0">
+          以後の増減は下の「入出金の記録」で付けます。株の売買に伴う現金の増減は
+          売買日記から自動反映されます（設定でOFF可）。
+        </div>
+        <button class="pf-btn" type="submit">保存する</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 目標ポートフォリオ -->
+  <div class="pf-card">
+    <h2>目標ポートフォリオ
+      <span class="pf-hint">現在の合計:
+        {% if target_total %}{{ target_total|floatformat:"-1" }}%{% else %}未設定{% endif %}</span></h2>
+    <form method="post" class="pf-frm">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="targets">
+      <div class="pf-row2">
+        {% for t in target_fields %}
+        <label class="pf-fld">{{ t.label }}（%）
+          <input type="number" name="target_{{ t.key }}" value="{{ t.value }}"
+                 min="0" max="100" step="1" placeholder="0">
+        </label>
+        {% endfor %}
+      </div>
+      <div class="pf-note" style="margin-top:0">
+        4つの合計が100%になるように入力してください（100%でなくても保存はできます）。
+        保存するとダッシュボードに「現在→目標」の差分と金額換算が表示されます。
+      </div>
+      <button class="pf-btn" type="submit">保存する</button>
+    </form>
+  </div>
+
+  <!-- 売買日記との連動設定 -->
+  <div class="pf-card">
+    <h2>売買日記との連動 <span class="pf-hint">既定OFF（競合を避けるため）</span></h2>
+    <form method="post" class="pf-frm">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="link_settings">
+      <label style="display:flex; gap:10px; align-items:flex-start; font-size:13px; cursor:pointer;">
+        <input type="checkbox" name="link_holdings" {% if setting.link_diary_to_holdings %}checked{% endif %}
+               style="margin-top:3px">
+        <span>日記の買い/売りを<b>保有数へ自動反映</b>する
+          <span class="pf-note" style="display:block; margin-top:2px">
+            ON: 棚卸し日より後の日記から株数・平均取得単価を自動計算。
+            OFF: 保有はこのページで登録した棚卸しだけが正（日記は記録専用）</span></span>
+      </label>
+      <label style="display:flex; gap:10px; align-items:flex-start; font-size:13px; cursor:pointer;">
+        <input type="checkbox" name="link_cash" {% if setting.link_diary_to_cash %}checked{% endif %}
+               style="margin-top:3px">
+        <span>日記の約定代金を<b>現金残高へ自動反映</b>する</span>
+      </label>
+      <button class="pf-btn" type="submit">保存する</button>
+    </form>
+  </div>
+
+  <!-- 商品情報の編集 -->
+  {% if product_edit_forms %}
+  <div class="pf-card">
+    <h2>投信の商品情報を編集
+      <span class="pf-hint">ISIN＋協会コードを入れると基準価額が毎晩自動取得される</span></h2>
+    {% for product, f in product_edit_forms %}
+    <div style="margin-bottom:18px; {% if not forloop.last %}border-bottom:1px solid #1e3a5f; padding-bottom:18px;{% endif %}">
+      <form method="post" class="pf-frm">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="product_edit">
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <label class="pf-fld">商品名（略称） {{ f.name }}</label>
+        <div class="pf-row2">
+          <label class="pf-fld">ISINコード（JP90C…の12桁） {{ f.isin }}</label>
+          <label class="pf-fld">協会コード（8桁英数字） {{ f.assoc_fund_code }}</label>
+        </div>
+        <button class="pf-btn" type="submit">更新する</button>
+      </form>
+      {% if not product.holdings.exists %}
+      <form method="post" style="margin-top:10px"
+            onsubmit="return confirm('商品「{{ product.display_name }}」と価格履歴を削除しますか？');">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="product_delete">
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <button type="submit"
+                style="background:none;border:1px solid #7c2d2d;border-radius:8px;color:#f87171;padding:8px 14px;font-size:12px;cursor:pointer">
+          この商品を削除（保有登録がありません）</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <div class="pf-note">
+      両コードは投信協会の「投信総合検索ライブラリー」でファンド名を検索すると
+      詳細ページに載っています（楽天証券のファンド詳細ページにもISINの記載あり）。
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 入出金 -->
+  <div class="pf-card">
+    <h2>入出金の記録 <span class="pf-hint">資産推移で入金と運用益を分けるために使う</span></h2>
+    <div class="pf-note" style="margin-top:0">
+      ⚠ 現金の棚卸し日（期首）<b>以前の日付</b>の入出金は残高に反映されません
+      （期首残高に含まれている前提のため）。反映されるのは棚卸し日の<b>翌日以降</b>の記録です。
+    </div>
+    <form method="post" class="pf-frm">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="cashflow">
+      {% with f=forms.cashflow %}
+        {% if f.non_field_errors %}<div class="pf-errors">{{ f.non_field_errors }}</div>{% endif %}
+        <div class="pf-row2">
+          <label class="pf-fld">日付 {{ f.date }}{{ f.date.errors }}</label>
+          <label class="pf-fld">種別 {{ f.kind }}{{ f.kind.errors }}</label>
+        </div>
+        <div class="pf-row2">
+          <label class="pf-fld">金額（円） {{ f.amount }}{{ f.amount.errors }}</label>
+          <label class="pf-fld">メモ {{ f.memo }}{{ f.memo.errors }}</label>
+        </div>
+      {% endwith %}
+      <button class="pf-btn" type="submit">記録する</button>
+    </form>
+    {% if recent_flows %}
+    <div class="pf-note">直近:
+      {% for f in recent_flows %}
+        {{ f.date|date:"n/j" }} {{ f.get_kind_display }} ¥{{ f.amount|floatformat:0|intcomma }}{% if not forloop.last %} ／{% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

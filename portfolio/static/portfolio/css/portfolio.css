@@ -1,0 +1,126 @@
+/* 資産ダッシュボード・登録ページ共通（モック準拠の配色） */
+.pf-wrap{ max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+.pf-wrap .num{ font-variant-numeric:tabular-nums; }
+.pf-pos{ color:#4ade80; }
+.pf-neg{ color:#f87171; }
+.pf-muted{ color:#6b7280; }
+
+.pf-title{ margin:0 0 4px; font-size:20px; font-weight:bold; letter-spacing:2px;
+  color:#1e90ff; text-shadow:0 0 8px rgba(30,144,255,.8); }
+.pf-sub{ margin:0 0 18px; color:#87cefa; font-size:13px; }
+
+.pf-card{ background:#0b1220; border:1px solid #1e3a5f; border-radius:12px;
+  padding:16px; margin-bottom:16px; }
+.pf-card h2{ margin:0 0 12px; font-size:13px; font-weight:bold; letter-spacing:1.5px;
+  color:#87cefa; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.pf-card h2 .pf-hint{ margin-left:auto; font-size:10px; font-weight:normal;
+  color:#6b7280; border:1px solid #334155; border-radius:999px; padding:1px 8px; white-space:nowrap; }
+/* スマホでは長い説明ピルを折り返す（nowrapのままだとカード外に切れて読めない） */
+@media (max-width:768px){
+  .pf-card h2 .pf-hint{ white-space:normal; margin-left:0; flex-basis:100%; width:fit-content; }
+}
+
+.pf-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:768px){ .pf-grid2{ grid-template-columns:1fr; } }
+
+/* ── サマリー ── */
+.pf-hero{ display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; }
+.pf-hero .k{ font-size:12px; color:#6b7280; letter-spacing:1px; }
+.pf-hero .total{ font-size:38px; font-weight:bold; line-height:1.1; }
+@media (max-width:768px){ .pf-hero .total{ font-size:30px; } }
+.pf-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+@media (max-width:768px){ .pf-chips{ margin-left:0; } }
+.pf-chip{ background:#0f172a; border:1px solid #334155; border-radius:10px;
+  padding:8px 12px; min-width:104px; }
+.pf-chip .k{ font-size:10px; color:#6b7280; letter-spacing:1px; }
+.pf-chip .v{ font-size:15px; font-weight:bold; margin-top:2px; }
+
+/* ── 資産配分（ドーナツ） ── */
+.pf-alloc{ display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+.pf-donut{ width:170px; height:170px; border-radius:50%; flex:0 0 auto; position:relative; }
+.pf-donut::after{ content:""; position:absolute; inset:34px; border-radius:50%; background:#0b1220; }
+.pf-donut .c{ position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; z-index:1; }
+.pf-donut .c .r{ font-size:22px; font-weight:bold; }
+.pf-donut .c .l{ font-size:10px; color:#6b7280; letter-spacing:1px; }
+.pf-legend{ flex:1 1 220px; min-width:220px; }
+.pf-legend table{ width:100%; border-collapse:collapse; font-size:13px; }
+.pf-legend td{ padding:6px 4px; border-bottom:1px solid #111827; }
+.pf-legend tr:last-child td{ border-bottom:none; }
+.pf-legend .sw{ display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:8px; }
+.pf-legend .amt{ text-align:right; }
+.pf-legend .pct{ text-align:right; color:#87cefa; width:52px; }
+
+/* ── クラス内の銘柄別内訳（小ドーナツ×3） ── */
+.pf-grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+@media (max-width:768px){ .pf-grid3{ grid-template-columns:1fr; } }
+.pf-mini{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+.pf-mini-title{ font-size:12px; color:#87cefa; letter-spacing:1px; font-weight:bold; }
+.pf-mini-donut{ width:130px; height:130px; border-radius:50%; position:relative; }
+.pf-mini-donut::after{ content:""; position:absolute; inset:30px; border-radius:50%; background:#0b1220; }
+.pf-mini table{ width:100%; border-collapse:collapse; font-size:12px; }
+.pf-mini td{ padding:4px 4px; border-bottom:1px solid #111827; }
+.pf-mini tr:last-child td{ border-bottom:none; }
+.pf-mini .sw{ display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:7px; }
+.pf-mini .amt{ text-align:right; color:#9ca3af; }
+.pf-mini .pct{ text-align:right; color:#87cefa; width:44px; }
+
+/* ── 目標比較 ── */
+.pf-target-row{ margin-bottom:12px; }
+.pf-target-row .h{ display:flex; font-size:12px; margin-bottom:4px; align-items:baseline; gap:8px; }
+.pf-target-row .h .name{ width:64px; }
+.pf-target-row .h .diff{ margin-left:auto; font-weight:bold; }
+.pf-bar{ position:relative; height:8px; background:#0f172a; border-radius:4px; }
+.pf-bar .fill{ position:absolute; left:0; top:0; bottom:0; border-radius:4px; opacity:.85; }
+.pf-bar .goal{ position:absolute; top:-3px; bottom:-3px; width:2px; background:#fbbf24; }
+
+/* ── 保有額ランキング（横棒） ── */
+.pf-hbar-list{ display:flex; flex-direction:column; gap:9px; }
+.pf-hbar-row{ display:grid; grid-template-columns:190px 1fr 120px; gap:10px; align-items:center; font-size:13px; }
+@media (max-width:768px){ .pf-hbar-row{ grid-template-columns:118px 1fr 96px; font-size:12px; } }
+.pf-hbar-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pf-hbar-track{ height:16px; background:#0f172a; border-radius:3px; overflow:hidden; }
+.pf-hbar-fill{ height:100%; border-radius:3px; box-shadow:0 0 6px rgba(30,144,255,.35); }
+.pf-hbar-amt{ text-align:right; }
+.pf-hbar-amt .fx{ display:block; font-size:10px; color:#6b7280; }
+
+/* ── テーブル ── */
+.pf-scroll{ overflow-x:auto; }
+/* スマホで横スクロールできることが分かるよう、右端に薄いフェードを重ねる */
+@media (max-width:768px){
+  .pf-scroll{ position:relative;
+    -webkit-mask-image:linear-gradient(to right, #000 92%, transparent);
+            mask-image:linear-gradient(to right, #000 92%, transparent); }
+}
+table.pf-table{ width:100%; border-collapse:collapse; font-size:13px; min-width:560px; }
+table.pf-table th{ font-size:10px; color:#6b7280; letter-spacing:1px; font-weight:normal;
+  text-align:right; padding:4px 6px; border-bottom:1px solid #1e3a5f; white-space:nowrap; }
+table.pf-table th:first-child{ text-align:left; }
+table.pf-table td{ padding:8px 6px; border-bottom:1px solid #111827; text-align:right; white-space:nowrap; }
+table.pf-table td:first-child{ text-align:left; }
+table.pf-table tr:last-child td{ border-bottom:none; }
+.pf-code{ color:#6b7280; font-size:11px; margin-right:6px; }
+
+/* ── 通知・空状態 ── */
+.pf-note{ font-size:11px; color:#6b7280; margin-top:10px; line-height:1.7; }
+.pf-warn{ border:1px solid #7c5c1d; background:#1a1405; color:#fbbf24;
+  border-radius:10px; padding:10px 14px; font-size:12px; margin-bottom:16px; line-height:1.7; }
+.pf-empty{ text-align:center; padding:40px 16px; color:#6b7280; font-size:14px; line-height:2; }
+.pf-msg{ border:1px solid #1e5c2f; background:#05170b; color:#4ade80;
+  border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:16px; }
+
+/* ── 登録フォーム ── */
+.pf-frm{ display:flex; flex-direction:column; gap:14px; }
+.pf-row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:560px){ .pf-row2{ grid-template-columns:1fr; } }
+.pf-fld{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:#87cefa; }
+.pf-fld input, .pf-fld select{
+  background:#0f172a; border:1px solid #334155; border-radius:8px;
+  color:#e5e7eb; padding:10px 12px; font-size:14px; width:100%; box-sizing:border-box; }
+.pf-fld input:focus, .pf-fld select:focus{ outline:none; border-color:#1e90ff; }
+.pf-btn{ background:#1e90ff; color:#000; font-weight:bold; border:none;
+  border-radius:10px; padding:11px 26px; font-size:14px; cursor:pointer;
+  box-shadow:0 0 10px rgba(30,144,255,.5); align-self:flex-start; }
+.pf-errors{ color:#f87171; font-size:12px; line-height:1.7; }
+.pf-link{ color:#1e90ff; text-decoration:none; }
+.pf-link:hover{ text-decoration:underline; }

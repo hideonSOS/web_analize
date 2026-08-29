@@ -21,6 +21,7 @@ FEATURES = {
     6: {'name': 'セクター別インパルス', 'description': '独自セクターの日次騰落を時系列で並べモメンタムを見る', 'url': 'japan_kabu:impulse'},
     7: {'name': 'セクター別ドローダウン', 'description': '高値からの下落率で「下がりきったセクター」を探す（逆張りの入口）', 'url': 'japan_kabu:drawdown'},
     8: {'name': 'マクロ指標', 'description': '日米のCPI・失業率の長期時系列と「基準値」の読み方（学習用）', 'url': 'japan_kabu:macro'},
+    9: {'name': 'ポートフォリオ', 'description': '保有資産・現金の総合ダッシュボード（株・投信・金銀を円換算で自動評価）', 'url': 'portfolio:index'},
 }
 
 

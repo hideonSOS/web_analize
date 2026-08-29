@@ -25,6 +25,7 @@ urlpatterns = [
     path('japan_kabu/', include('japan_kabu.urls')),
     path('diary/', include('diary.urls')),
     path('karte/', include('karte.urls')),
+    path('portfolio/', include('portfolio.urls')),
 ]
 
 # 開発サーバーからアップロード画像を配信する（本番ではnginx等が担当）

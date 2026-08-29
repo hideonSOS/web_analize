@@ -1,0 +1,212 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}資産 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">資産</h1>
+  <p class="pf-sub">保有資産と現金の総合ダッシュボード
+    ／ <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録・入出金 →</a></p>
+
+  {% for msg in messages %}
+    <div class="pf-msg">{{ msg }}</div>
+  {% endfor %}
+
+  {% if not has_assets %}
+    <div class="pf-card">
+      <div class="pf-empty">
+        まだ資産が登録されていません。<br>
+        <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録ページ</a>で
+        保有している株・投信・金銀・現金を棚卸ししてください。<br>
+        登録後の評価額は毎晩のバッチで自動更新されます。
+      </div>
+    </div>
+  {% else %}
+
+    {% if data.estimated %}
+      <div class="pf-warn">
+        ⚠ 一部の資産は価格未取得のため取得単価で仮評価しています
+        （価格取得バッチの実行後に自動で実勢価格へ切り替わります）。
+      </div>
+    {% endif %}
+    {% if data.unusable_diary %}
+      <div class="pf-warn">
+        ⚠ 株数または約定価格が未入力のため保有数へ反映できない売買日記が
+        {{ data.unusable_diary|length }}件あります。その場で補記できます（判断内容は変更されません）:
+        {% for e in data.unusable_diary %}
+        <form method="post" class="num"
+              style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px;">
+          {% csrf_token %}
+          <input type="hidden" name="form_id" value="diary_fix">
+          <input type="hidden" name="entry_id" value="{{ e.id }}">
+          <span>{{ e.recorded_at|date:"n/j" }} {{ e.stock_name }}（{{ e.get_action_display }}）</span>
+          <input type="number" name="shares" placeholder="株数"
+                 value="{{ e.shares|default_if_none:'' }}"
+                 style="width:90px; background:#0f172a; border:1px solid #334155; border-radius:6px; color:#e5e7eb; padding:6px 8px;">
+          <input type="number" name="price" step="any" placeholder="約定価格"
+                 value="{{ e.price|default_if_none:'' }}"
+                 style="width:110px; background:#0f172a; border:1px solid #334155; border-radius:6px; color:#e5e7eb; padding:6px 8px;">
+          <button type="submit"
+                  style="background:#1e90ff; color:#000; font-weight:bold; border:none; border-radius:6px; padding:6px 14px; font-size:12px; cursor:pointer">保存</button>
+        </form>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- サマリー -->
+    <div class="pf-card">
+      <div class="pf-hero">
+        <div>
+          <div class="k">総資産</div>
+          <div class="total num">¥{{ data.total|floatformat:0|intcomma }}</div>
+        </div>
+        <div class="pf-chips">
+          <div class="pf-chip"><div class="k">含み損益</div>
+            <div class="v num {% if data.unrealized >= 0 %}pf-pos{% else %}pf-neg{% endif %}">
+              {% if data.unrealized >= 0 %}+{% endif %}¥{{ data.unrealized|floatformat:0|intcomma }}</div></div>
+          <div class="pf-chip"><div class="k">現金比率</div>
+            <div class="v num">{{ data.cash_ratio|floatformat:1 }}%</div></div>
+          {% if data.fx_rate %}
+          <div class="pf-chip"><div class="k">ドル円（{{ data.fx_date|date:"n/j" }}）</div>
+            <div class="v num">{{ data.fx_rate|floatformat:1 }}</div></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="pf-grid2">
+      <!-- 資産配分 -->
+      <div class="pf-card">
+        <h2>資産配分</h2>
+        <div class="pf-alloc">
+          <div class="pf-donut" style="{{ donut_style }}">
+            <div class="c">
+              <div class="l">現金比率</div>
+              <div class="r num">{{ data.cash_ratio|floatformat:0 }}%</div>
+            </div>
+          </div>
+          <div class="pf-legend">
+            <table class="num">
+              {% for row in class_rows %}
+              <tr>
+                <td><span class="sw" style="background:{{ row.color }}"></span>{{ row.label }}</td>
+                <td class="amt">¥{{ row.value|floatformat:0|intcomma }}</td>
+                <td class="pct">{{ row.pct|floatformat:0 }}%</td>
+              </tr>
+              {% endfor %}
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 目標比較 -->
+      <div class="pf-card">
+        <h2>目標ポートフォリオとの差
+          <span class="pf-hint"><a class="pf-link" href="{% url 'portfolio:register' %}">目標を設定 →</a></span></h2>
+        {% if target_rows %}
+          {% for t in target_rows %}
+          <div class="pf-target-row">
+            <div class="h num">
+              <span class="name">{{ t.label }}</span>
+              <span class="pf-muted">{{ t.current|floatformat:0 }}% → {{ t.target|floatformat:0 }}%</span>
+              <span class="diff {% if t.diff > 1 %}pf-pos{% elif t.diff < -1 %}pf-neg{% else %}pf-muted{% endif %}">
+                {% if t.diff >= 0 %}+{% endif %}{{ t.diff|floatformat:0 }}pt
+                （{% if t.diff_yen >= 0 %}+{% endif %}¥{{ t.diff_yen|floatformat:0|intcomma }}）
+              </span>
+            </div>
+            <div class="pf-bar">
+              <div class="fill" style="width:{{ t.current|floatformat:1 }}%; background:#1e90ff"></div>
+              <div class="goal" style="left:{{ t.target|floatformat:1 }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="pf-note">目標比率が未設定です。
+            <a class="pf-link" href="{% url 'portfolio:register' %}">登録ページの「目標ポートフォリオ」</a>で
+            設定すると「現在→目標」の差分と金額換算がここに表示されます。</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 資産クラス内の銘柄別内訳 -->
+    {% if breakdowns %}
+    <div class="pf-card">
+      <h2>クラス内の保有割合 <span class="pf-hint">各資産クラスの中での銘柄別内訳</span></h2>
+      <div class="pf-grid3">
+        {% for b in breakdowns %}
+        <div class="pf-mini">
+          <div class="pf-mini-title">{{ b.title }}</div>
+          <div class="pf-mini-donut" style="{{ b.data.style }}"></div>
+          <table class="num">
+            {% for r in b.data.rows %}
+            <tr>
+              <td><span class="sw" style="background:{{ r.color }}"></span>{{ r.name }}</td>
+              <td class="amt">¥{{ r.value|floatformat:0|intcomma }}</td>
+              <td class="pct">{{ r.pct|floatformat:0 }}%</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 保有額ランキング -->
+    <div class="pf-card">
+      <h2>保有額ランキング <span class="pf-hint">全資産を円換算・評価額順</span></h2>
+      <div class="pf-hbar-list num">
+        {% for b in bars %}
+        <div class="pf-hbar-row">
+          <div class="pf-hbar-name"><span class="pf-code">{{ b.code }}</span>{{ b.name }}</div>
+          <div class="pf-hbar-track">
+            <div class="pf-hbar-fill" style="width:{{ b.width|floatformat:1 }}%; background:{{ b.color }}"></div>
+          </div>
+          <div class="pf-hbar-amt">¥{{ b.value|floatformat:0|intcomma }}
+            {% if b.native_value %}<span class="fx">${{ b.native_value|floatformat:0|intcomma }} @{{ data.fx_rate|floatformat:1 }}</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 保有明細 -->
+    <div class="pf-card">
+      <h2>保有明細 <span class="pf-hint">保有数 = 棚卸し + 売買日記から自動反映</span></h2>
+      <div class="pf-scroll">
+        <table class="pf-table num">
+          <tr>
+            <th>資産</th><th>数量</th><th>取得単価</th><th>現在値</th>
+            <th>評価額（円）</th><th>損益率</th>
+          </tr>
+          {% for i in items %}
+          <tr>
+            <td><span class="pf-code">{{ i.code }}</span>{{ i.name }}
+              {% if i.from_diary %}<span class="pf-code">（日記から）</span>{% endif %}</td>
+            <td>{% if i.quantity is not None %}{{ i.quantity|floatformat:"-2"|intcomma }}{{ i.unit }}{% else %}―{% endif %}</td>
+            <td>{% if i.avg_cost is not None %}{{ i.currency }}{{ i.avg_cost|floatformat:"-2"|intcomma }}{% else %}―{% endif %}</td>
+            <td>{% if i.price is not None %}{{ i.currency }}{{ i.price|floatformat:"-2"|intcomma }}
+              {% if i.price_date %}<span class="pf-code">{{ i.price_date|date:"n/j" }}</span>
+              {% else %}<span class="pf-code">仮</span>{% endif %}
+              {% else %}―{% endif %}</td>
+            <td>¥{{ i.value|floatformat:0|intcomma }}</td>
+            <td>{% if i.pnl_pct is not None %}
+              <span class="{% if i.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">
+                {% if i.pnl_pct >= 0 %}+{% endif %}{{ i.pnl_pct|floatformat:1 }}%</span>
+              {% else %}―{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div class="pf-note">
+        セクター内訳・資産推移グラフ・偏りアラートは価格取得バッチと日次スナップショットの
+        実装後にこのページへ追加予定。
+      </div>
+    </div>
+
+  {% endif %}
+</div>
+{% endblock %}

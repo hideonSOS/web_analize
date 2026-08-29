@@ -52,6 +52,7 @@ run update_jp_ranking    || status=1   # 日本株ランキング（時価総額
 run update_us_prices     || status=1   # 登録した米国株の株価（yfinance）
 run update_us_financials || status=1   # 登録した米国株の決算（yfinance）
 run update_daily_prices  || status=1   # 登録銘柄の日次終値（ドローダウン算出用・差分のみ）
+run update_product_prices || status=1  # 投信の基準価額・金銀の円/g・ドル円（ポートフォリオ用）
 # 注: 米国株ランキング(update_us_ranking)は US クローズ確定後のJST朝に
 #     scripts/us_ranking_update.sh で別建て実行する（このバッチには入れない）。
 

@@ -19,9 +19,12 @@ class Command(BaseCommand):
     help = 'カルテ/日記に登録された米国株の株価を更新する（yfinance）'
 
     def handle(self, *args, **options):
-        # 「カルテを作った銘柄」と「日記に登場した銘柄」の米国株を対象にする
-        # （日記に付ける銘柄は通常カルテも作るが、両方を見て取りこぼしを防ぐ）
+        # 「カルテを作った銘柄」「日記に登場した銘柄」「ポートフォリオで保有中の銘柄」の
+        # 米国株を対象にする（どれか一方にしか無い銘柄の取りこぼしを防ぐ。
+        # S&P500構成銘柄は update_us_ranking が別途カバーするが、構成外の保有株は
+        # ここで拾わないと評価額が永久に仮評価のままになる）
         from karte.models import StockKarte
+        from portfolio.models import Holding
 
         used_codes = set(
             DiaryEntry.objects.filter(stock__country='US')
@@ -29,6 +32,10 @@ class Command(BaseCommand):
         )
         used_codes |= set(
             StockKarte.objects.filter(stock__country='US')
+            .values_list('stock_id', flat=True)
+        )
+        used_codes |= set(
+            Holding.objects.filter(stock__country='US')
             .values_list('stock_id', flat=True)
         )
         stocks = list(Stock.objects.filter(code__in=used_codes))
