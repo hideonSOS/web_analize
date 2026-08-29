@@ -14,7 +14,7 @@
     return '¥' + Math.round(v).toLocaleString('ja-JP');
   }
 
-  function build(domId, rows, center) {
+  function build(domId, rows, center, link) {
     var dom = document.getElementById(domId);
     if (!dom || !rows || !rows.length) return;
     var total = rows.reduce(function (a, r) { return a + r.value; }, 0);
@@ -60,15 +60,20 @@
       };
     }
     chart.setOption(option);
+    // リンク付きドーナツはクリックで対応する分析ページへ遷移する
+    if (link) {
+      dom.style.cursor = 'pointer';
+      chart.on('click', function () { window.location.href = link; });
+    }
     charts.push(chart);
   }
 
   if (spec.main) {
     build('pf-donut-main', spec.main.rows,
-          { label: spec.main.center_label, value: spec.main.center_value });
+          { label: spec.main.center_label, value: spec.main.center_value }, null);
   }
   (spec.subs || []).forEach(function (sub, i) {
-    build('pf-donut-sub' + i, sub.rows, null);
+    build('pf-donut-sub' + i, sub.rows, null, sub.link || null);
   });
 
   window.addEventListener('resize', function () {

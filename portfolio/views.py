@@ -117,14 +117,17 @@ def index(request):
                 'diff_yen': data['total'] * diff / 100 if data['total'] else 0,
             })
 
-    # 大分類の中の銘柄別内訳（該当資産が無いものは出さない）
+    # 大分類の中の銘柄別内訳（該当資産が無いものは出さない）。
+    # 個別株系のドーナツはクリック/タイトルから対応する分析ページへ遷移できる
+    from django.urls import reverse
     breakdowns = [
-        {'title': title, 'data': _class_breakdown(items, kinds)}
-        for kinds, title in [
-            (('fund',), '投資信託の内訳'),
-            (('stock_jp', 'stock_us'), '個別株の内訳（日米合算）'),
-            (('stock_jp',), '日本株の内訳'),
-            (('stock_us',), '米国株の内訳'),
+        {'title': title, 'link': link, 'data': _class_breakdown(items, kinds)}
+        for kinds, title, link in [
+            (('fund',), '投資信託の内訳', None),
+            (('stock_jp', 'stock_us'), '個別株の内訳（日米合算）',
+             reverse('portfolio:stock_focus', args=['all'])),
+            (('stock_jp',), '日本株の内訳', reverse('portfolio:stock_focus', args=['jp'])),
+            (('stock_us',), '米国株の内訳', reverse('portfolio:stock_focus', args=['us'])),
         ]
     ]
     breakdowns = [b for b in breakdowns if b['data']]
@@ -140,7 +143,8 @@ def index(request):
         },
         'subs': [
             {'rows': [{'name': r['name'], 'value': round(r['value']), 'color': r['color']}
-                      for r in b['data']['rows']]}
+                      for r in b['data']['rows']],
+             'link': b['link']}
             for b in breakdowns
         ],
     }
@@ -158,17 +162,31 @@ def index(request):
     return render(request, 'portfolio/dashboard.html', context)
 
 
+# 個別株分析ページの3軸（総合 / 日本株 / 米国株）
+STOCK_SCOPES = {
+    'all': {'label': '総合（日本＋米国）', 'kinds': ('stock_jp', 'stock_us')},
+    'jp': {'label': '日本株', 'kinds': ('stock_jp',)},
+    'us': {'label': '米国株', 'kinds': ('stock_us',)},
+}
+
+
 def stocks(request):
     """個別株の分析ページ（ポートフォリオの「攻め」部分の専用分析）
 
-    入力データはダッシュボードと共通（build_portfolio）。ここでは個別株だけを
-    取り出して、構成比×損益率の散布図・セクター別集計・ドローダウン（押し目度）を出す。
+    ?scope=all|jp|us で 総合/日本株/米国株 の3軸を切り替える（既存の国別タブと同じ流儀）。
+    入力データはダッシュボードと共通（build_portfolio）。構成比・集計はスコープ内で再計算する。
     """
     from japan_kabu.models import Stock
     from japan_kabu.prices import bulk_price_stats
+    from karte.models import StockKarte
+
+    scope = request.GET.get('scope', 'all')
+    if scope not in STOCK_SCOPES:
+        scope = 'all'
+    kinds = STOCK_SCOPES[scope]['kinds']
 
     data = build_portfolio()
-    stock_items = [i for i in data['items'] if i['kind'] in ('stock_jp', 'stock_us')]
+    stock_items = [i for i in data['items'] if i['kind'] in kinds]
 
     total_value = sum(i['value'] for i in stock_items)
     total_pnl = sum(i['pnl'] for i in stock_items if i['pnl'] is not None)
@@ -178,6 +196,9 @@ def stocks(request):
     codes = [i['master_code'] for i in stock_items]
     stats = bulk_price_stats(list(Stock.objects.filter(code__in=codes)))
 
+    # カルテ作成済み銘柄（明細からカルテへ深掘りリンクを出すため）
+    karte_codes = set(StockKarte.objects.values_list('stock_id', flat=True))
+
     rows = []
     for i in sorted(stock_items, key=lambda x: -x['value']):
         st = stats.get(i['master_code'])
@@ -186,6 +207,7 @@ def stocks(request):
             'weight': i['value'] / total_value * 100 if total_value else 0,
             'dd1y': st['1y']['drawdown'] if st and st.get('1y') else None,
             'dd3y': st['3y']['drawdown'] if st and st.get('3y') else None,
+            'has_karte': i['master_code'] in karte_codes,
         })
 
     def _aggregate(field, empty_label):
@@ -212,11 +234,14 @@ def stocks(request):
     sectors = _aggregate('sector', '（未分類）')
     styles = _aggregate('style', '（未分類）')
 
-    # 散布図スペック（横軸=個別株内の構成比% / 縦軸=損益率% / 点の大きさ=評価額）
+    # 散布図スペック（横軸=スコープ内の構成比% / 縦軸=損益率% / 点の大きさ=評価額）。
+    # 点をクリックすると銘柄別指標ページへ遷移する（url）
+    from django.urls import reverse
     scatter_spec = {
         'points': [
             {'name': r['name'], 'weight': round(r['weight'], 2),
-             'pnl_pct': round(r['pnl_pct'], 2), 'value': round(r['value'])}
+             'pnl_pct': round(r['pnl_pct'], 2), 'value': round(r['value']),
+             'url': reverse('japan_kabu:stock_detail', args=[r['code']])}
             for r in rows if r['pnl_pct'] is not None
         ],
     }
@@ -237,8 +262,29 @@ def stocks(request):
         'scatter_spec': scatter_spec,
         'has_stocks': bool(rows),
         'missing_dd': sum(1 for r in rows if r['dd1y'] is None and r['dd3y'] is None),
+        'scope': scope,
+        'scope_label': STOCK_SCOPES[scope]['label'],
+        'scope_tabs': [(key, cfg['label']) for key, cfg in STOCK_SCOPES.items()],
     }
     return render(request, 'portfolio/stocks.html', context)
+
+
+def stock_focus(request, scope):
+    """3軸（総合/日本株/米国株）の個別分析ページ
+
+    ⚠️ 現在はテストページ（遷移の仕組みだけ実装済み）。中身の分析はこの後
+    ユーザーと定義する。ダッシュボードの「クラス内の保有割合」ドーナツの
+    クリック、およびタイトルリンクからここへ遷移する。
+    """
+    if scope not in STOCK_SCOPES:
+        from django.http import Http404
+        raise Http404
+    context = {
+        'scope': scope,
+        'scope_label': STOCK_SCOPES[scope]['label'],
+        'scope_tabs': [(key, cfg['label']) for key, cfg in STOCK_SCOPES.items()],
+    }
+    return render(request, 'portfolio/stock_focus.html', context)
 
 
 def register(request):

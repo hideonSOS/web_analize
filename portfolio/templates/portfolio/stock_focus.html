@@ -1,0 +1,32 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block title %}個別株分析（{{ scope_label }}） | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">個別株分析（{{ scope_label }}）</h1>
+  <p class="pf-sub">
+    {% for key, label in scope_tabs %}
+      {% if key == scope %}<b style="color:#e5e7eb">{{ label }}</b>{% else %}<a class="pf-link" href="{% url 'portfolio:stock_focus' key %}">{{ label }}</a>{% endif %}
+      {% if not forloop.last %} ｜ {% endif %}
+    {% endfor %}
+    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">← ダッシュボード</a>
+    ／ <a class="pf-link" href="{% url 'portfolio:stocks' %}">個別株の分析（既存） →</a>
+  </p>
+
+  <div class="pf-warn" style="border-color:#1e90ff; background:#0a1526; color:#87cefa">
+    🧪 テストページ — 遷移の仕組みのみ実装済み。このページに載せる分析の中身はこれから定義します。
+  </div>
+
+  <div class="pf-card">
+    <div class="pf-empty">
+      ここに「{{ scope_label }}」専用のミクロ分析が入ります。<br>
+      ダッシュボードの「クラス内の保有割合」ドーナツ（グラフのクリックまたはタイトル）から
+      このページへ遷移できます。
+    </div>
+  </div>
+</div>
+{% endblock %}

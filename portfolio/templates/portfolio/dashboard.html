@@ -140,7 +140,9 @@
       <div class="pf-grid3">
         {% for b in breakdowns %}
         <div class="pf-mini">
-          <div class="pf-mini-title">{{ b.title }}</div>
+          <div class="pf-mini-title">
+            {% if b.link %}<a class="pf-link" href="{{ b.link }}">{{ b.title }} →</a>
+            {% else %}{{ b.title }}{% endif %}</div>
           <div id="pf-donut-sub{{ forloop.counter0 }}" class="pf-ec-donut-mini"></div>
           <table class="num">
             {% for r in b.data.rows %}
