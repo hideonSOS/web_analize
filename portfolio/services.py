@@ -118,6 +118,8 @@ def current_stock_holdings(setting=None):
             'from_diary': not base_rows,
             # 手動セクター（複数行なら最初の設定値）。空なら表示時に公式業種で代用
             'sector': next((h.sector for h in base_rows if h.sector), ''),
+            # 投資スタイル（複数行なら最初の設定値）
+            'style': next((h.style for h in base_rows if h.style), ''),
         })
     return rows, unusable
 
@@ -216,6 +218,7 @@ def build_portfolio(setting=None):
             'sector': (row['sector']
                        or IMPULSE_THEME.get((stock.country, stock.display_code))
                        or stock.sector17 or ''),
+            'style': row['style'],
             'master_code': stock.code,          # 個別株分析ページでのDD統計参照用
             'change_pct': stock.change_pct,     # 前日比%（バッチ更新値）
         })

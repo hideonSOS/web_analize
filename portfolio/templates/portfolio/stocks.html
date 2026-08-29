@@ -77,6 +77,28 @@
         </div>
       </div>
 
+      <!-- 投資スタイル別集計 -->
+      <div class="pf-card">
+        <h2>投資スタイル別 <span class="pf-hint">グロース/大型/配当狙い…自分の戦略の軸</span></h2>
+        <div class="pf-hbar-list num">
+          {% for s in styles %}
+          <div class="pf-hbar-row">
+            <div class="pf-hbar-name">{{ s.name }}</div>
+            <div class="pf-hbar-track">
+              <div class="pf-hbar-fill" style="width:{{ s.width|floatformat:1 }}%; background:#8b5cf6"></div>
+            </div>
+            <div class="pf-hbar-amt">¥{{ s.value|floatformat:0|intcomma }}
+              <span class="fx">{{ s.weight|floatformat:0 }}%
+                {% if s.pnl_pct is not None %} / <span class="{% if s.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if s.pnl_pct >= 0 %}+{% endif %}{{ s.pnl_pct|floatformat:1 }}%</span>{% endif %}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="pf-note">
+          スタイルは登録フォームまたは登録済み一覧の編集で設定します（未設定は「（未分類）」）。
+        </div>
+      </div>
+
       <!-- 押し目度（ドローダウン）ランキング -->
       <div class="pf-card">
         <h2>高値からの下落率 <span class="pf-hint">終値ベース・調整後。深い順</span></h2>
@@ -109,13 +131,14 @@
       <div class="pf-scroll">
         <table class="pf-table num" style="min-width:760px">
           <tr>
-            <th>銘柄</th><th>セクター</th><th>株数</th><th>取得単価</th><th>現在値</th>
+            <th>銘柄</th><th>セクター</th><th>スタイル</th><th>株数</th><th>取得単価</th><th>現在値</th>
             <th>前日比</th><th>評価額（円）</th><th>構成比</th><th>損益率</th>
           </tr>
           {% for r in rows %}
           <tr>
             <td><span class="pf-code">{{ r.code }}</span>{{ r.name }}</td>
             <td class="pf-muted" style="font-size:12px; text-align:left">{{ r.sector|default:"―" }}</td>
+            <td class="pf-muted" style="font-size:12px; text-align:left">{{ r.style|default:"―" }}</td>
             <td>{{ r.quantity|floatformat:"-2"|intcomma }}</td>
             <td>{{ r.currency }}{{ r.avg_cost|floatformat:"-2"|intcomma }}</td>
             <td>{{ r.currency }}{{ r.price|floatformat:"-2"|intcomma }}

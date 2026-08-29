@@ -131,6 +131,18 @@ class Holding(models.Model):
     # 空欄なら表示時に公式業種(sector17)へフォールバックする
     sector = models.CharField(max_length=30, blank=True, default='')
 
+    # 投資スタイル（個別株のみ・任意）。セクター＝市場の軸に対して、こちらは
+    # 「なぜ持つか」という自分の戦略の軸（グロース/大型/配当狙い…）。
+    # 銘柄の属性からは導出できないため唯一の手動分類。選択肢の追加はここに1行足すだけ
+    STYLE_CHOICES = [
+        ('', '指定なし'),
+        ('グロース', 'グロース'),
+        ('大型', '大型'),
+        ('配当狙い', '配当狙い'),
+        ('バリュー', 'バリュー'),
+    ]
+    style = models.CharField(max_length=20, blank=True, default='', choices=STYLE_CHOICES)
+
     quantity = models.FloatField()   # 株数 / 口数 / グラム
     # 平均取得単価。通貨・単位は資産により異なる:
     #   日本株=円, 米国株=ドル, 投信=1万口あたり円, 貴金属=円/g

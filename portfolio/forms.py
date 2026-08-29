@@ -27,6 +27,9 @@ class StockHoldingForm(forms.Form):
     # 個別株の口座区分は「成長投資枠」を初期値にする（ユーザーの通常パターン）
     account = forms.ChoiceField(label='口座区分', choices=Holding.ACCOUNT_CHOICES,
                                 required=False, initial='成長投資枠')
+    # 投資スタイル（自分の戦略の軸。唯一の手動分類）
+    style = forms.ChoiceField(label='投資スタイル', choices=Holding.STYLE_CHOICES,
+                              required=False)
 
     def clean(self):
         cleaned = super().clean()

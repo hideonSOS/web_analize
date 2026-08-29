@@ -188,22 +188,29 @@ def stocks(request):
             'dd3y': st['3y']['drawdown'] if st and st.get('3y') else None,
         })
 
-    # セクター別集計（保有フォームで選んだテーマ、未指定は公式業種）
-    sector_map = {}
-    for r in rows:
-        key = r['sector'] or '（未分類）'
-        agg = sector_map.setdefault(key, {'name': key, 'value': 0.0, 'pnl': 0.0, 'has_pnl': False})
-        agg['value'] += r['value']
-        if r['pnl'] is not None:
-            agg['pnl'] += r['pnl']
-            agg['has_pnl'] = True
-    sectors = sorted(sector_map.values(), key=lambda x: -x['value'])
-    max_sector = sectors[0]['value'] if sectors else 0
-    for s in sectors:
-        s['weight'] = s['value'] / total_value * 100 if total_value else 0
-        s['width'] = s['value'] / max_sector * 100 if max_sector else 0
-        cost = s['value'] - s['pnl']
-        s['pnl_pct'] = s['pnl'] / cost * 100 if (s['has_pnl'] and cost) else None
+    def _aggregate(field, empty_label):
+        """rows を指定フィールドで集計し、評価額・構成比・損益率の横棒データを返す"""
+        agg_map = {}
+        for r in rows:
+            key = r[field] or empty_label
+            agg = agg_map.setdefault(key, {'name': key, 'value': 0.0, 'pnl': 0.0, 'has_pnl': False})
+            agg['value'] += r['value']
+            if r['pnl'] is not None:
+                agg['pnl'] += r['pnl']
+                agg['has_pnl'] = True
+        groups = sorted(agg_map.values(), key=lambda x: -x['value'])
+        max_value = groups[0]['value'] if groups else 0
+        for g in groups:
+            g['weight'] = g['value'] / total_value * 100 if total_value else 0
+            g['width'] = g['value'] / max_value * 100 if max_value else 0
+            cost = g['value'] - g['pnl']
+            g['pnl_pct'] = g['pnl'] / cost * 100 if (g['has_pnl'] and cost) else None
+        return groups
+
+    # セクター別（市場の軸: インパルス逆引き→公式業種）と
+    # 投資スタイル別（自分の戦略の軸: グロース/大型/配当狙い…・手動分類）
+    sectors = _aggregate('sector', '（未分類）')
+    styles = _aggregate('style', '（未分類）')
 
     # 散布図スペック（横軸=個別株内の構成比% / 縦軸=損益率% / 点の大きさ=評価額）
     scatter_spec = {
@@ -222,6 +229,7 @@ def stocks(request):
         'rows': rows,
         'dd_rows': dd_rows,
         'sectors': sectors,
+        'styles': styles,
         'total_value': total_value,
         'total_pnl': total_pnl,
         'total_pnl_pct': total_pnl / total_cost * 100 if total_cost else None,
@@ -269,6 +277,7 @@ def register(request):
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
                         'baseline_date': today,
+                        'style': form.cleaned_data.get('style') or '',
                         # sector は触らない（自動判定に任せる。手動値があれば保持される）
                     })
                 messages.success(request, f'{stock.display_code} {stock.name} を登録しました。')
@@ -390,6 +399,9 @@ def register(request):
                 account = request.POST.get('account', holding.account)
                 if account in dict(Holding.ACCOUNT_CHOICES):
                     holding.account = account
+                style = request.POST.get('style', holding.style)
+                if style in dict(Holding.STYLE_CHOICES):
+                    holding.style = style
                 from django.db import IntegrityError
                 try:
                     holding.save()

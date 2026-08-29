@@ -32,7 +32,7 @@
     {% if holdings or setting.baseline_cash %}
     <div class="pf-scroll">
       <table class="pf-table num">
-        <tr><th>資産</th><th>区分</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
+        <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
         {% comment %}
           各行は数量・取得単価・口座区分をその場で編集して保存できる。
           <tr> をまたぐ <form> は書けないため、HTML5 の form 属性で
@@ -49,6 +49,13 @@
               <option value="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>{% endif %}</td>
+          <td>{% if h.stock %}
+            <select name="style" form="he{{ h.id }}"
+                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+              {% for val, label in h.STYLE_CHOICES %}
+              <option value="{{ val }}" {% if h.style == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>{% else %}―{% endif %}</td>
           <td><input type="number" step="any" name="quantity" form="he{{ h.id }}"
                      value="{{ h.quantity|floatformat:'-4' }}"
                      style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right">
@@ -105,8 +112,12 @@
             <label class="pf-fld">平均取得単価（日本株=円 / 米国株=$）
               {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
           </div>
-          <label class="pf-fld">口座区分（積立枠/成長枠で単価が違うときは行を分ける）
-            {{ f.account }}{{ f.account.errors }}</label>
+          <div class="pf-row2">
+            <label class="pf-fld">口座区分（積立枠/成長枠で単価が違うときは行を分ける）
+              {{ f.account }}{{ f.account.errors }}</label>
+            <label class="pf-fld">投資スタイル（自分の戦略の分類・任意）
+              {{ f.style }}{{ f.style.errors }}</label>
+          </div>
           <div class="pf-note" style="margin-top:0">
             セクターは自動判定・棚卸し日は本日付けで登録されます
           </div>
