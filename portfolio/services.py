@@ -11,9 +11,28 @@
 from collections import defaultdict
 
 from diary.models import DiaryEntry
+from japan_kabu.impulse import IMPULSE_SECTORS
 from japan_kabu.models import Stock
 
 from .models import CashFlow, FxRate, Holding, PortfolioSetting, Product, ProductPrice
+
+
+def _build_impulse_theme_map():
+    """(国, 表示コード) -> インパルスのセクター名 の逆引き表
+
+    保有銘柄のセクター表示の自動判定に使う。決定順位は
+    ①登録フォームでの手動選択 → ②この逆引き（メンバー銘柄なら自動一致）→ ③公式業種。
+    インパルス側にセクター・銘柄を足すと、ここも自動で追従する。
+    """
+    mapping = {}
+    for country, sectors in IMPULSE_SECTORS.items():
+        for sec in sectors:
+            for code in sec['codes']:
+                mapping[(country, code)] = sec['name']
+    return mapping
+
+
+IMPULSE_THEME = _build_impulse_theme_map()
 
 # 大分類（ダッシュボードのドーナツ・目標比較と対応）
 ASSET_CLASSES = [
@@ -194,7 +213,9 @@ def build_portfolio(setting=None):
             'pnl': value - cost if cost else None,
             'pnl_pct': (value - cost) / cost * 100 if cost else None,
             'from_diary': row['from_diary'],
-            'sector': row['sector'] or stock.sector17 or '',
+            'sector': (row['sector']
+                       or IMPULSE_THEME.get((stock.country, stock.display_code))
+                       or stock.sector17 or ''),
             'master_code': stock.code,          # 個別株分析ページでのDD統計参照用
             'change_pct': stock.change_pct,     # 前日比%（バッチ更新値）
         })
