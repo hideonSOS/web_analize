@@ -377,6 +377,30 @@ def register(request):
                     messages.success(request, f'商品「{name}」を削除しました。')
             return redirect('portfolio:register')
 
+        elif form_id == 'holding_edit':
+            # 登録済み一覧のインライン編集（数量・取得単価・口座区分）
+            holding = Holding.objects.filter(pk=request.POST.get('holding_id')).first()
+            if holding:
+                try:
+                    holding.quantity = float(request.POST.get('quantity', ''))
+                    holding.avg_cost = float(request.POST.get('avg_cost', ''))
+                except ValueError:
+                    messages.error(request, '数量と取得単価は数値で入力してください。')
+                    return redirect('portfolio:register')
+                account = request.POST.get('account', holding.account)
+                if account in dict(Holding.ACCOUNT_CHOICES):
+                    holding.account = account
+                from django.db import IntegrityError
+                try:
+                    holding.save()
+                    messages.success(request, f'{holding} を更新しました。')
+                except IntegrityError:
+                    messages.error(
+                        request,
+                        '同じ銘柄・同じ口座区分の行が既にあります。片方を削除するか、'
+                        '既存の行の数量を編集してください。')
+            return redirect('portfolio:register')
+
         elif form_id == 'holding_delete':
             holding = Holding.objects.filter(pk=request.POST.get('holding_id')).first()
             if holding:

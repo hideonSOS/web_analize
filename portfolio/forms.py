@@ -24,7 +24,9 @@ class StockHoldingForm(forms.Form):
     # ①Holding.sector（過去の手動値・adminからのみ設定可）→②インパルスのメンバー逆引き
     # →③公式業種。保有銘柄はインパルス側へ追加して漏れをなくす運用のため入力不要
     # 棚卸し日も入力廃止（ユーザー合意・登録時に自動で当日付け。ビュー側で設定する）
-    account = forms.ChoiceField(label='口座区分', choices=Holding.ACCOUNT_CHOICES, required=False)
+    # 個別株の口座区分は「成長投資枠」を初期値にする（ユーザーの通常パターン）
+    account = forms.ChoiceField(label='口座区分', choices=Holding.ACCOUNT_CHOICES,
+                                required=False, initial='成長投資枠')
 
     def clean(self):
         cleaned = super().clean()
