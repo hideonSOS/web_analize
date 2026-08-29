@@ -1,5 +1,5 @@
 {% extends 'website/base.html' %}
-{% load static %}
+{% load static humanize %}
 {% block title %}個別株分析（{{ scope_label }}） | KABU ANALYZE{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
@@ -17,16 +17,76 @@
     ／ <a class="pf-link" href="{% url 'portfolio:stocks' %}">個別株の分析（既存） →</a>
   </p>
 
-  <div class="pf-warn" style="border-color:#1e90ff; background:#0a1526; color:#87cefa">
-    🧪 テストページ — 遷移の仕組みのみ実装済み。このページに載せる分析の中身はこれから定義します。
-  </div>
-
-  <div class="pf-card">
-    <div class="pf-empty">
-      ここに「{{ scope_label }}」専用のミクロ分析が入ります。<br>
-      ダッシュボードの「クラス内の保有割合」ドーナツ（グラフのクリックまたはタイトル）から
-      このページへ遷移できます。
+  {% if not has_stocks %}
+    <div class="pf-card">
+      <div class="pf-empty">
+        {{ scope_label }}の保有が登録されていません。<br>
+        <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録ページ</a>で登録すると
+        分析が表示されます。
+      </div>
     </div>
-  </div>
+  {% else %}
+
+    <!-- 投資スタイル構成（積み上げ100%横棒） -->
+    <div class="pf-card">
+      <h2>投資スタイル構成
+        <span class="pf-hint">評価額 ¥{{ total_value|floatformat:0|intcomma }} の内訳</span></h2>
+      <div class="pf-stack num">
+        {% for s in style_bar %}
+        <div class="pf-stack-seg" title="{{ s.name }} {{ s.pct|floatformat:1 }}%"
+             style="width:{{ s.pct|floatformat:2 }}%; background:{{ s.color }}">
+          {% if s.pct >= 12 %}<span>{{ s.name }} {{ s.pct|floatformat:0 }}%</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <table class="pf-stack-legend num">
+        {% for s in style_bar %}
+        <tr>
+          <td><span class="sw" style="background:{{ s.color }}"></span>{{ s.name }}</td>
+          <td class="amt">¥{{ s.value|floatformat:0|intcomma }}</td>
+          <td class="pct">{{ s.pct|floatformat:1 }}%</td>
+          <td class="pnl">{% if s.pnl_pct is not None %}
+            <span class="{% if s.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if s.pnl_pct >= 0 %}+{% endif %}{{ s.pnl_pct|floatformat:1 }}%</span>
+            {% else %}―{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <div class="pf-note">
+        スタイルの設定は<a class="pf-link" href="{% url 'portfolio:register' %}">登録ページの一覧</a>で
+        銘柄ごとに変更できます（未設定は「（未分類）」）。
+      </div>
+    </div>
+
+    <!-- 個別株の保有額ランキング（横棒） -->
+    <div class="pf-card">
+      <h2>保有額ランキング
+        <span class="pf-hint">個別株のみ・円換算・{{ stock_bars|length }}銘柄</span></h2>
+      <div class="pf-hbar-list num">
+        {% for b in stock_bars %}
+        <div class="pf-hbar-row">
+          <div class="pf-hbar-name" title="{{ b.name }}"><span class="pf-code">{{ b.code }}</span>{{ b.name }}</div>
+          <div class="pf-hbar-track">
+            <div class="pf-hbar-fill" style="width:{{ b.width|floatformat:1 }}%; background:{{ b.color }}"></div>
+          </div>
+          <div class="pf-hbar-amt">¥{{ b.value|floatformat:0|intcomma }}
+            <span class="fx">{{ b.pct|floatformat:1 }}%
+              {% if b.native_value %} / ${{ b.native_value|floatformat:0|intcomma }} @{{ fx_rate|floatformat:1 }}{% endif %}
+              {% if b.pnl_pct is not None %} / <span class="{% if b.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if b.pnl_pct >= 0 %}+{% endif %}{{ b.pnl_pct|floatformat:1 }}%</span>{% endif %}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="pf-note">
+        色: 青=日本株 / 水色=米国株。%はこのスコープ内の構成比。米国株はドル建て額と換算レートを併記。
+      </div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-note" style="margin-top:0">
+        🧪 拡充中 — 次の分析ブロック（日米バランス・損益寄与度・押し目ボード等）はこれから追加します。
+      </div>
+    </div>
+
+  {% endif %}
 </div>
 {% endblock %}

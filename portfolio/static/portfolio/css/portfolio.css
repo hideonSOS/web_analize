@@ -73,7 +73,8 @@
 /* ── 保有額ランキング（横棒） ── */
 .pf-hbar-list{ display:flex; flex-direction:column; gap:9px; }
 .pf-hbar-row{ display:grid; grid-template-columns:190px 1fr 120px; gap:10px; align-items:center; font-size:13px; }
-@media (max-width:768px){ .pf-hbar-row{ grid-template-columns:118px 1fr 96px; font-size:12px; } }
+/* スマホ: 金額列に補足行（構成比/ドル建て/損益率）が入るため、名前列を削って金額列を広げる */
+@media (max-width:768px){ .pf-hbar-row{ grid-template-columns:104px 1fr 118px; font-size:12px; } }
 .pf-hbar-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pf-hbar-track{ height:16px; background:#0f172a; border-radius:3px; overflow:hidden; }
 .pf-hbar-fill{ height:100%; border-radius:3px; box-shadow:0 0 6px rgba(30,144,255,.35); }
@@ -96,6 +97,20 @@ table.pf-table td{ padding:8px 6px; border-bottom:1px solid #111827; text-align:
 table.pf-table td:first-child{ text-align:left; }
 table.pf-table tr:last-child td{ border-bottom:none; }
 .pf-code{ color:#6b7280; font-size:11px; margin-right:6px; }
+
+/* ── 積み上げ100%横棒（投資スタイル構成など） ── */
+.pf-stack{ display:flex; height:34px; border-radius:8px; overflow:hidden;
+  background:#0f172a; margin-bottom:12px; }
+.pf-stack-seg{ display:flex; align-items:center; justify-content:center;
+  min-width:2px; white-space:nowrap; overflow:hidden; }
+.pf-stack-seg span{ font-size:11px; font-weight:bold; color:#000; padding:0 4px; }
+table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
+.pf-stack-legend td{ padding:6px 4px; border-bottom:1px solid #111827; }
+.pf-stack-legend tr:last-child td{ border-bottom:none; }
+.pf-stack-legend .sw{ display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:8px; }
+.pf-stack-legend .amt{ text-align:right; }
+.pf-stack-legend .pct{ text-align:right; color:#87cefa; width:60px; }
+.pf-stack-legend .pnl{ text-align:right; width:70px; }
 
 /* ── 通知・空状態 ── */
 .pf-note{ font-size:11px; color:#6b7280; margin-top:10px; line-height:1.7; }

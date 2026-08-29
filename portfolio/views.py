@@ -162,6 +162,15 @@ def index(request):
     return render(request, 'portfolio/dashboard.html', context)
 
 
+# 投資スタイルの表示色（積み上げバー・凡例で共通に使う）
+STYLE_COLORS = {
+    'グロース': '#1e90ff',
+    '大型': '#63b3ff',
+    '配当狙い': '#fbbf24',
+    'バリュー': '#34d399',
+    '（未分類）': '#6b7280',
+}
+
 # 個別株分析ページの3軸（総合 / 日本株 / 米国株）
 STOCK_SCOPES = {
     'all': {'label': '総合（日本＋米国）', 'kinds': ('stock_jp', 'stock_us')},
@@ -270,19 +279,57 @@ def stocks(request):
 
 
 def stock_focus(request, scope):
-    """3軸（総合/日本株/米国株）の個別分析ページ
+    """3軸（総合/日本株/米国株）の個別分析ページ（拡充中）
 
-    ⚠️ 現在はテストページ（遷移の仕組みだけ実装済み）。中身の分析はこの後
-    ユーザーと定義する。ダッシュボードの「クラス内の保有割合」ドーナツの
-    クリック、およびタイトルリンクからここへ遷移する。
+    ダッシュボードの「クラス内の保有割合」ドーナツのクリック、および
+    タイトルリンクからここへ遷移する。分析ブロックはユーザーと定義しながら
+    順次追加していく（現在: 投資スタイル構成の積み上げバー）。
     """
     if scope not in STOCK_SCOPES:
         from django.http import Http404
         raise Http404
+
+    data = build_portfolio()
+    kinds = STOCK_SCOPES[scope]['kinds']
+    stock_items = [i for i in data['items'] if i['kind'] in kinds]
+    total_value = sum(i['value'] for i in stock_items)
+
+    # 投資スタイル構成（積み上げ100%横棒。円グラフより省スペースというユーザー要望）
+    style_map = {}
+    for i in stock_items:
+        key = i['style'] or '（未分類）'
+        agg = style_map.setdefault(key, {'name': key, 'value': 0.0, 'pnl': 0.0, 'has_pnl': False})
+        agg['value'] += i['value']
+        if i['pnl'] is not None:
+            agg['pnl'] += i['pnl']
+            agg['has_pnl'] = True
+    style_bar = sorted(style_map.values(), key=lambda x: -x['value'])
+    for s in style_bar:
+        s['pct'] = s['value'] / total_value * 100 if total_value else 0
+        s['color'] = STYLE_COLORS.get(s['name'], '#8b5cf6')
+        cost = s['value'] - s['pnl']
+        s['pnl_pct'] = s['pnl'] / cost * 100 if (s['has_pnl'] and cost) else None
+
+    # 個別株の保有額ランキング（横棒・円換算・評価額順。色は日本株/米国株で塗り分け）
+    ranked = sorted(stock_items, key=lambda x: -x['value'])
+    max_value = ranked[0]['value'] if ranked else 0
+    stock_bars = [
+        {**i,
+         'width': i['value'] / max_value * 100 if max_value else 0,
+         'pct': i['value'] / total_value * 100 if total_value else 0,
+         'color': CLASS_COLORS[i['kind']]}
+        for i in ranked
+    ]
+
     context = {
         'scope': scope,
         'scope_label': STOCK_SCOPES[scope]['label'],
         'scope_tabs': [(key, cfg['label']) for key, cfg in STOCK_SCOPES.items()],
+        'total_value': total_value,
+        'style_bar': style_bar,
+        'stock_bars': stock_bars,
+        'fx_rate': data['fx_rate'],
+        'has_stocks': bool(stock_items),
     }
     return render(request, 'portfolio/stock_focus.html', context)
 
