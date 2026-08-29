@@ -25,7 +25,7 @@ from portfolio.models import FxRate, Product, ProductPrice
 FUND_CSV_URL = ('https://toushin-lib.fwg.ne.jp/FdsWeb/FDST030000/csv-file-download'
                 '?isinCd={isin}&associFundCd={assoc}')
 TROY_OUNCE_GRAMS = 31.1034768
-METAL_TICKERS = {'gold': 'GC=F', 'silver': 'SI=F'}
+METAL_TICKERS = {'gold': 'GC=F', 'silver': 'SI=F', 'platinum': 'PL=F'}
 
 _DATE_RE = re.compile(r'(\d{4})年(\d{2})月(\d{2})日')
 
@@ -58,15 +58,18 @@ class Command(BaseCommand):
         try:
             import yfinance as yf
             hist = yf.Ticker('USDJPY=X').history(period='10d', auto_adjust=True)
-            if hist.empty:
+            # ⚠️ 先物・為替の履歴は末尾にNaN行が混ざることがある（実際にPL=Fで発生）。
+            # dropnaしてから使わないとNaNがDBに保存される
+            closes = hist['Close'].dropna()
+            if closes.empty:
                 raise RuntimeError('USDJPY=X: データが空')
             saved = 0
-            for idx, row in hist.iterrows():
+            for idx, value in closes.items():
                 _, created = FxRate.objects.update_or_create(
                     pair='USDJPY', date=idx.date(),
-                    defaults={'rate': float(row['Close'])})
+                    defaults={'rate': float(value)})
                 saved += created
-            latest = hist['Close'].iloc[-1]
+            latest = closes.iloc[-1]
             self.stdout.write(f'ドル円: {latest:.2f}（新規{saved}日分）')
             return float(latest)
         except Exception as e:
@@ -136,10 +139,11 @@ class Command(BaseCommand):
                 continue
             try:
                 hist = yf.Ticker(ticker).history(period='10d', auto_adjust=True)
-                if hist.empty:
+                closes = hist['Close'].dropna()  # 末尾NaN行対策（PL=Fで実際に発生）
+                if closes.empty:
                     raise RuntimeError(f'{ticker}: データが空')
-                usd_per_toz = float(hist['Close'].iloc[-1])
-                bar_date = hist.index[-1].date()
+                usd_per_toz = float(closes.iloc[-1])
+                bar_date = closes.index[-1].date()
                 yen_per_gram = usd_per_toz / TROY_OUNCE_GRAMS * fx
                 ProductPrice.objects.update_or_create(
                     product=product, date=bar_date,

@@ -18,6 +18,7 @@ class Product(models.Model):
     METAL_CHOICES = [
         ('gold', '金'),
         ('silver', '銀'),
+        ('platinum', 'プラチナ'),
     ]
 
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
@@ -124,6 +125,11 @@ class Holding(models.Model):
         ('成長投資枠', '成長投資枠'),
     ]
     account = models.CharField(max_length=20, blank=True, default='', choices=ACCOUNT_CHOICES)
+
+    # セクター（個別株のみ・任意）。語彙はセクターインパルスの IMPULSE_SECTORS と
+    # 同じ名前を使う（選択肢はフォーム側で国別に出し分ける）。
+    # 空欄なら表示時に公式業種(sector17)へフォールバックする
+    sector = models.CharField(max_length=30, blank=True, default='')
 
     quantity = models.FloatField()   # 株数 / 口数 / グラム
     # 平均取得単価。通貨・単位は資産により異なる:
@@ -234,7 +240,7 @@ class TargetAllocation(models.Model):
     ASSET_CLASS_CHOICES = [
         ('stock', '個別株'),
         ('fund', '投資信託'),
-        ('metal', '金・銀'),
+        ('metal', '貴金属'),
         ('cash', '現金'),
     ]
     asset_class = models.CharField(max_length=10, choices=ASSET_CLASS_CHOICES, unique=True)

@@ -5,10 +5,17 @@
 <link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
+{% block extra_js %}
+{{ donut_spec|json_script:"pf-donuts" }}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'portfolio/js/dashboard.js' %}?v={% now 'U' %}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="pf-wrap">
   <h1 class="pf-title">資産</h1>
   <p class="pf-sub">保有資産と現金の総合ダッシュボード
+    ／ <a class="pf-link" href="{% url 'portfolio:stocks' %}">個別株の分析 →</a>
     ／ <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録・入出金 →</a></p>
 
   {% for msg in messages %}
@@ -82,12 +89,7 @@
       <div class="pf-card">
         <h2>資産配分</h2>
         <div class="pf-alloc">
-          <div class="pf-donut" style="{{ donut_style }}">
-            <div class="c">
-              <div class="l">現金比率</div>
-              <div class="r num">{{ data.cash_ratio|floatformat:0 }}%</div>
-            </div>
-          </div>
+          <div id="pf-donut-main" class="pf-ec-donut"></div>
           <div class="pf-legend">
             <table class="num">
               {% for row in class_rows %}
@@ -139,7 +141,7 @@
         {% for b in breakdowns %}
         <div class="pf-mini">
           <div class="pf-mini-title">{{ b.title }}</div>
-          <div class="pf-mini-donut" style="{{ b.data.style }}"></div>
+          <div id="pf-donut-sub{{ forloop.counter0 }}" class="pf-ec-donut-mini"></div>
           <table class="num">
             {% for r in b.data.rows %}
             <tr>
@@ -179,13 +181,14 @@
       <div class="pf-scroll">
         <table class="pf-table num">
           <tr>
-            <th>資産</th><th>数量</th><th>取得単価</th><th>現在値</th>
+            <th>資産</th><th>セクター</th><th>数量</th><th>取得単価</th><th>現在値</th>
             <th>評価額（円）</th><th>損益率</th>
           </tr>
           {% for i in items %}
           <tr>
             <td><span class="pf-code">{{ i.code }}</span>{{ i.name }}
               {% if i.from_diary %}<span class="pf-code">（日記から）</span>{% endif %}</td>
+            <td class="pf-muted" style="font-size:12px; text-align:left">{{ i.sector|default:"―" }}</td>
             <td>{% if i.quantity is not None %}{{ i.quantity|floatformat:"-2"|intcomma }}{{ i.unit }}{% else %}―{% endif %}</td>
             <td>{% if i.avg_cost is not None %}{{ i.currency }}{{ i.avg_cost|floatformat:"-2"|intcomma }}{% else %}―{% endif %}</td>
             <td>{% if i.price is not None %}{{ i.currency }}{{ i.price|floatformat:"-2"|intcomma }}

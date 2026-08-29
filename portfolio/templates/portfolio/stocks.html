@@ -1,0 +1,139 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}個別株の分析 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block extra_js %}
+{{ scatter_spec|json_script:"pf-scatter-spec" }}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'portfolio/js/dashboard.js' %}?v={% now 'U' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">個別株の分析</h1>
+  <p class="pf-sub">ポートフォリオの「攻め」部分を掘り下げる
+    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">← ダッシュボード</a>
+    ／ <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録 →</a></p>
+
+  {% if not has_stocks %}
+    <div class="pf-card">
+      <div class="pf-empty">
+        個別株の保有が登録されていません。<br>
+        <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録ページ</a>で
+        日本株・米国株を登録すると、ここに分析が表示されます。
+      </div>
+    </div>
+  {% else %}
+
+    <!-- サマリー -->
+    <div class="pf-card">
+      <div class="pf-hero">
+        <div>
+          <div class="k">個別株 評価額合計</div>
+          <div class="total num">¥{{ total_value|floatformat:0|intcomma }}</div>
+        </div>
+        <div class="pf-chips">
+          <div class="pf-chip"><div class="k">含み損益</div>
+            <div class="v num {% if total_pnl >= 0 %}pf-pos{% else %}pf-neg{% endif %}">
+              {% if total_pnl >= 0 %}+{% endif %}¥{{ total_pnl|floatformat:0|intcomma }}
+              {% if total_pnl_pct is not None %}（{% if total_pnl_pct >= 0 %}+{% endif %}{{ total_pnl_pct|floatformat:1 }}%）{% endif %}</div></div>
+          <div class="pf-chip"><div class="k">攻め比率（総資産比）</div>
+            <div class="v num">{{ offense_ratio|floatformat:1 }}%</div></div>
+          <div class="pf-chip"><div class="k">銘柄数</div>
+            <div class="v num">{{ rows|length }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 構成比×損益率の散布図 -->
+    <div class="pf-card">
+      <h2>構成比 × 損益率 <span class="pf-hint">右下（大きく持っているのに損失）が見直し候補</span></h2>
+      <div id="pf-scatter" style="width:100%; height:340px;"></div>
+      <div class="pf-note">
+        横軸=個別株内の構成比、縦軸=損益率、点の大きさ=評価額。ホバー/タップで詳細表示。
+      </div>
+    </div>
+
+    <div class="pf-grid2">
+      <!-- セクター別集計 -->
+      <div class="pf-card">
+        <h2>セクター別 <span class="pf-hint">登録時に選んだテーマ別の評価額と損益</span></h2>
+        <div class="pf-hbar-list num">
+          {% for s in sectors %}
+          <div class="pf-hbar-row">
+            <div class="pf-hbar-name">{{ s.name }}</div>
+            <div class="pf-hbar-track">
+              <div class="pf-hbar-fill" style="width:{{ s.width|floatformat:1 }}%; background:#1e90ff"></div>
+            </div>
+            <div class="pf-hbar-amt">¥{{ s.value|floatformat:0|intcomma }}
+              <span class="fx">{{ s.weight|floatformat:0 }}%
+                {% if s.pnl_pct is not None %} / <span class="{% if s.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if s.pnl_pct >= 0 %}+{% endif %}{{ s.pnl_pct|floatformat:1 }}%</span>{% endif %}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- 押し目度（ドローダウン）ランキング -->
+      <div class="pf-card">
+        <h2>高値からの下落率 <span class="pf-hint">終値ベース・調整後。深い順</span></h2>
+        <div class="pf-scroll">
+          <table class="pf-table num" style="min-width:0">
+            <tr><th>銘柄</th><th>1年高値比</th><th>3年高値比</th></tr>
+            {% for r in dd_rows %}
+            <tr>
+              <td><span class="pf-code">{{ r.code }}</span>{{ r.name }}</td>
+              <td>{% if r.dd1y is not None %}
+                <span class="{% if r.dd1y < -15 %}pf-neg{% elif r.dd1y > -3 %}pf-pos{% endif %}">{{ r.dd1y|floatformat:1 }}%</span>
+                {% else %}<span class="pf-muted">履歴蓄積中</span>{% endif %}</td>
+              <td>{% if r.dd3y is not None %}{{ r.dd3y|floatformat:1 }}%{% else %}<span class="pf-muted">―</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+        {% if missing_dd %}
+        <div class="pf-note">
+          「履歴蓄積中」の銘柄は株価履歴が未取得です。夜間バッチ（update_impulse_prices）が
+          保有銘柄の履歴を自動で貯め始めます。
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 銘柄明細 -->
+    <div class="pf-card">
+      <h2>銘柄明細 <span class="pf-hint">評価額順・米国株は円換算</span></h2>
+      <div class="pf-scroll">
+        <table class="pf-table num" style="min-width:760px">
+          <tr>
+            <th>銘柄</th><th>セクター</th><th>株数</th><th>取得単価</th><th>現在値</th>
+            <th>前日比</th><th>評価額（円）</th><th>構成比</th><th>損益率</th>
+          </tr>
+          {% for r in rows %}
+          <tr>
+            <td><span class="pf-code">{{ r.code }}</span>{{ r.name }}</td>
+            <td class="pf-muted" style="font-size:12px; text-align:left">{{ r.sector|default:"―" }}</td>
+            <td>{{ r.quantity|floatformat:"-2"|intcomma }}</td>
+            <td>{{ r.currency }}{{ r.avg_cost|floatformat:"-2"|intcomma }}</td>
+            <td>{{ r.currency }}{{ r.price|floatformat:"-2"|intcomma }}
+              {% if r.price_date %}<span class="pf-code">{{ r.price_date|date:"n/j" }}</span>{% endif %}</td>
+            <td>{% if r.change_pct is not None %}
+              <span class="{% if r.change_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if r.change_pct >= 0 %}+{% endif %}{{ r.change_pct|floatformat:1 }}%</span>
+              {% else %}―{% endif %}</td>
+            <td>¥{{ r.value|floatformat:0|intcomma }}</td>
+            <td>{{ r.weight|floatformat:1 }}%</td>
+            <td>{% if r.pnl_pct is not None %}
+              <span class="{% if r.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if r.pnl_pct >= 0 %}+{% endif %}{{ r.pnl_pct|floatformat:1 }}%</span>
+              {% else %}―{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+
+  {% endif %}
+</div>
+{% endblock %}

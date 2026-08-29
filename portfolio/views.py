@@ -24,28 +24,23 @@ SUB_PALETTE = ['#1e90ff', '#8b5cf6', '#34d399', '#fbbf24', '#f87171',
                '#63b3ff', '#c4b5fd', '#f9a8d4', '#5eead4', '#fdba74']
 
 
-def _class_breakdown(items, kind):
-    """指定した大分類内の銘柄別内訳ドーナツ（conic-gradient文字列＋凡例行）を組む。
+def _class_breakdown(items, kinds):
+    """指定した大分類（複数指定で合算）内の銘柄別内訳を組む。
 
+    kinds はタプル。('stock_jp', 'stock_us') のように渡すと日米合算になる。
     該当資産が無ければ None（テンプレート側でカードごと非表示にする）。
     """
-    subset = sorted((i for i in items if i['kind'] == kind),
+    subset = sorted((i for i in items if i['kind'] in kinds),
                     key=lambda x: -x['value'])
     total = sum(i['value'] for i in subset)
     if not subset or total <= 0:
         return None
-    rows, stops, acc = [], [], 0.0
+    rows = []
     for idx, i in enumerate(subset):
         color = SUB_PALETTE[idx % len(SUB_PALETTE)]
-        pct = i['value'] / total * 100
-        stops.append(f'{color} {acc:.2f}% {acc + pct:.2f}%')
-        acc += pct
-        rows.append({'name': i['name'], 'value': i['value'], 'pct': pct, 'color': color})
-    return {
-        'style': f"background:conic-gradient({', '.join(stops)});",
-        'rows': rows,
-        'total': total,
-    }
+        rows.append({'name': i['name'], 'value': i['value'],
+                     'pct': i['value'] / total * 100, 'color': color})
+    return {'rows': rows, 'total': total}
 
 
 def index(request):
@@ -84,18 +79,6 @@ def index(request):
 
     data = build_portfolio()
     items = data['items']
-
-    # ドーナツ用: conic-gradient の色停止位置をサーバー側で組む（JSなし方針）
-    stops = []
-    acc = 0.0
-    for key in CLASS_COLORS:
-        cls = data['by_class'][key]
-        if cls['value'] <= 0:
-            continue
-        start = acc
-        acc += cls['pct']
-        stops.append(f"{CLASS_COLORS[key]} {start:.2f}% {acc:.2f}%")
-    donut_style = f"background:conic-gradient({', '.join(stops)});" if stops else ''
 
     # 大分類の凡例（値が0の分類は出さない）
     class_rows = [
@@ -136,24 +119,118 @@ def index(request):
 
     # 大分類の中の銘柄別内訳（該当資産が無いものは出さない）
     breakdowns = [
-        {'title': title, 'data': _class_breakdown(items, kind)}
-        for kind, title in [('fund', '投資信託の内訳'),
-                            ('stock_jp', '日本株の内訳'),
-                            ('stock_us', '米国株の内訳')]
+        {'title': title, 'data': _class_breakdown(items, kinds)}
+        for kinds, title in [
+            (('fund',), '投資信託の内訳'),
+            (('stock_jp', 'stock_us'), '個別株の内訳（日米合算）'),
+            (('stock_jp',), '日本株の内訳'),
+            (('stock_us',), '米国株の内訳'),
+        ]
     ]
     breakdowns = [b for b in breakdowns if b['data']]
+
+    # ECharts用のドーナツ仕様（描画・ツールチップはdashboard.jsがスペック駆動で行う。
+    # macroページと同じ「ビューが仕様を組み、JSは触らない」方針）
+    donut_spec = {
+        'main': {
+            'rows': [{'name': r['label'], 'value': round(r['value']), 'color': r['color']}
+                     for r in class_rows],
+            'center_label': '現金比率',
+            'center_value': f"{data['cash_ratio']:.0f}%",
+        },
+        'subs': [
+            {'rows': [{'name': r['name'], 'value': round(r['value']), 'color': r['color']}
+                      for r in b['data']['rows']]}
+            for b in breakdowns
+        ],
+    }
 
     context = {
         'data': data,
         'items': items,
         'bars': bars,
         'class_rows': class_rows,
-        'donut_style': donut_style,
         'target_rows': target_rows,
         'breakdowns': breakdowns,
+        'donut_spec': donut_spec,
         'has_assets': bool(items),
     }
     return render(request, 'portfolio/dashboard.html', context)
+
+
+def stocks(request):
+    """個別株の分析ページ（ポートフォリオの「攻め」部分の専用分析）
+
+    入力データはダッシュボードと共通（build_portfolio）。ここでは個別株だけを
+    取り出して、構成比×損益率の散布図・セクター別集計・ドローダウン（押し目度）を出す。
+    """
+    from japan_kabu.models import Stock
+    from japan_kabu.prices import bulk_price_stats
+
+    data = build_portfolio()
+    stock_items = [i for i in data['items'] if i['kind'] in ('stock_jp', 'stock_us')]
+
+    total_value = sum(i['value'] for i in stock_items)
+    total_pnl = sum(i['pnl'] for i in stock_items if i['pnl'] is not None)
+    total_cost = total_value - total_pnl
+
+    # ドローダウン統計（DailyPrice履歴のある銘柄のみ。履歴は夜間バッチが自動蓄積）
+    codes = [i['master_code'] for i in stock_items]
+    stats = bulk_price_stats(list(Stock.objects.filter(code__in=codes)))
+
+    rows = []
+    for i in sorted(stock_items, key=lambda x: -x['value']):
+        st = stats.get(i['master_code'])
+        rows.append({
+            **i,
+            'weight': i['value'] / total_value * 100 if total_value else 0,
+            'dd1y': st['1y']['drawdown'] if st and st.get('1y') else None,
+            'dd3y': st['3y']['drawdown'] if st and st.get('3y') else None,
+        })
+
+    # セクター別集計（保有フォームで選んだテーマ、未指定は公式業種）
+    sector_map = {}
+    for r in rows:
+        key = r['sector'] or '（未分類）'
+        agg = sector_map.setdefault(key, {'name': key, 'value': 0.0, 'pnl': 0.0, 'has_pnl': False})
+        agg['value'] += r['value']
+        if r['pnl'] is not None:
+            agg['pnl'] += r['pnl']
+            agg['has_pnl'] = True
+    sectors = sorted(sector_map.values(), key=lambda x: -x['value'])
+    max_sector = sectors[0]['value'] if sectors else 0
+    for s in sectors:
+        s['weight'] = s['value'] / total_value * 100 if total_value else 0
+        s['width'] = s['value'] / max_sector * 100 if max_sector else 0
+        cost = s['value'] - s['pnl']
+        s['pnl_pct'] = s['pnl'] / cost * 100 if (s['has_pnl'] and cost) else None
+
+    # 散布図スペック（横軸=個別株内の構成比% / 縦軸=損益率% / 点の大きさ=評価額）
+    scatter_spec = {
+        'points': [
+            {'name': r['name'], 'weight': round(r['weight'], 2),
+             'pnl_pct': round(r['pnl_pct'], 2), 'value': round(r['value'])}
+            for r in rows if r['pnl_pct'] is not None
+        ],
+    }
+
+    # 押し目度ランキング（深い順。履歴なしは末尾。Noneを含むdictsortは使えない）
+    dd_rows = sorted(rows, key=lambda r: r['dd1y'] if r['dd1y'] is not None else 999)
+
+    context = {
+        'data': data,
+        'rows': rows,
+        'dd_rows': dd_rows,
+        'sectors': sectors,
+        'total_value': total_value,
+        'total_pnl': total_pnl,
+        'total_pnl_pct': total_pnl / total_cost * 100 if total_cost else None,
+        'offense_ratio': total_value / data['total'] * 100 if data['total'] else 0,
+        'scatter_spec': scatter_spec,
+        'has_stocks': bool(rows),
+        'missing_dd': sum(1 for r in rows if r['dd1y'] is None and r['dd3y'] is None),
+    }
+    return render(request, 'portfolio/stocks.html', context)
 
 
 def register(request):
@@ -194,6 +271,7 @@ def register(request):
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
                         'baseline_date': form.cleaned_data['baseline_date'],
+                        'sector': form.cleaned_data.get('sector') or '',
                     })
                 messages.success(request, f'{stock.display_code} {stock.name} を登録しました。')
                 return redirect('portfolio:register')

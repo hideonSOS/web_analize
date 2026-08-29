@@ -20,7 +20,7 @@ ASSET_CLASSES = [
     ('stock_jp', '日本株'),
     ('stock_us', '米国株'),
     ('fund', '投資信託'),
-    ('metal', '金・銀'),
+    ('metal', '貴金属'),
     ('cash', '現金'),
 ]
 
@@ -97,6 +97,8 @@ def current_stock_holdings(setting=None):
             'quantity': qty,
             'avg_cost': avg,
             'from_diary': not base_rows,
+            # 手動セクター（複数行なら最初の設定値）。空なら表示時に公式業種で代用
+            'sector': next((h.sector for h in base_rows if h.sector), ''),
         })
     return rows, unusable
 
@@ -192,6 +194,9 @@ def build_portfolio(setting=None):
             'pnl': value - cost if cost else None,
             'pnl_pct': (value - cost) / cost * 100 if cost else None,
             'from_diary': row['from_diary'],
+            'sector': row['sector'] or stock.sector17 or '',
+            'master_code': stock.code,          # 個別株分析ページでのDD統計参照用
+            'change_pct': stock.change_pct,     # 前日比%（バッチ更新値）
         })
 
     # 商品（投信・貴金属）: 同じ商品の複数行（口座区分違い）は合算・加重平均する
@@ -229,6 +234,7 @@ def build_portfolio(setting=None):
             'pnl': value - cost if cost else None,
             'pnl_pct': (value - cost) / cost * 100 if cost else None,
             'from_diary': False,
+            'sector': '',
         })
 
     cash = cash_balance(setting)
@@ -238,7 +244,7 @@ def build_portfolio(setting=None):
             'quantity': None, 'unit': '', 'avg_cost': None,
             'price': None, 'price_date': None, 'currency': '¥',
             'value': cash, 'native_value': None,
-            'pnl': None, 'pnl_pct': None, 'from_diary': False,
+            'pnl': None, 'pnl_pct': None, 'from_diary': False, 'sector': '',
         })
 
     items.sort(key=lambda x: -x['value'])

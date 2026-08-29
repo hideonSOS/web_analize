@@ -49,6 +49,28 @@ class Command(BaseCommand):
                 except Exception as e:  # noqa: BLE001  1銘柄の失敗で全体を止めない
                     ng += 1
                     self.stderr.write(f'  {stock.display_code:6} {country} 失敗: {e}')
+        # ポートフォリオの保有銘柄も対象に加える（個別株分析ページのドローダウン算出用。
+        # インパルス対象と重複する銘柄は上のループで同期済みなのでスキップする）
+        from portfolio.models import Holding
+
+        synced = set()
+        for country in IMPULSE_SECTORS:
+            synced |= {s.code for s, _ in self._targets(country)}
+        holdings = Holding.objects.filter(stock__isnull=False).select_related('stock')
+        for stock in {h.stock.code: h.stock for h in holdings}.values():
+            if stock.code in synced:
+                continue
+            ticker = (f'{stock.display_code}.T' if stock.country == 'JP'
+                      else stock.display_code.replace('.', '-'))
+            try:
+                n = self._sync(stock, ticker, start,
+                               self._cutoff_date(stock.country), full=options['full'])
+                ok += 1
+                self.stdout.write(f'  {stock.display_code:6} 保有 +{n}件')
+            except Exception as e:  # noqa: BLE001
+                ng += 1
+                self.stderr.write(f'  {stock.display_code:6} 保有 失敗: {e}')
+
         self.stdout.write(self.style.SUCCESS(f'インパルス日次終値: {ok}銘柄成功 / {ng}銘柄失敗'))
 
     @staticmethod

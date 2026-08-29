@@ -5,9 +5,25 @@
 """
 from django import forms
 
+from japan_kabu.impulse import IMPULSE_SECTORS
 from japan_kabu.models import Stock
 
 from .models import CashFlow, Holding, Product
+
+
+def _sector_choices():
+    """セクターインパルスと同じ語彙のセクター選択肢（国別optgroup）
+
+    値はセクター名そのもの（日米で同名の「AI・半導体」は同じ値＝同じテーマ扱い）。
+    テンプレート側のJSが、入力された銘柄コードに応じて片方のグループだけを表示する。
+    """
+    jp = [(s['name'], s['name']) for s in IMPULSE_SECTORS['JP']]
+    us = [(s['name'], s['name']) for s in IMPULSE_SECTORS['US']]
+    return [
+        ('', '指定なし（公式業種で表示）'),
+        ('日本株セクター', jp),
+        ('米国株セクター', us),
+    ]
 
 
 class StockHoldingForm(forms.Form):
@@ -20,6 +36,7 @@ class StockHoldingForm(forms.Form):
     code = forms.CharField(label='銘柄コード / ティッカー', max_length=12)
     quantity = forms.FloatField(label='株数', min_value=0.0001)
     avg_cost = forms.FloatField(label='平均取得単価', min_value=0)
+    sector = forms.ChoiceField(label='セクター', choices=_sector_choices, required=False)
     account = forms.ChoiceField(label='口座区分', choices=Holding.ACCOUNT_CHOICES, required=False)
     baseline_date = forms.DateField(label='棚卸し日', widget=forms.DateInput(attrs={'type': 'date'}))
 
@@ -62,7 +79,7 @@ class MetalHoldingForm(forms.Form):
     metal = forms.ChoiceField(label='種類', choices=Product.METAL_CHOICES)
     quantity = forms.FloatField(label='グラム数', min_value=0.0001)
     avg_cost = forms.FloatField(label='平均取得単価（円/g）', min_value=0)
-    account = forms.ChoiceField(label='口座区分', choices=Holding.ACCOUNT_CHOICES, required=False)
+    # 口座区分は貴金属には不要（NISA対象外のためユーザー要望で削除）
     baseline_date = forms.DateField(label='棚卸し日', widget=forms.DateInput(attrs={'type': 'date'}))
 
     def get_or_create_product(self):

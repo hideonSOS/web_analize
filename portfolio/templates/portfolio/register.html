@@ -5,6 +5,33 @@
 <link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
+{% block extra_js %}
+<script>
+// 個別株フォームのセクター選択: 銘柄コードの入力内容で日本株/米国株の
+// optgroupを出し分ける（数字始まり=日本株）。JS無効環境では両方表示される
+(function () {
+  var code = document.getElementById('id_code');
+  var sector = document.getElementById('id_sector');
+  if (!code || !sector) return;
+  function toggle() {
+    var v = code.value.trim();
+    var isJp = /^[0-9]/.test(v);
+    var typed = v.length > 0;
+    sector.querySelectorAll('optgroup').forEach(function (g) {
+      var jpGroup = g.label.indexOf('日本株') === 0;
+      g.hidden = typed && (jpGroup !== isJp);
+    });
+    var opt = sector.selectedOptions[0];
+    if (opt && opt.parentElement.tagName === 'OPTGROUP' && opt.parentElement.hidden) {
+      sector.value = '';
+    }
+  }
+  code.addEventListener('input', toggle);
+  toggle();
+})();
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="pf-wrap">
   <h1 class="pf-title">資産の登録</h1>
@@ -84,11 +111,13 @@
               {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
           </div>
           <div class="pf-row2">
+            <label class="pf-fld">セクター（インパルスと同じ区分。コード入力で日米が切り替わる）
+              {{ f.sector }}{{ f.sector.errors }}</label>
             <label class="pf-fld">口座区分（積立枠/成長枠で単価が違うときは行を分ける）
               {{ f.account }}{{ f.account.errors }}</label>
-            <label class="pf-fld">棚卸し日（この日より後の売買日記を自動加算）
-              {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
           </div>
+          <label class="pf-fld">棚卸し日（この日より後の売買日記を自動加算）
+            {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
         {% endwith %}
         <button class="pf-btn" type="submit">登録する</button>
       </form>
@@ -123,9 +152,9 @@
       </form>
     </div>
 
-    <!-- 金・銀 -->
+    <!-- 貴金属 -->
     <div class="pf-card">
-      <h2>金・銀を追加</h2>
+      <h2>金・銀・プラチナを追加</h2>
       <form method="post" class="pf-frm">
         {% csrf_token %}
         <input type="hidden" name="form_id" value="metal">
@@ -136,10 +165,7 @@
             <label class="pf-fld">グラム数 {{ f.quantity }}{{ f.quantity.errors }}</label>
             <label class="pf-fld">平均取得単価（円/g） {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
           </div>
-          <div class="pf-row2">
-            <label class="pf-fld">口座区分 {{ f.account }}{{ f.account.errors }}</label>
-            <label class="pf-fld">棚卸し日 {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
-          </div>
+          <label class="pf-fld">棚卸し日 {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
         {% endwith %}
         <button class="pf-btn" type="submit">登録する</button>
       </form>
