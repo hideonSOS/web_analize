@@ -5,33 +5,6 @@
 <link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
-{% block extra_js %}
-<script>
-// 個別株フォームのセクター選択: 銘柄コードの入力内容で日本株/米国株の
-// optgroupを出し分ける（数字始まり=日本株）。JS無効環境では両方表示される
-(function () {
-  var code = document.getElementById('id_code');
-  var sector = document.getElementById('id_sector');
-  if (!code || !sector) return;
-  function toggle() {
-    var v = code.value.trim();
-    var isJp = /^[0-9]/.test(v);
-    var typed = v.length > 0;
-    sector.querySelectorAll('optgroup').forEach(function (g) {
-      var jpGroup = g.label.indexOf('日本株') === 0;
-      g.hidden = typed && (jpGroup !== isJp);
-    });
-    var opt = sector.selectedOptions[0];
-    if (opt && opt.parentElement.tagName === 'OPTGROUP' && opt.parentElement.hidden) {
-      sector.value = '';
-    }
-  }
-  code.addEventListener('input', toggle);
-  toggle();
-})();
-</script>
-{% endblock %}
-
 {% block content %}
 <div class="pf-wrap">
   <h1 class="pf-title">資産の登録</h1>
@@ -110,14 +83,11 @@
             <label class="pf-fld">平均取得単価（日本株=円 / 米国株=$）
               {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
           </div>
-          <div class="pf-row2">
-            <label class="pf-fld">セクター（インパルスと同じ区分。コード入力で日米が切り替わる）
-              {{ f.sector }}{{ f.sector.errors }}</label>
-            <label class="pf-fld">口座区分（積立枠/成長枠で単価が違うときは行を分ける）
-              {{ f.account }}{{ f.account.errors }}</label>
+          <label class="pf-fld">口座区分（積立枠/成長枠で単価が違うときは行を分ける）
+            {{ f.account }}{{ f.account.errors }}</label>
+          <div class="pf-note" style="margin-top:0">
+            セクターは自動判定・棚卸し日は本日付けで登録されます
           </div>
-          <label class="pf-fld">棚卸し日（この日より後の売買日記を自動加算）
-            {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
         {% endwith %}
         <button class="pf-btn" type="submit">登録する</button>
       </form>
@@ -138,10 +108,7 @@
               <label class="pf-fld">取得時基準価額（1万口あたり円）
                 {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
             </div>
-            <div class="pf-row2">
-              <label class="pf-fld">口座区分 {{ f.account }}{{ f.account.errors }}</label>
-              <label class="pf-fld">棚卸し日 {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
-            </div>
+            <label class="pf-fld">口座区分 {{ f.account }}{{ f.account.errors }}</label>
           {% else %}
             <div class="pf-note" style="margin-top:0">
               選べる商品がまだ設定されていません。商品の追加（名前とコードの設定）が必要です。
@@ -165,7 +132,6 @@
             <label class="pf-fld">グラム数 {{ f.quantity }}{{ f.quantity.errors }}</label>
             <label class="pf-fld">平均取得単価（円/g） {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
           </div>
-          <label class="pf-fld">棚卸し日 {{ f.baseline_date }}{{ f.baseline_date.errors }}</label>
         {% endwith %}
         <button class="pf-btn" type="submit">登録する</button>
       </form>
@@ -179,10 +145,7 @@
         <input type="hidden" name="form_id" value="cash">
         {% with f=forms.cash %}
           {% if f.non_field_errors %}<div class="pf-errors">{{ f.non_field_errors }}</div>{% endif %}
-          <div class="pf-row2">
-            <label class="pf-fld">現金残高（円） {{ f.amount }}{{ f.amount.errors }}</label>
-            <label class="pf-fld">棚卸し日 {{ f.date }}{{ f.date.errors }}</label>
-          </div>
+          <label class="pf-fld">現金残高（円） {{ f.amount }}{{ f.amount.errors }}</label>
         {% endwith %}
         <div class="pf-note" style="margin-top:0">
           以後の増減は下の「入出金の記録」で付けます。株の売買に伴う現金の増減は

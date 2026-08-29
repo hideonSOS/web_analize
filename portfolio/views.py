@@ -241,18 +241,16 @@ def register(request):
     """
     setting = PortfolioSetting.get()
     today = date.today()
-    initial_date = {'baseline_date': today}
 
     forms_map = {
-        'stock': StockHoldingForm(initial=initial_date),
-        'fund': FundHoldingForm(initial=initial_date),
-        'metal': MetalHoldingForm(initial=initial_date),
+        'stock': StockHoldingForm(),
+        'fund': FundHoldingForm(),
+        'metal': MetalHoldingForm(),
         'cash': CashBaselineForm(initial={
             # 100000.0 のような小数表示を避ける（整数なら整数で見せる）
             'amount': (int(setting.baseline_cash)
                        if setting.baseline_cash and float(setting.baseline_cash).is_integer()
                        else setting.baseline_cash or None),
-            'date': setting.baseline_cash_date or today,
         }),
         'cashflow': CashFlowForm(initial={'date': today}),
     }
@@ -270,8 +268,8 @@ def register(request):
                     defaults={
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
-                        'baseline_date': form.cleaned_data['baseline_date'],
-                        'sector': form.cleaned_data.get('sector') or '',
+                        'baseline_date': today,
+                        # sector は触らない（自動判定に任せる。手動値があれば保持される）
                     })
                 messages.success(request, f'{stock.display_code} {stock.name} を登録しました。')
                 return redirect('portfolio:register')
@@ -287,7 +285,7 @@ def register(request):
                     defaults={
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
-                        'baseline_date': form.cleaned_data['baseline_date'],
+                        'baseline_date': today,
                     })
                 messages.success(request, f'{product.display_name} を登録しました。')
                 return redirect('portfolio:register')
@@ -303,7 +301,7 @@ def register(request):
                     defaults={
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
-                        'baseline_date': form.cleaned_data['baseline_date'],
+                        'baseline_date': today,
                     })
                 messages.success(request, f'{product.display_name} を登録しました。')
                 return redirect('portfolio:register')
@@ -313,7 +311,7 @@ def register(request):
             form = CashBaselineForm(request.POST)
             if form.is_valid():
                 setting.baseline_cash = form.cleaned_data['amount']
-                setting.baseline_cash_date = form.cleaned_data['date']
+                setting.baseline_cash_date = today
                 setting.save()
                 messages.success(request, '現金の期首残高を保存しました。')
                 return redirect('portfolio:register')

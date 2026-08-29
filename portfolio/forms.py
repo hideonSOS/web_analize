@@ -5,25 +5,9 @@
 """
 from django import forms
 
-from japan_kabu.impulse import IMPULSE_SECTORS
 from japan_kabu.models import Stock
 
 from .models import CashFlow, Holding, Product
-
-
-def _sector_choices():
-    """セクターインパルスと同じ語彙のセクター選択肢（国別optgroup）
-
-    値はセクター名そのもの（日米で同名の「AI・半導体」は同じ値＝同じテーマ扱い）。
-    テンプレート側のJSが、入力された銘柄コードに応じて片方のグループだけを表示する。
-    """
-    jp = [(s['name'], s['name']) for s in IMPULSE_SECTORS['JP']]
-    us = [(s['name'], s['name']) for s in IMPULSE_SECTORS['US']]
-    return [
-        ('', '指定なし（公式業種で表示）'),
-        ('日本株セクター', jp),
-        ('米国株セクター', us),
-    ]
 
 
 class StockHoldingForm(forms.Form):
@@ -36,9 +20,11 @@ class StockHoldingForm(forms.Form):
     code = forms.CharField(label='銘柄コード / ティッカー', max_length=12)
     quantity = forms.FloatField(label='株数', min_value=0.0001)
     avg_cost = forms.FloatField(label='平均取得単価', min_value=0)
-    sector = forms.ChoiceField(label='セクター', choices=_sector_choices, required=False)
+    # セクター入力欄は廃止（ユーザー合意）。表示は services.py が自動判定する:
+    # ①Holding.sector（過去の手動値・adminからのみ設定可）→②インパルスのメンバー逆引き
+    # →③公式業種。保有銘柄はインパルス側へ追加して漏れをなくす運用のため入力不要
+    # 棚卸し日も入力廃止（ユーザー合意・登録時に自動で当日付け。ビュー側で設定する）
     account = forms.ChoiceField(label='口座区分', choices=Holding.ACCOUNT_CHOICES, required=False)
-    baseline_date = forms.DateField(label='棚卸し日', widget=forms.DateInput(attrs={'type': 'date'}))
 
     def clean(self):
         cleaned = super().clean()
@@ -71,7 +57,6 @@ class FundHoldingForm(forms.Form):
     quantity = forms.FloatField(label='口数', min_value=0.0001)
     avg_cost = forms.FloatField(label='取得時基準価額（1万口あたり円）', min_value=0)
     account = forms.ChoiceField(label='口座区分', choices=Holding.ACCOUNT_CHOICES, required=False)
-    baseline_date = forms.DateField(label='棚卸し日', widget=forms.DateInput(attrs={'type': 'date'}))
 
 
 class MetalHoldingForm(forms.Form):
@@ -80,7 +65,6 @@ class MetalHoldingForm(forms.Form):
     quantity = forms.FloatField(label='グラム数', min_value=0.0001)
     avg_cost = forms.FloatField(label='平均取得単価（円/g）', min_value=0)
     # 口座区分は貴金属には不要（NISA対象外のためユーザー要望で削除）
-    baseline_date = forms.DateField(label='棚卸し日', widget=forms.DateInput(attrs={'type': 'date'}))
 
     def get_or_create_product(self):
         metal = self.cleaned_data['metal']
@@ -98,9 +82,8 @@ class ProductEditForm(forms.ModelForm):
 
 
 class CashBaselineForm(forms.Form):
-    """現金の期首残高（PortfolioSetting に保存する）"""
+    """現金の期首残高（PortfolioSetting に保存する。棚卸し日は自動で当日）"""
     amount = forms.FloatField(label='現金残高（円）', min_value=0)
-    date = forms.DateField(label='棚卸し日', widget=forms.DateInput(attrs={'type': 'date'}))
 
 
 class CashFlowForm(forms.ModelForm):
