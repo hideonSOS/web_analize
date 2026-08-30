@@ -9,4 +9,5 @@ urlpatterns = [
     path('stocks/', views.stocks, name='stocks'),
     path('stocks/<str:scope>/', views.stock_focus, name='stock_focus'),
     path('register/', views.register, name='register'),
+    path('drill/', views.drill, name='drill'),
 ]

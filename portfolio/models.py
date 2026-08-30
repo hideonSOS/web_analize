@@ -265,6 +265,30 @@ class TargetAllocation(models.Model):
         return f'{self.get_asset_class_display()} {self.ratio}%'
 
 
+class DrillNote(models.Model):
+    """避難訓練ページ（/portfolio/drill/）の手入力データ（1行だけ使うシングルトン）
+
+    暴落時にパニックにならないための「毎日読む合言葉」のページ。
+    - slogan: 毎日読むスローガン（1行=1項目で箇条書き表示する）
+    - lessons: 教訓の自由記述（相場を見て感じたこと・過去の失敗を書き足していく）
+    - cash_target: 確保したい現金の目標額（円）。弾薬ゲージのモチベーション用
+    ⚠️ カルテの経緯と同じく項目は細分化しない（細分化すると書く気が失せる）
+    """
+    slogan = models.TextField(blank=True, default='')
+    lessons = models.TextField(blank=True, default='')
+    cash_target = models.FloatField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return '避難訓練ノート'
+
+    @classmethod
+    def get(cls):
+        """常に1行目を返す（無ければ作る）"""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class AssetSnapshot(models.Model):
     """日次の資産スナップショット（夜間バッチ snapshot_assets が記録する）
 

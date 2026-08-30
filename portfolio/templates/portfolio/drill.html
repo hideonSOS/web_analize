@@ -1,0 +1,191 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}避難訓練 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">避難訓練（爆下げプログラム）</h1>
+  <p class="pf-sub">
+    毎日ここを開き、合言葉と下落メーターを見る。暴落が来た日に慌てないための反復訓練。
+    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">← ダッシュボード</a>
+  </p>
+
+  {% if messages %}
+    {% for m in messages %}<div class="pf-msg">{{ m }}</div>{% endfor %}
+  {% endif %}
+
+  <!-- ① 合言葉（毎日読む） -->
+  <div class="pf-card">
+    <h2>今日の合言葉<span class="pf-hint">声に出して読む</span></h2>
+    <ol class="dr-slogans">
+      {% for s in slogans %}<li>{{ s }}</li>{% endfor %}
+    </ol>
+    <details class="dr-edit">
+      <summary>スローガンと教訓を編集する</summary>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="drill_note" />
+        <label class="dr-label">スローガン（1行＝1項目）</label>
+        <textarea name="slogan" rows="5">{{ note.slogan }}</textarea>
+        <label class="dr-label">教訓（相場を見て感じたこと・過去の失敗を書き足していく）</label>
+        <textarea name="lessons" rows="4">{{ note.lessons }}</textarea>
+        <button type="submit" class="dr-btn">保存する</button>
+      </form>
+    </details>
+  </div>
+
+  <!-- ② 下落メーター -->
+  <div class="pf-card">
+    <h2>下落メーター<span class="pf-hint">52週高値からの下落率（夜間バッチが更新）</span></h2>
+    {% for m in meters %}
+      {% if not m.ok %}
+        <div class="pf-warn">
+          {{ m.label }} の指数データが未取得です。
+          <code>python manage.py update_index_prices --days 480</code> を実行してください。
+        </div>
+      {% else %}
+      <div class="dr-meter num">
+        <div class="dr-meter-head">
+          <span class="dr-meter-name">{{ m.label }}</span>
+          <span class="dr-meter-dd {% if m.fired %}dr-fired-text{% endif %}">{{ m.dd|floatformat:1 }}%</span>
+          {% if m.level %}
+            <span class="dr-chip dr-chip-{{ m.level.tone }}">{{ m.level.name }}</span>
+          {% else %}
+            <span class="dr-chip dr-chip-calm">平時</span>
+          {% endif %}
+        </div>
+        <div class="dr-track">
+          <div class="dr-zone dr-z0" title="平時（0〜-10%）"></div>
+          <div class="dr-zone dr-z1" title="調整（-10〜-20%）"></div>
+          <div class="dr-zone dr-z2" title="弱気相場＝発動（-20〜-30%）"></div>
+          <div class="dr-zone dr-z3" title="暴落（-30〜-40%）"></div>
+          <div class="dr-zone dr-z4" title="歴史的暴落（-40%〜）"></div>
+          <div class="dr-marker" style="left:{{ m.pos|floatformat:2 }}%"></div>
+        </div>
+        <div class="dr-scale"><span>0%</span><span>-10%</span><span>-20%</span><span>-30%</span><span>-40%</span><span>-50%</span></div>
+        <div class="dr-meter-foot">
+          現在値 {{ m.latest|floatformat:0|intcomma }}（{{ m.latest_date|date:"n/j" }}）
+          ／ 52週高値 {{ m.high|floatformat:0|intcomma }}（{{ m.high_date|date:"Y/n/j" }}）
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+    {% comment %} 発動中はページの目的（予定された行動）を前面に出す {% endcomment %}
+    {% for m in meters %}
+      {% if m.ok and m.fired %}
+        <div class="dr-fired">
+          🚨 {{ m.label }} は「{{ m.level.name }}」圏内です。避難訓練は本番に変わりました。
+          合言葉を読み、平時に決めた行動だけを実行してください。
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- ③ 下落の定義 -->
+  <div class="pf-card">
+    <h2>下落の定義<span class="pf-hint">基準は52週高値。頻度は日米77年/62年の実測</span></h2>
+    <div class="pf-scroll">
+      <table class="pf-table num">
+        <tr><th>ライン</th><th>名称</th><th>歴史上の頻度</th><th style="text-align:left">心得</th></tr>
+        {% for lv in levels %}
+        <tr>
+          <td class="dr-th-cell dr-chip-{{ lv.tone }}-text">-{{ lv.th }}%</td>
+          <td>{{ lv.name }}</td>
+          <td>{{ lv.freq }}</td>
+          <td style="text-align:left">{{ lv.note }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="pf-note">
+      発動ラインは <b>-20%（弱気相場）</b>。ただし2025年の関税ショックはS&P500で-18.9%と
+      「-20%に届かない大幅下落」だった。ラインは杓子定規に扱わず、-15%を超えたら臨戦態勢に入る。
+    </div>
+  </div>
+
+  <!-- ④ 弾薬（現金） -->
+  <div class="pf-card">
+    <h2>弾薬（現金）<span class="pf-hint">暴落の日に投じられるのは、平時に貯めた現金だけ</span></h2>
+    <div class="dr-ammo num">
+      <div class="dr-ammo-now">
+        <span class="k">現在の現金</span>
+        <span class="v">¥{{ cash|floatformat:0|intcomma }}</span>
+        <span class="sub">総資産の {{ cash_ratio|floatformat:1 }}%</span>
+      </div>
+      {% if note.cash_target > 0 %}
+      <div class="dr-ammo-bar">
+        <div class="pf-bar"><div class="fill" style="width:{{ ammo_width|floatformat:1 }}%; background:#fbbf24"></div></div>
+        <div class="dr-ammo-caption">
+          目標 ¥{{ note.cash_target|floatformat:0|intcomma }} に対して
+          <b>{{ ammo_pct|floatformat:0 }}%</b> 確保
+          {% if ammo_pct < 100 %}（あと ¥{{ ammo_remaining|floatformat:0|intcomma }}）{% else %}✅ 弾薬は満タン。あとは待つだけ{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <form method="post" class="dr-target-form num">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="drill_cash_target" />
+      <label class="dr-label">目標額（円）</label>
+      <input type="number" name="cash_target" min="0" step="10000"
+             value="{% if note.cash_target %}{{ note.cash_target|floatformat:0 }}{% endif %}" placeholder="例: 1000000" />
+      <button type="submit" class="dr-btn">保存</button>
+    </form>
+    <div class="pf-note">
+      入出金の記録は<a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録ページ</a>から。
+      入金するとこのゲージが増える。
+    </div>
+  </div>
+
+  <!-- ⑤ 教訓 -->
+  {% if note.lessons %}
+  <div class="pf-card">
+    <h2>教訓<span class="pf-hint">自分への申し送り</span></h2>
+    <div class="dr-lessons">{{ note.lessons|linebreaksbr }}</div>
+  </div>
+  {% endif %}
+
+  <!-- ⑥ 歴史的根拠 -->
+  <div class="pf-card">
+    <h2>合言葉の根拠（歴史的実測）<span class="pf-hint">-20%発動ラインで買った場合の過去成績</span></h2>
+    <div class="pf-scroll">
+      <table class="pf-table num">
+        <tr><th style="text-align:left">指数</th><th>発動回数</th><th>頻度</th><th>発動後の追加下落<br>（中央値）</th><th>最悪ケース</th><th>1年後<br>（中央値）</th><th>1年後の勝率</th></tr>
+        {% for key, ev in evidence.items %}
+        <tr>
+          <td style="text-align:left">{{ ev.label }}</td>
+          <td>{{ ev.fires }}回</td>
+          <td>{{ ev.freq }}</td>
+          <td>{{ ev.add_fall }}</td>
+          <td class="pf-neg">{{ ev.worst }}</td>
+          <td class="pf-pos">{{ ev.ret1y }}</td>
+          <td>{{ ev.win }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="pf-note">
+      読み方: 発動ラインで買っても<b>中央値でさらに数%、最悪は半値まで下がった</b>。
+      だから一度に全額入れない。それでも<b>1年後は7割前後の確率でプラス</b>だった。
+      これが「慌てず段階的に」の根拠。
+    </div>
+    <div class="pf-scroll" style="margin-top:14px">
+      <table class="pf-table num">
+        <tr><th style="text-align:left">過去の主要エピソード</th><th>指数</th><th>時期</th><th>深さ</th><th style="text-align:left">経過</th></tr>
+        {% for name, idx, when, depth, course in episodes %}
+        <tr>
+          <td style="text-align:left">{{ name }}</td>
+          <td>{{ idx }}</td>
+          <td>{{ when }}</td>
+          <td class="pf-neg">{{ depth }}</td>
+          <td style="text-align:left">{{ course }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -7,7 +7,9 @@ from .forms import (
     CashBaselineForm, CashFlowForm, FundHoldingForm, MetalHoldingForm,
     ProductEditForm, StockHoldingForm,
 )
-from .models import CashFlow, Holding, PortfolioSetting, Product, TargetAllocation
+from .models import (
+    CashFlow, DrillNote, Holding, PortfolioSetting, Product, TargetAllocation,
+)
 from .services import build_portfolio
 
 # ドーナツ・棒グラフの大分類カラー（モックと同じ配色）
@@ -332,6 +334,144 @@ def stock_focus(request, scope):
         'has_stocks': bool(stock_items),
     }
     return render(request, 'portfolio/stock_focus.html', context)
+
+
+# ══════════════════════════════════════════════════════════════════
+# 避難訓練（爆下げプログラム）
+# ══════════════════════════════════════════════════════════════════
+
+# 下落の段階定義（52週高値からの下落率）。頻度は実測値:
+# S&P500 1950〜(77年) / 日経平均 1965〜(62年) の日次終値から、
+# 「一度-5%圏内へ回復してから再度割り込んだら別イベント」として集計した。
+# ⚠️ しきい値を変えたら頻度・過去例も再集計すること（数字だけの独り歩きを防ぐ）
+DRILL_LEVELS = [
+    {'th': 10, 'name': '調整', 'tone': 'watch',
+     'freq': '1〜2年に1回', 'note': '日常の範囲。ここで大きく投じない（弾切れになる）'},
+    {'th': 20, 'name': '弱気相場', 'tone': 'fire',
+     'freq': '3〜7年に1回', 'note': '発動ライン。予定された行動に入る'},
+    {'th': 30, 'name': '暴落', 'tone': 'crash',
+     'freq': '12年に1回', 'note': 'コロナ・ブラックマンデー級'},
+    {'th': 40, 'name': '歴史的暴落', 'tone': 'epic',
+     'freq': '20〜40年に1回', 'note': 'リーマン・ITバブル・オイルショック級'},
+]
+DRILL_METER_MAX = 50   # メーターの右端（-50%）
+
+# 発動ライン(-20%)の歴史的実測（このページの合言葉に説得力を持たせる根拠）。
+# 出典: 上記と同じ集計。発動日に買った場合の「その後の追加下落」と「1年後リターン」
+DRILL_EVIDENCE = {
+    'JP': {'label': '日経平均（1965〜の62年間）', 'fires': 20, 'freq': '3.1年に1回',
+           'add_fall': '-4.3%', 'worst': '-53.6%', 'ret1y': '+17.8%', 'win': '65%'},
+    'US': {'label': 'S&P500（1950〜の77年間）', 'fires': 11, 'freq': '7.0年に1回',
+           'add_fall': '-6.3%', 'worst': '-45.6%', 'ret1y': '+23.0%', 'win': '73%'},
+}
+
+# 過去の主要エピソード（学習用の静的データ。深さは52週高値でなく高値→底の実測）
+DRILL_EPISODES = [
+    ('リーマン・ショック', 'S&P500', '2007-2009', '-57%', '下落17ヶ月・回復49ヶ月'),
+    ('ITバブル崩壊', 'S&P500', '2000-2002', '-49%', '下落31ヶ月・回復56ヶ月'),
+    ('コロナ・ショック', 'S&P500', '2020', '-34%', '下落1ヶ月・回復5ヶ月（例外的な速さ）'),
+    ('利上げ相場', 'S&P500', '2022', '-25%', '下落9ヶ月・回復15ヶ月'),
+    ('植田ショック→関税ショック', '日経平均', '2024-2025', '-26%', '下落9ヶ月・回復4ヶ月'),
+    ('関税ショック', 'S&P500', '2025', '-19%', '下落2ヶ月・回復3ヶ月。-20%には届かず'),
+]
+
+# 初回アクセス時にスローガン欄へ入れる初期値（1行=1項目。ユーザーが自由に編集する）
+DRILL_DEFAULT_SLOGAN = """売らない。下落で売った瞬間、この訓練は失敗する
+暴落は異常事態ではない。数年に1回必ず来る「予定されたイベント」
+底は当てられない。発動後もさらに下がるのが普通。慌てず段階的に
+現金は攻めの弾薬。平時に貯めた者だけが暴落で買える
+下落は数ヶ月かけて進む。今日ぜんぶ買う必要はない"""
+
+
+def _drill_meters():
+    """日経・S&P500の「52週高値からの下落率」メーターを組む
+
+    IndexPrice（update_index_prices が蓄積）から直近252営業日の高値と最新終値で算出。
+    データ未取得なら None を返し、テンプレートで案内を出す。
+    """
+    from japan_kabu.models import IndexPrice
+
+    meters = []
+    for symbol, label in [('N225', '日経平均'), ('GSPC', 'S&P500')]:
+        rows = list(IndexPrice.objects.filter(symbol=symbol)
+                    .order_by('-date').values_list('date', 'close')[:252])
+        if len(rows) < 30:
+            meters.append({'symbol': symbol, 'label': label, 'ok': False})
+            continue
+        latest_date, latest = rows[0]
+        high_date, high = max(reversed(rows), key=lambda r: r[1])
+        dd = (latest / high - 1) * 100 if high else 0
+        depth = min(max(-dd, 0), DRILL_METER_MAX)
+
+        # 現在どの段階か（超えた最深ライン）。どれも超えていなければ平時
+        level = None
+        for lv in DRILL_LEVELS:
+            if -dd >= lv['th']:
+                level = lv
+        meters.append({
+            'symbol': symbol, 'label': label, 'ok': True,
+            'latest': latest, 'latest_date': latest_date,
+            'high': high, 'high_date': high_date,
+            'dd': dd,
+            'pos': depth / DRILL_METER_MAX * 100,   # メーター上のマーカー位置(%)
+            'level': level,
+            'fired': level is not None and level['th'] >= 20,
+        })
+    return meters
+
+
+def drill(request):
+    """避難訓練（爆下げプログラム）
+
+    暴落が来た日にパニックにならないための「毎日読む」ページ。
+    数字の管理ではなく心構えの反復訓練が主目的（ユーザー要望）:
+    1. スローガン（合言葉）を毎日読む
+    2. 下落メーターで「いま歴史のどの位置か」を毎日見る
+    3. 弾薬（現金）ゲージで確保のモチベーションを保つ
+    """
+    note = DrillNote.get()
+    if not note.slogan:
+        # 初回だけ雛形を入れる（空のテキストエリアでは何を書くべきか分からないため）
+        note.slogan = DRILL_DEFAULT_SLOGAN
+        note.save(update_fields=['slogan'])
+
+    if request.method == 'POST':
+        form_id = request.POST.get('form_id')
+        if form_id == 'drill_note':
+            note.slogan = request.POST.get('slogan', '').strip()
+            note.lessons = request.POST.get('lessons', '').strip()
+            note.save()
+            messages.success(request, 'スローガンと教訓を保存しました。')
+            return redirect('portfolio:drill')
+        if form_id == 'drill_cash_target':
+            try:
+                note.cash_target = max(0.0, float(request.POST.get('cash_target', '') or 0))
+                note.save(update_fields=['cash_target'])
+                messages.success(request, '現金の目標額を保存しました。')
+            except ValueError:
+                messages.error(request, '目標額は数値で入力してください。')
+            return redirect('portfolio:drill')
+
+    data = build_portfolio()
+    cash = data['by_class']['cash']['value']
+    ammo_pct = (cash / note.cash_target * 100) if note.cash_target > 0 else None
+
+    context = {
+        'note': note,
+        'slogans': [s for s in note.slogan.splitlines() if s.strip()],
+        'meters': _drill_meters(),
+        'levels': DRILL_LEVELS,
+        'meter_max': DRILL_METER_MAX,
+        'evidence': DRILL_EVIDENCE,
+        'episodes': DRILL_EPISODES,
+        'cash': cash,
+        'cash_ratio': data['cash_ratio'],
+        'total': data['total'],
+        'ammo_pct': ammo_pct,
+        'ammo_width': min(ammo_pct, 100) if ammo_pct is not None else 0,
+        'ammo_remaining': max(0.0, note.cash_target - cash),
+    }
+    return render(request, 'portfolio/drill.html', context)
 
 
 def register(request):

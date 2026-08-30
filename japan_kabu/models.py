@@ -123,6 +123,32 @@ class DailyVolume(models.Model):
         return f"{self.stock_id} {self.date} {self.volume}"
 
 
+class IndexPrice(models.Model):
+    """市場指数の日次終値（避難訓練ページの下落メーター用）
+
+    避難訓練ページ（/portfolio/drill/）が「52週高値から現在何%下か」を出すための
+    指数そのものの終値。DailyPrice は Stock マスタ必須のため指数を入れられず、
+    別テーブルにした。`update_index_prices` が yfinance から差分同期で蓄積する。
+
+    設計上の決めごと:
+    - **調整後終値**（auto_adjust=True）。DailyPrice と同じ理由
+    - symbol は yfinance のティッカーから ^ を除いたもの（N225 / GSPC）
+    - 52週高値の算出には約1年強の履歴が必要。初回は --days 480 でバックフィルする
+    """
+    symbol = models.CharField(max_length=10, db_index=True)   # N225 / GSPC
+    date = models.DateField()
+    close = models.FloatField()                               # 調整後終値
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['symbol', 'date'], name='uniq_indexprice_symbol_date'),
+        ]
+        ordering = ['date']
+
+    def __str__(self):
+        return f"{self.symbol} {self.date} {self.close}"
+
+
 class MacroIndicator(models.Model):
     """米国マクロ経済指標の月次系列（CPI・失業率など）
 

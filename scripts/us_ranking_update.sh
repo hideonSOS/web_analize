@@ -61,6 +61,16 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
+# 市場指数（日経平均・S&P500）の日次終値。避難訓練ページの下落メーター用（2コール・数秒）。
+# JP前日バー・USクローズともこの時刻なら確定済み。未確定当日バーは保存しないガードあり。
+echo "===== $(date '+%F %T') manage.py update_index_prices =====" >> "$LOG"
+if "$PY" manage.py update_index_prices >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 # マクロ指標（日米のCPI・失業率）。FRED/DBnomicsから月次系列を取得（数秒・キー不要）。
 # 月次データだが、季節調整の遡及改定に追従するため日次で回す（差分のみ書き込み）
 echo "===== $(date '+%F %T') manage.py update_macro =====" >> "$LOG"
