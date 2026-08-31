@@ -105,6 +105,53 @@
   window.addEventListener('resize', () => chart.resize());
 })();
 
+// カルテ詳細: マックスドローダウン（アンダーウォーター）チャート。
+// その日までの最高値からの下落率%の推移。系列は price-data の drawdown（サーバー計算）
+(() => {
+  const el = document.getElementById('price-data');
+  const box = document.getElementById('kt-dd-chart');
+  if (!el || !box) return;
+  const d = JSON.parse(el.textContent);
+  if (!d || !d.drawdown || !d.drawdown.length) return;
+
+  const chart = echarts.init(box, null, { renderer: 'canvas' });
+  chart.setOption({
+    backgroundColor: 'transparent',
+    animationDuration: 500,
+    grid: { left: 10, right: 16, top: 10, bottom: 20, containLabel: true },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(11,18,32,0.95)',
+      borderColor: '#f87171',
+      textStyle: { color: '#e5e7eb', fontSize: 12 },
+      valueFormatter: (v) => `${v}%`,
+    },
+    xAxis: {
+      type: 'category',
+      data: d.dates,
+      axisLabel: { color: '#87cefa', fontSize: 10 },
+      axisLine: { lineStyle: { color: 'rgba(59,130,246,0.3)' } },
+    },
+    yAxis: {
+      type: 'value',
+      max: 0,               // 0%（高値更新中）を天井に固定し、下に沈む形で描く
+      axisLabel: { color: '#87cefa', fontSize: 10, formatter: '{value}%' },
+      splitLine: { lineStyle: { color: 'rgba(59,130,246,0.12)' } },
+    },
+    series: [{
+      name: '高値からの下落率',
+      type: 'line',
+      data: d.drawdown,
+      showSymbol: false,
+      smooth: false,
+      lineStyle: { width: 1.5, color: '#f87171' },
+      areaStyle: { color: 'rgba(248,113,113,0.18)' },  // 水面下の領域を塗る
+    }],
+  });
+
+  window.addEventListener('resize', () => chart.resize());
+})();
+
 // カルテ詳細: 手入力KPIの時系列グラフ（Apache ECharts）
 // KPI名ごとに1系列。期のラベルは各KPIの入力順（文字列ソート）に従う。
 (() => {

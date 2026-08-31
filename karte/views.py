@@ -166,6 +166,16 @@ def detail(request, code):
         'high_1y': price['1y']['high'] if price and price.get('1y') else None,
         'low_1y': price['1y']['low'] if price and price.get('1y') else None,
     } if price_rows else None
+    if price_chart:
+        # アンダーウォーターチャート用: その日までの最高値（取得済み履歴内）からの
+        # 下落率%の系列。0%=高値更新中。「この銘柄の普通の痛みの深さ」を較正する
+        # ためのグラフで、1点の下落率数値（上の表）の時系列版
+        peak = None
+        dd = []
+        for _, c in price_rows:
+            peak = c if peak is None or c > peak else peak
+            dd.append(round((c / peak - 1) * 100, 2))
+        price_chart['drawdown'] = dd
 
     context = {
         'stock': stock,

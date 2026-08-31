@@ -214,6 +214,16 @@
 
           {% if price_chart %}
           <div class="kt-price-chart-wrap"><div id="kt-price-chart" class="ec-canvas"></div></div>
+          {% comment %}
+            マックスドローダウン（アンダーウォーター）チャート。その日までの最高値から
+            何%下かの推移。上の表の下落率（1点の数字）の時系列版で、
+            「この銘柄の普通の痛みの深さ・沈んでいた期間」を較正する
+          {% endcomment %}
+          <div class="kt-price-chart-wrap kt-dd-wrap"><div id="kt-dd-chart" class="ec-canvas"></div></div>
+          <p class="kt-note kt-price-caveat" style="margin-top:6px">
+            下段: 最高値（取得済み履歴内・調整後終値）からの下落率。0%＝高値更新中。
+            深さと沈んでいた期間から「この銘柄の普通の下落」が分かる。
+          </p>
           {% endif %}
 
           <p class="kt-note kt-price-caveat">

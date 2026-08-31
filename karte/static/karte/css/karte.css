@@ -167,9 +167,11 @@
 
 .kt-price-chart-wrap{
   border:1px solid #1f2937; background:#0b1220; border-radius:10px;
-  padding:10px 6px; height:220px; box-sizing:border-box; margin-top:14px;
+  padding:10px 6px; height:330px; box-sizing:border-box; margin-top:14px;
 }
 .kt-price-caveat{ font-size:11px; }
+/* アンダーウォーターチャート（株価チャートの下段）。少し低めで従属関係を示す */
+.kt-dd-wrap{ height:255px; margin-top:8px; }
 
 /* 一覧: 押し目ランキング */
 .kt-dips{ margin-bottom:24px; }
