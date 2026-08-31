@@ -424,6 +424,74 @@ DRILL_DEFAULT_SLOGAN = """売らない。下落で売った瞬間、この訓練
 下落は数ヶ月かけて進む。今日ぜんぶ買う必要はない"""
 
 
+DRILL_CHART_DAYS = 30   # 下落推移チャートの表示営業日数
+
+
+def _dd_series(symbol, days=DRILL_CHART_DAYS):
+    """直近days営業日それぞれの「その日時点の52週高値からのDD%」系列（昇順）"""
+    from japan_kabu.models import IndexPrice
+
+    rows = list(IndexPrice.objects.filter(symbol=symbol)
+                .order_by('-date').values_list('date', 'close')[:252 + days])
+    if len(rows) < 30:
+        return []
+    asc = rows[::-1]
+    n = len(asc)
+    out = []
+    for i in range(max(0, n - days), n):
+        hi = max(c for _, c in asc[max(0, i - 251):i + 1])
+        out.append((asc[i][0], (asc[i][1] / hi - 1) * 100))
+    return out
+
+
+def _drill_dd_chart():
+    """日経・S&P500のDD推移を1枚に重ねるラインチャートのSVG座標を組む
+
+    「今の下落率」だけでは文脈（下落中か戻り局面か）が読めない、というユーザー要望。
+    描画はテンプレートの <svg> に座標を渡すだけ（このページのJSなし方針を維持）。
+    横軸は暦日ベース（日米で休場日が違っても日付が揃う）。
+    """
+    from datetime import timedelta
+
+    data = []
+    for symbol, label, key in [('GSPC', 'S&P500', 'us'), ('N225', '日経平均', 'jp')]:
+        s = _dd_series(symbol)
+        if len(s) >= 2:
+            data.append((label, key, s))
+    if not data:
+        return None
+
+    W, H, PT, PB = 600, 200, 8, 8
+    all_dates = [d for _, _, s in data for d, _ in s]
+    start, end = min(all_dates), max(all_dates)
+    span = max((end - start).days, 1)
+    # 縦軸の下端。-10%ライン（調整）が常に文脈として見えるよう最低でも-12%まで取る
+    ymin = min(min(v for _, _, s in data for _, v in s) - 2, -12.0)
+
+    def y(v):
+        return round(PT + (v / ymin) * (H - PT - PB), 1)
+
+    series = []
+    for label, key, s in data:
+        pts = ' '.join(f'{round((d - start).days / span * W, 1)},{y(v)}' for d, v in s)
+        low_date, low = min(s, key=lambda t: t[1])
+        series.append({'label': label, 'key': key, 'points': pts,
+                       'low': low, 'low_date': low_date})
+
+    # 横グリッド: 0%から5%刻み。段階ライン（-10/-20…）は該当色の点線にする
+    tones = {lv['th']: lv['tone'] for lv in DRILL_LEVELS}
+    grid = []
+    t = 0.0
+    while t >= ymin:
+        yy = y(t)
+        grid.append({'y': yy, 'top': round(yy / H * 100, 1),
+                     'label': f'{t:.0f}%', 'tone': tones.get(-t)})
+        t -= 5
+    # 横軸の日付ラベル（両端含む5点・等間隔の暦日）
+    xlabs = [start + timedelta(days=span * i / 4) for i in range(5)]
+    return {'series': series, 'grid': grid, 'xlabs': xlabs}
+
+
 def _drill_meters():
     """日経・S&P500の「52週高値からの下落率」メーターを組む
 
@@ -433,12 +501,13 @@ def _drill_meters():
     from japan_kabu.models import IndexPrice
 
     meters = []
-    # 米国株が主戦場のため S&P500 を上に置く（ユーザー要望）
-    for symbol, label in [('GSPC', 'S&P500'), ('N225', '日経平均')]:
+    # 米国株が主戦場のため S&P500 を上に置く（ユーザー要望）。
+    # key は色分け用（推移チャートと同じ配色: US=オレンジ / JP=青系）
+    for symbol, label, key in [('GSPC', 'S&P500', 'us'), ('N225', '日経平均', 'jp')]:
         rows = list(IndexPrice.objects.filter(symbol=symbol)
                     .order_by('-date').values_list('date', 'close')[:252])
         if len(rows) < 30:
-            meters.append({'symbol': symbol, 'label': label, 'ok': False})
+            meters.append({'symbol': symbol, 'label': label, 'key': key, 'ok': False})
             continue
         latest_date, latest = rows[0]
         high_date, high = max(reversed(rows), key=lambda r: r[1])
@@ -451,7 +520,7 @@ def _drill_meters():
             if -dd >= lv['th']:
                 level = lv
         meters.append({
-            'symbol': symbol, 'label': label, 'ok': True,
+            'symbol': symbol, 'label': label, 'key': key, 'ok': True,
             'latest': latest, 'latest_date': latest_date,
             'high': high, 'high_date': high_date,
             'dd': dd,
@@ -512,6 +581,7 @@ def drill(request):
         'note': note,
         'slogans': [s for s in note.slogan.splitlines() if s.strip()],
         'meters': _drill_meters(),
+        'chart': _drill_dd_chart(),
         'levels': DRILL_LEVELS,
         'meter_max': DRILL_METER_MAX,
         'evidence': DRILL_EVIDENCE,

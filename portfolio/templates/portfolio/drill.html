@@ -87,7 +87,7 @@
           <div class="dr-zone dr-z2" title="弱気相場＝発動（-20〜-30%）"></div>
           <div class="dr-zone dr-z3" title="暴落（-30〜-40%）"></div>
           <div class="dr-zone dr-z4" title="歴史的暴落（-40%〜）"></div>
-          <div class="dr-marker" style="left:{{ m.pos|floatformat:2 }}%"></div>
+          <div class="dr-fill dr-fill-{{ m.key }}" style="width:{{ m.pos|floatformat:2 }}%"></div>
         </div>
         <div class="dr-scale"><span>0%</span><span>-10%</span><span>-20%</span><span>-30%</span><span>-40%</span><span>-50%</span></div>
         <div class="dr-meter-foot">
@@ -106,6 +106,45 @@
         </div>
       {% endif %}
     {% endfor %}
+  </div>
+
+  <!-- ②b 下落の推移（日米重ねラインチャート） -->
+  <div class="pf-card">
+    <h2>下落の推移（前30営業日）<span class="pf-hint">下落中か戻り局面か、文脈で読む</span></h2>
+    {% if chart %}
+    <div class="dr-chart-wrap num">
+      <svg class="dr-chart" viewBox="0 0 600 200" preserveAspectRatio="none" role="img"
+           aria-label="S&P500と日経平均の直近30営業日の下落率推移">
+        {% for g in chart.grid %}
+        <line x1="0" y1="{{ g.y }}" x2="600" y2="{{ g.y }}"
+              class="dr-grid{% if g.tone %} dr-grid-th dr-grid-th-{{ g.tone }}{% endif %}" />
+        {% endfor %}
+        {% for s in chart.series %}
+        <polyline points="{{ s.points }}" class="dr-line dr-line-{{ s.key }}" />
+        {% endfor %}
+      </svg>
+      {% for g in chart.grid %}
+      <span class="dr-ylab" style="top:{{ g.top }}%">{{ g.label }}</span>
+      {% endfor %}
+    </div>
+    <div class="dr-xlabs num">
+      {% for x in chart.xlabs %}<span>{{ x|date:"n/j" }}</span>{% endfor %}
+    </div>
+    <div class="dr-legend num">
+      {% for s in chart.series %}
+      <span><i class="dr-sw dr-sw-{{ s.key }}"></i>{{ s.label }}
+        <span class="pf-muted">（最深 {{ s.low|floatformat:1 }}%＝{{ s.low_date|date:"n/j" }}）</span></span>
+      {% endfor %}
+    </div>
+    <div class="pf-note">
+      縦軸は52週高値からの下落率。色付き点線は段階ライン（-10%調整 / -20%発動）。
+      下落メーターが「いまの水準」、このチャートが「そこへ来た経緯」。
+    </div>
+    {% else %}
+    <div class="pf-warn">
+      指数データが未取得です。<code>python manage.py update_index_prices --days 480</code> を実行してください。
+    </div>
+    {% endif %}
   </div>
 
   <!-- ③ 下落の定義 -->

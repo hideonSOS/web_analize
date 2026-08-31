@@ -183,10 +183,44 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
 .dr-z2{ background:#4a1010; }
 .dr-z3{ background:#5f0c0c; }
 .dr-z4{ background:#2e1065; }
-.dr-marker{ position:absolute; top:0; bottom:0; width:3px; margin-left:-1px;
-  background:#fff; box-shadow:0 0 8px rgba(255,255,255,.9); }
+/* 現在地はバーで0%から塗りつぶす（針1本だと視認しづらいというユーザー要望）。
+   半透明にして下のゾーン色（どの段階まで来ているか）が透けて見えるようにする。
+   色は推移チャートの線と対応: S&P500=オレンジ / 日経平均=シアン（ユーザー要望） */
+.dr-fill{ position:absolute; left:0; top:0; bottom:0; min-width:3px; }
+.dr-fill-us{ background:rgba(251,146,60,.75); border-right:2px solid #ffedd5;
+  box-shadow:0 0 8px rgba(251,146,60,.9); }
+.dr-fill-jp{ background:rgba(34,211,238,.6); border-right:2px solid #cffafe;
+  box-shadow:0 0 8px rgba(34,211,238,.9); }
 .dr-scale{ display:flex; justify-content:space-between; font-size:10px; color:#6b7280; margin-top:4px; }
 .dr-meter-foot{ font-size:11px; color:#6b7280; margin-top:6px; }
+
+/* ②b 下落の推移チャート（日米重ね・サーバー側で座標を組むインラインSVG・JSなし）。
+   preserveAspectRatio=none で横に伸ばすため、線幅は vector-effect で固定する。
+   軸ラベルはSVG内だと歪むのでHTMLで重ねる（.dr-ylab / .dr-xlabs） */
+.dr-chart-wrap{ position:relative; }
+.dr-chart{ display:block; width:100%; height:240px;
+  background:#0f172a; border-radius:6px; }
+@media (max-width:768px){ .dr-chart{ height:180px; } }
+.dr-grid{ stroke:#1f2937; stroke-width:1; vector-effect:non-scaling-stroke; }
+.dr-grid-th{ stroke-dasharray:4 4; }
+.dr-grid-th-watch{ stroke:#7c5c1d; }
+.dr-grid-th-fire { stroke:#7c1d1d; }
+.dr-grid-th-crash{ stroke:#991b1b; }
+.dr-grid-th-epic { stroke:#5b21b6; }
+/* 線の色: S&P500=オレンジ / 日経平均=青（メーターの塗り色と対応。ユーザー要望） */
+.dr-line{ fill:none; stroke-width:2; vector-effect:non-scaling-stroke; }
+.dr-line-us{ stroke:#fb923c; }
+.dr-line-jp{ stroke:#1e90ff; }
+.dr-ylab{ position:absolute; left:6px; transform:translateY(-55%);
+  font-size:10px; color:#6b7280; pointer-events:none; }
+.dr-xlabs{ display:flex; justify-content:space-between;
+  font-size:10px; color:#6b7280; margin-top:4px; }
+.dr-legend{ display:flex; gap:16px; flex-wrap:wrap;
+  font-size:12px; color:#d1d5db; margin-top:10px; }
+.dr-sw{ display:inline-block; width:14px; height:3px; border-radius:2px;
+  margin-right:6px; vertical-align:middle; }
+.dr-sw-us{ background:#fb923c; }
+.dr-sw-jp{ background:#1e90ff; }
 
 .dr-fired{ border:1px solid #7c1d1d; background:#1f0a0a; color:#f87171;
   border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.8; margin-top:14px; }

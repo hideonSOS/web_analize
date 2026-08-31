@@ -24,15 +24,17 @@
         （実際に {# #} で複数行を書いて全ページの先頭に生テキストが出た）
       {% endcomment %}
       <nav class="ham-nav" id="js-nav">
+        {% comment %}
+          グループの並びは 記録→銘柄→市場（ユーザー要望: 毎日見る記録系を左端に、
+          市場分析は最後に）。
+        {% endcomment %}
         <ul class="nav-main">
           <li class="nav-group">
-            <span class="nav-cap">市場</span>
+            <span class="nav-cap">記録</span>
             <ul>
-              <li><a href="{% url 'japan_kabu:index' %}">時価総額</a></li>
-              <li><a href="{% url 'japan_kabu:volume' %}">出来高急増</a></li>
-              <li><a href="{% url 'japan_kabu:impulse' %}">インパルス</a></li>
-              <li><a href="{% url 'japan_kabu:drawdown' %}">ドローダウン</a></li>
-              <li><a href="{% url 'japan_kabu:macro' %}">マクロ</a></li>
+              <li><a href="{% url 'diary:index' %}">売買日記</a></li>
+              <li><a href="{% url 'portfolio:index' %}">ポートフォリオ</a></li>
+              <li><a href="{% url 'portfolio:drill' %}">下落上等</a></li>
             </ul>
           </li>
           <li class="nav-group">
@@ -43,11 +45,13 @@
             </ul>
           </li>
           <li class="nav-group">
-            <span class="nav-cap">記録</span>
+            <span class="nav-cap">市場</span>
             <ul>
-              <li><a href="{% url 'diary:index' %}">売買日記</a></li>
-              <li><a href="{% url 'portfolio:index' %}">ポートフォリオ</a></li>
-              <li><a href="{% url 'portfolio:drill' %}">下落上等</a></li>
+              <li><a href="{% url 'japan_kabu:index' %}">時価総額</a></li>
+              <li><a href="{% url 'japan_kabu:volume' %}">出来高急増</a></li>
+              <li><a href="{% url 'japan_kabu:impulse' %}">インパルス</a></li>
+              <li><a href="{% url 'japan_kabu:drawdown' %}">ドローダウン</a></li>
+              <li><a href="{% url 'japan_kabu:macro' %}">マクロ</a></li>
             </ul>
           </li>
           <li class="nav-group nav-group-etc">
