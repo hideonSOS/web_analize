@@ -84,15 +84,35 @@ def index(request):
 
 
 def stock_options(request):
-    """銘柄検索用マスタ（JP+US）をJSONで返す。約2MBあるためページ埋め込みを避け、
-    ブラウザに1時間キャッシュさせる（銘柄マスタは日次更新なので十分）。"""
+    """銘柄検索用マスタ（JP+US）をJSONで返す（ETagで条件付きGET・karte側と同じ実装）
+
+    旧実装の max-age=3600 は「サーバーで import_us_master を実行した直後、
+    ブラウザに古いJSONが1時間貼り付き検索にヒットしない」事故を起こす
+    （karte側で実際に発生）。ETag + no-cache なら毎回サーバに再確認しつつ、
+    無変更なら 304 / 0バイトで済み、約2MBの本文は転送されない。
+    ⚠️ close を含むため、株価バッチ後の bulk_update では updated_at が動かず
+    ETag が変わらないが、close はサジェストの参考表示であり実害はない
+    （銘柄の増減=検索ヒットの問題は件数で確実に検知できる）。
+    """
+    from django.db.models import Count, Max
+    from django.http import HttpResponseNotModified
+
+    agg = Stock.objects.aggregate(n=Count('code'), mx=Max('updated_at'))
+    mx = agg['mx'].strftime('%Y%m%d%H%M%S') if agg['mx'] else '0'
+    etag = f'W/"{agg["n"] or 0}-{mx}"'
+    if request.META.get('HTTP_IF_NONE_MATCH') == etag:
+        resp = HttpResponseNotModified()
+        resp['ETag'] = etag
+        resp['Cache-Control'] = 'no-cache'
+        return resp
     options = [
         {'code': s.code, 'ticker': s.display_code, 'name': s.name,
          'close': s.close, 'country': s.country}
         for s in Stock.objects.all().order_by('country', 'code')
     ]
     resp = JsonResponse({'stocks': options})
-    resp['Cache-Control'] = 'public, max-age=3600'
+    resp['ETag'] = etag
+    resp['Cache-Control'] = 'no-cache'
     return resp
 
 

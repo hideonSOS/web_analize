@@ -10,8 +10,14 @@
 
 ⚠️ 必ず調整後終値を保存する（JP:AdjC / US:auto_adjust=True）。
 未調整だと株式分割時に株価が飛び、高値が実態の数倍になる。
+⚠️ USは取引時間中の未確定当日バーを保存しないガードあり（2026-08-31追加。
+update_impulse_prices と同じ理由: 差分同期のため一度保存した途中値は永久に残る。
+JPのJ-Quantsは確定データしか返さないためガード不要）。
+※日常の更新は update_impulse_prices（朝バッチ・一括download）が全登録銘柄を
+カバーするようになったため、このコマンドは初回バックフィルと予備の位置づけ。
 """
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from django.core.management.base import BaseCommand
 
@@ -80,6 +86,12 @@ class Command(BaseCommand):
 
         rows = (self._fetch_us(stock, from_date) if stock.country == 'US'
                 else self._fetch_jp(stock, from_date))
+        if stock.country == 'US':
+            # 米国市場のクローズ確定前は当日バーが途中値なので保存しない
+            now = datetime.now(ZoneInfo('America/New_York'))
+            cutoff = (now.date() - timedelta(days=1)
+                      if (now.hour, now.minute) < (16, 5) else now.date())
+            rows = [(d, c) for d, c in rows if d <= cutoff]
         if not rows:
             return 0
         objs = [DailyPrice(stock=stock, date=d, close=c) for d, c in rows]
