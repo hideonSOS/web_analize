@@ -9,9 +9,15 @@
 
 .imp-scroll{ overflow-x:auto; }   /* 日数が増えたら横スクロール（画面は崩さない） */
 
+/* 構成銘柄ラベルの廃止（2026-08-31）でセクター列が細くなったぶん、コンテナを広げて
+   セルを 30→32px に拡大した（ユーザー要望: ラベルを消してグラフ領域を広く）。
+   このCSSはインパルスページ専用なので .mc の上書きは他ページに影響しない */
+.mc{ max-width:1150px; }
+
 .imp-grid{
-  /* 横の間隔は 2px。30列 × (30+2)px = 960px で .mc の max-width:1100px に収まり、
-     デスクトップでは横スクロールせず30営業日を一望できる（日数を増やすときは要再計算） */
+  /* 横の間隔は 2px。30列 × (32+2)px = 1020px + セクター名列(約100px)で
+     .mc の max-width:1150px に収まり、デスクトップでは横スクロールせず
+     30営業日を一望できる（日数を増やすときは要再計算） */
   border-collapse:separate; border-spacing:2px 6px;
   margin:0 auto;
 }
@@ -43,9 +49,9 @@
 thead .imp-date{ vertical-align:bottom; }
 
 /* セルは正方形。⚠️ td の高さは行の高さに引っ張られるので、
-   セクター名列（2行ぶん）がセルより高くならないよう line-height を詰めてある */
+   セクター名列がセルより高くならないよう line-height を詰めてある */
 .imp-cell{
-  width:30px; min-width:26px; height:30px;
+  width:32px; min-width:26px; height:32px;
   border-radius:4px;
   text-align:center; vertical-align:middle;
 }

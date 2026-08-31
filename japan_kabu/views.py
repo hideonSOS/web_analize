@@ -92,7 +92,6 @@ def volume_ranking(request):
     return render(request, 'japan_kabu/volume.html', context)
 
 
-IMPULSE_MEMBERS_SHOWN = 3   # セクター名の下に出す銘柄コードの数。以降は「他N」に畳む
 
 
 def _mad_sigma(values):
@@ -185,18 +184,6 @@ def _dispersion_cells(disp, dates):
         level = sum(1 for t in DISPERSION_PCTS if p > t)
         cells.append({'state': f'd{level}', 'chg': round(v, 2), 'sigma': round(p)})
     return round(med, 2), cells
-
-
-def _members_label(members):
-    """"AAPL,MSFT,GOOGL 他2" 形式の短いラベル
-
-    構成銘柄を全部並べるとセクター列が横に伸び、スマホでヒートマップ本体を
-    押し出してしまうため先頭数件で打ち切る（全銘柄は title 属性で見られる）。
-    """
-    codes = [m.display_code for m in members]
-    head = ','.join(codes[:IMPULSE_MEMBERS_SHOWN])
-    rest = len(codes) - IMPULSE_MEMBERS_SHOWN
-    return f'{head} 他{rest}' if rest > 0 else head
 
 
 def _impulse_series(country):
@@ -318,7 +305,6 @@ def impulse(request):
         rows.append({
             'name': sec['name'],
             'members': members,
-            'members_label': _members_label(members),
             'is_dummy': is_dummy,
             'band': round(band, 2),
             # 7段階の各境界を「そのセクターでは何%か」に直したもの（行ツールチップ用）。
@@ -453,7 +439,6 @@ def drawdown(request):
         rows.append({
             'name': sec['name'],
             'members': members,
-            'members_label': _members_label([m['stock'] for m in members if m['stock']]),
             'chg_5d': round(chg_5d, 1),
             'short_history': st['days'] < DRAWDOWN_MIN_POINTS,
             **{k: (round(vv, 1) if isinstance(vv, float) else vv) for k, vv in st.items()},

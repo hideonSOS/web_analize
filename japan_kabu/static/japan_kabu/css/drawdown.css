@@ -10,7 +10,9 @@
 /* 行: [セクター名 | バー | サブ指標] の3カラム。summary なのでクリックで内訳が開く */
 .dd-row{
   display:grid;
-  grid-template-columns: 150px 1fr 300px;
+  /* 名前列はセクター名だけになったので細く（旧150px。ティッカー行の廃止で短縮）。
+     余った幅は 1fr のバー領域に回る */
+  grid-template-columns: 110px 1fr 300px;
   gap:10px; align-items:center;
   padding:9px 10px;
 }
@@ -28,10 +30,6 @@
 .dd-name{
   color:#e5e7eb; font-size:14px; font-weight:700;
   text-align:right; white-space:nowrap;
-}
-.dd-members{
-  display:block; font-size:10px; font-weight:400; color:#9ca3af;
-  overflow:hidden; text-overflow:ellipsis;
 }
 
 /* 下落バー。深いほど長い（最深=100%）。⚠️ 値はマイナスなので右向きに「深さ」を描く */

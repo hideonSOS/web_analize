@@ -89,13 +89,14 @@
       <tbody>
         {% for row in rows %}
         <tr>
+          {% comment %}
+            構成銘柄はラベルとして常時表示しない（ユーザー要望: 銘柄はドローダウンの
+            内訳・ツールチップで見られれば十分。その分ヒートマップ本体を広く）。
+            ツールチップ（判定幅＋構成銘柄）で確認できる。
+          {% endcomment %}
           <th class="imp-sector-col {% if row.is_dummy %}imp-dummy-row{% endif %}"
-              title="{{ row.name }} の判定幅（このセクター自身のσ基準）&#10;{% for b in row.bands %}{% if forloop.first %}中立: ±{{ b.pct }}% 未満（{{ b.sigma }}σ）&#10;{% else %}{% if forloop.counter == 2 %}強{% else %}極{% endif %}: ±{{ b.pct }}% 超（{{ b.sigma }}σ）&#10;{% endif %}{% endfor %}">
+              title="{{ row.name }} の判定幅（このセクター自身のσ基準）&#10;{% for b in row.bands %}{% if forloop.first %}中立: ±{{ b.pct }}% 未満（{{ b.sigma }}σ）&#10;{% else %}{% if forloop.counter == 2 %}強{% else %}極{% endif %}: ±{{ b.pct }}% 超（{{ b.sigma }}σ）&#10;{% endif %}{% endfor %}{% if row.members %}&#10;構成銘柄: {% for m in row.members %}{{ m.display_code }} {{ m.name }}{% if not forloop.last %} / {% endif %}{% endfor %}{% endif %}">
             {{ row.name }}{% if row.is_dummy %}<span class="imp-badge">ダミー</span>{% endif %}
-            <span class="imp-members"
-                  {% if row.members %}title="{% for m in row.members %}{{ m.display_code }} {{ m.name }}{% if not forloop.last %} / {% endif %}{% endfor %}"{% endif %}>
-              {% if row.is_dummy %}銘柄未定義{% else %}{{ row.members_label }}{% endif %}
-            </span>
           </th>
           {% for c in row.cells %}
           <td class="imp-cell imp-{{ c.state }}{% if row.is_dummy %} imp-dummy{% endif %}"

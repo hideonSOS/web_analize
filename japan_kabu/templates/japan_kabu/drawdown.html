@@ -36,10 +36,11 @@
     {% for row in rows %}
     <details class="dd-item">
       <summary class="dd-row">
-        <span class="dd-name">
-          {{ row.name }}
-          <span class="dd-members">{{ row.members_label }}</span>
-        </span>
+        {% comment %}
+          構成銘柄のティッカーはラベルに常時表示しない（ユーザー要望: 行タップの
+          内訳で見られれば十分。その分バー領域を広く）。復活させないこと。
+        {% endcomment %}
+        <span class="dd-name">{{ row.name }}</span>
         <span class="dd-bar-wrap" title="{{ row.since|date:'Y-m' }}以降の高値比 {{ row.dd_all }}%・レンジ内位置 {{ row.pos|floatformat:0 }}%（0%=安値・100%=高値）">
           <span class="dd-bar"><span class="dd-fill" style="width: {{ row.bar }}%"></span></span>
           <span class="dd-val">{{ row.dd_all }}%</span>
