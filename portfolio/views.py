@@ -337,7 +337,7 @@ def stock_focus(request, scope):
 
 
 # ══════════════════════════════════════════════════════════════════
-# 避難訓練（爆下げプログラム）
+# 下落上等（爆下げプログラム）
 # ══════════════════════════════════════════════════════════════════
 
 # 下落の段階定義（52週高値からの下落率）。頻度は実測値:
@@ -364,6 +364,47 @@ DRILL_EVIDENCE = {
     'US': {'label': 'S&P500（1950〜の77年間）', 'fires': 11, 'freq': '7.0年に1回',
            'add_fall': '-6.3%', 'worst': '-45.6%', 'ret1y': '+23.0%', 'win': '73%'},
 }
+
+# 底の付き方の2型（2026-08-31実測: S&P500 11・日経8エピソードの底形成を集計）。
+# だまし底 = 10%以上戻してから更に安値を割った回数（zigzag 10%基準）。
+# ⚠️ 数値を変えるときは同じ定義で再集計すること（scratchpadの bottom_analysis.py 相当）
+DRILL_BOTTOM_TYPES = [
+    {'name': '急落型（ショック型）', 'tone': 'fire',
+     'trigger': 'きっかけが単一イベント（ブラックマンデー・コロナ・関税）',
+     'points': [
+         '底まで1〜3ヶ月と速い',
+         '二番底は来ないか、来ても一番底の数%以内の「再テスト」（1〜2ヶ月後）',
+         '最悪の1日 ≈ 底（0〜7日前）。セリクラ直後は買ってよい',
+         '底圏（最終底+10%以内）の滞在は1週間程度。二番底を待ちすぎると置いていかれる',
+     ]},
+    {'name': '景気後退型（じわ下げ型）', 'tone': 'crash',
+     'trigger': '信用収縮・景気後退を伴う（オイルショック・IT・リーマン・日本の90年代）',
+     'points': [
+         '底まで17〜37ヶ月と長い',
+         '+10%超の戻りが2〜11回失敗する。戻りを信じて全弾投入しない',
+         '「二番底」は再テストではなく新たな下落脚。直前の底より10%以上深いことも'
+         '（リーマン-17% / オイルショック-31%）',
+         '最悪の1日は底の数ヶ月〜数年前。「史上最大の下げ幅」は底のサインではない',
+         '底圏の滞在は数週間〜5ヶ月。本底の近くでは時間はたっぷりある',
+     ]},
+]
+
+# 底形成の実測テーブル（エピソード, 指数, 型, 深さ, 底まで, だまし底, 二番底, 最悪の1日→底）
+DRILL_BOTTOMS = [
+    ('オイルショック 1973-74', 'S&P500', '後退', '-48%', '21ヶ月', '2回', '-31%（7.7ヶ月後）', '87日前'),
+    ('ブラックマンデー 1987', 'S&P500', '急落', '-34%', '3ヶ月', '2回', '-1.6%（1.3ヶ月後）', '46日前'),
+    ('ITバブル崩壊 2000-02', 'S&P500', '後退', '-49%', '31ヶ月', '6回', '-6.9%（2.1ヶ月後）', '908日前'),
+    ('リーマン 2007-09', 'S&P500', '後退', '-57%', '17ヶ月', '5回', '-17%（3.2ヶ月後）', '145日前'),
+    ('コロナ 2020', 'S&P500', '急落', '-34%', '1ヶ月', '0回', 'なし（一発底）', '7日前'),
+    ('利上げ 2022', 'S&P500', '後退', '-25%', '9ヶ月', '2回', '-2.4%（3.9ヶ月後）', '29日前'),
+    ('関税ショック 2025', 'S&P500', '急落', '-19%', '2ヶ月', '0回', 'なし（一発底）', '4日前'),
+    ('バブル崩壊第1波 1990-92', '日経平均', '後退', '-63%', '32ヶ月', '8回', '-14%（4.3ヶ月後）', '869日前'),
+    ('金融危機 1996-98', '日経平均', '後退', '-43%', '27ヶ月', '5回', '-13%（3.8ヶ月後）', '1日前'),
+    ('IT崩壊→りそな 2000-03', '日経平均', '後退', '-64%', '37ヶ月', '8回', '-8.4%（5.4ヶ月後）', '1,106日前'),
+    ('リーマン 2007-09', '日経平均', '後退', '-61%', '20ヶ月', '11回', '-14%（2.9ヶ月後）', '145日前'),
+    ('コロナ 2020', '日経平均', '急落', '-31%', '2ヶ月', '0回', 'なし（一発底）', '6日前'),
+    ('植田→関税 2024-25', '日経平均', '後退', '-26%', '9ヶ月', '3回', '-13%（6.8ヶ月後）', '245日前'),
+]
 
 # 過去の主要エピソード（学習用の静的データ。深さは52週高値でなく高値→底の実測）
 DRILL_EPISODES = [
@@ -392,7 +433,8 @@ def _drill_meters():
     from japan_kabu.models import IndexPrice
 
     meters = []
-    for symbol, label in [('N225', '日経平均'), ('GSPC', 'S&P500')]:
+    # 米国株が主戦場のため S&P500 を上に置く（ユーザー要望）
+    for symbol, label in [('GSPC', 'S&P500'), ('N225', '日経平均')]:
         rows = list(IndexPrice.objects.filter(symbol=symbol)
                     .order_by('-date').values_list('date', 'close')[:252])
         if len(rows) < 30:
@@ -421,7 +463,7 @@ def _drill_meters():
 
 
 def drill(request):
-    """避難訓練（爆下げプログラム）
+    """下落上等（爆下げプログラム）
 
     暴落が来た日にパニックにならないための「毎日読む」ページ。
     数字の管理ではなく心構えの反復訓練が主目的（ユーザー要望）:
@@ -454,7 +496,17 @@ def drill(request):
 
     data = build_portfolio()
     cash = data['by_class']['cash']['value']
-    ammo_pct = (cash / note.cash_target * 100) if note.cash_target > 0 else None
+
+    # 弾薬の目標額は目標ポートフォリオ（TargetAllocation）の現金比率と連動する
+    # （ユーザー要望: 目標を二重に持たない）。比率が未設定のときだけ
+    # DrillNote.cash_target の手動入力にフォールバックする
+    cash_alloc = TargetAllocation.objects.filter(asset_class='cash').first()
+    ammo_linked = bool(cash_alloc and cash_alloc.ratio > 0 and data['total'] > 0)
+    if ammo_linked:
+        ammo_target = data['total'] * cash_alloc.ratio / 100
+    else:
+        ammo_target = note.cash_target
+    ammo_pct = (cash / ammo_target * 100) if ammo_target > 0 else None
 
     context = {
         'note': note,
@@ -464,12 +516,17 @@ def drill(request):
         'meter_max': DRILL_METER_MAX,
         'evidence': DRILL_EVIDENCE,
         'episodes': DRILL_EPISODES,
+        'bottom_types': DRILL_BOTTOM_TYPES,
+        'bottoms': DRILL_BOTTOMS,
         'cash': cash,
         'cash_ratio': data['cash_ratio'],
         'total': data['total'],
         'ammo_pct': ammo_pct,
         'ammo_width': min(ammo_pct, 100) if ammo_pct is not None else 0,
-        'ammo_remaining': max(0.0, note.cash_target - cash),
+        'ammo_target': ammo_target,
+        'ammo_linked': ammo_linked,
+        'ammo_ratio': cash_alloc.ratio if ammo_linked else None,
+        'ammo_remaining': max(0.0, ammo_target - cash),
     }
     return render(request, 'portfolio/drill.html', context)
 

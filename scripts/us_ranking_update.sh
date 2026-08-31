@@ -61,7 +61,7 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
-# 市場指数（日経平均・S&P500）の日次終値。避難訓練ページの下落メーター用（2コール・数秒）。
+# 市場指数（日経平均・S&P500）の日次終値。下落上等ページの下落メーター用（2コール・数秒）。
 # JP前日バー・USクローズともこの時刻なら確定済み。未確定当日バーは保存しないガードあり。
 echo "===== $(date '+%F %T') manage.py update_index_prices =====" >> "$LOG"
 if "$PY" manage.py update_index_prices >> "$LOG" 2>&1; then

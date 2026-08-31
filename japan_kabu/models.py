@@ -124,9 +124,9 @@ class DailyVolume(models.Model):
 
 
 class IndexPrice(models.Model):
-    """市場指数の日次終値（避難訓練ページの下落メーター用）
+    """市場指数の日次終値（下落上等ページの下落メーター用）
 
-    避難訓練ページ（/portfolio/drill/）が「52週高値から現在何%下か」を出すための
+    下落上等ページ（/portfolio/drill/）が「52週高値から現在何%下か」を出すための
     指数そのものの終値。DailyPrice は Stock マスタ必須のため指数を入れられず、
     別テーブルにした。`update_index_prices` が yfinance から差分同期で蓄積する。
 

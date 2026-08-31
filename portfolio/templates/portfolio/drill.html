@@ -1,15 +1,15 @@
 {% extends 'website/base.html' %}
 {% load static humanize %}
-{% block title %}避難訓練 | KABU ANALYZE{% endblock %}
+{% block title %}下落上等 | KABU ANALYZE{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
 {% block content %}
 <div class="pf-wrap">
-  <h1 class="pf-title">避難訓練（爆下げプログラム）</h1>
+  <h1 class="pf-title">下落上等（爆下げプログラム）</h1>
   <p class="pf-sub">
-    毎日ここを開き、合言葉と下落メーターを見る。暴落が来た日に慌てないための反復訓練。
+    毎日ここを開き、弾薬・下落メーター・合言葉を見る。暴落が来た日に慌てないための反復訓練。
     ／ <a class="pf-link" href="{% url 'portfolio:index' %}">← ダッシュボード</a>
   </p>
 
@@ -17,24 +17,48 @@
     {% for m in messages %}<div class="pf-msg">{{ m }}</div>{% endfor %}
   {% endif %}
 
-  <!-- ① 合言葉（毎日読む） -->
+  <!-- ① 弾薬（現金） -->
   <div class="pf-card">
-    <h2>今日の合言葉<span class="pf-hint">声に出して読む</span></h2>
-    <ol class="dr-slogans">
-      {% for s in slogans %}<li>{{ s }}</li>{% endfor %}
-    </ol>
-    <details class="dr-edit">
-      <summary>スローガンと教訓を編集する</summary>
-      <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="form_id" value="drill_note" />
-        <label class="dr-label">スローガン（1行＝1項目）</label>
-        <textarea name="slogan" rows="5">{{ note.slogan }}</textarea>
-        <label class="dr-label">教訓（相場を見て感じたこと・過去の失敗を書き足していく）</label>
-        <textarea name="lessons" rows="4">{{ note.lessons }}</textarea>
-        <button type="submit" class="dr-btn">保存する</button>
-      </form>
-    </details>
+    <h2>弾薬（現金）<span class="pf-hint">暴落の日に投じられるのは、平時に貯めた現金だけ</span></h2>
+    <div class="dr-ammo num">
+      <div class="dr-ammo-now">
+        <span class="k">現在の現金</span>
+        <span class="v">¥{{ cash|floatformat:0|intcomma }}</span>
+        <span class="sub">総資産の {{ cash_ratio|floatformat:1 }}%</span>
+      </div>
+      {% if ammo_target > 0 %}
+      <div class="dr-ammo-bar">
+        <div class="pf-bar"><div class="fill" style="width:{{ ammo_width|floatformat:1 }}%; background:#fbbf24"></div></div>
+        <div class="dr-ammo-caption">
+          目標 ¥{{ ammo_target|floatformat:0|intcomma }}
+          {% if ammo_linked %}（目標ポートフォリオの現金{{ ammo_ratio|floatformat:0 }}%と連動）{% endif %}
+          に対して <b>{{ ammo_pct|floatformat:0 }}%</b> 確保
+          {% if ammo_pct < 100 %}（あと ¥{{ ammo_remaining|floatformat:0|intcomma }}）{% else %}✅ 弾薬は満タン。あとは待つだけ{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% if not ammo_linked %}
+    {% comment %} 目標ポートフォリオの現金比率が未設定のときだけ手動入力を出す {% endcomment %}
+    <form method="post" class="dr-target-form num">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="drill_cash_target" />
+      <label class="dr-label">目標額（円）</label>
+      <input type="number" name="cash_target" min="0" step="10000"
+             value="{% if note.cash_target %}{{ note.cash_target|floatformat:0 }}{% endif %}" placeholder="例: 1000000" />
+      <button type="submit" class="dr-btn">保存</button>
+    </form>
+    {% endif %}
+    <div class="pf-note">
+      {% if ammo_linked %}
+      目標額は<a class="pf-link" href="{% url 'portfolio:register' %}">登録ページ</a>の
+      目標ポートフォリオ（現金{{ ammo_ratio|floatformat:0 }}%）× 総資産で自動計算。変更はそちらで。
+      {% else %}
+      <a class="pf-link" href="{% url 'portfolio:register' %}">登録ページ</a>で目標ポートフォリオの
+      現金比率を設定すると、目標額はそちらと自動連動する。
+      {% endif %}
+      入出金を記録するとこのゲージが増える。
+    </div>
   </div>
 
   <!-- ② 下落メーター -->
@@ -77,7 +101,7 @@
     {% for m in meters %}
       {% if m.ok and m.fired %}
         <div class="dr-fired">
-          🚨 {{ m.label }} は「{{ m.level.name }}」圏内です。避難訓練は本番に変わりました。
+          🚨 {{ m.label }} は「{{ m.level.name }}」圏内です。訓練は本番に変わりました。
           合言葉を読み、平時に決めた行動だけを実行してください。
         </div>
       {% endif %}
@@ -106,41 +130,67 @@
     </div>
   </div>
 
-  <!-- ④ 弾薬（現金） -->
+  <!-- ④ 合言葉（毎日読む） -->
   <div class="pf-card">
-    <h2>弾薬（現金）<span class="pf-hint">暴落の日に投じられるのは、平時に貯めた現金だけ</span></h2>
-    <div class="dr-ammo num">
-      <div class="dr-ammo-now">
-        <span class="k">現在の現金</span>
-        <span class="v">¥{{ cash|floatformat:0|intcomma }}</span>
-        <span class="sub">総資産の {{ cash_ratio|floatformat:1 }}%</span>
+    <h2>今日の合言葉<span class="pf-hint">声に出して読む</span></h2>
+    <ol class="dr-slogans">
+      {% for s in slogans %}<li>{{ s }}</li>{% endfor %}
+    </ol>
+    <details class="dr-edit">
+      <summary>スローガンと教訓を編集する</summary>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="drill_note" />
+        <label class="dr-label">スローガン（1行＝1項目）</label>
+        <textarea name="slogan" rows="5">{{ note.slogan }}</textarea>
+        <label class="dr-label">教訓（相場を見て感じたこと・過去の失敗を書き足していく）</label>
+        <textarea name="lessons" rows="4">{{ note.lessons }}</textarea>
+        <button type="submit" class="dr-btn">保存する</button>
+      </form>
+    </details>
+  </div>
+
+  <!-- ⑤ 底の付き方（2つの型・二番底の実測） -->
+  <div class="pf-card">
+    <h2>底の付き方（2つの型）<span class="pf-hint">「二番底」の正体。日米13エピソードの実測</span></h2>
+    <div class="pf-grid2">
+      {% for t in bottom_types %}
+      <div class="dr-type">
+        <div class="dr-type-name"><span class="dr-chip dr-chip-{{ t.tone }}">{{ t.name }}</span></div>
+        <div class="dr-type-trigger">{{ t.trigger }}</div>
+        <ul class="dr-type-points">
+          {% for p in t.points %}<li>{{ p }}</li>{% endfor %}
+        </ul>
       </div>
-      {% if note.cash_target > 0 %}
-      <div class="dr-ammo-bar">
-        <div class="pf-bar"><div class="fill" style="width:{{ ammo_width|floatformat:1 }}%; background:#fbbf24"></div></div>
-        <div class="dr-ammo-caption">
-          目標 ¥{{ note.cash_target|floatformat:0|intcomma }} に対して
-          <b>{{ ammo_pct|floatformat:0 }}%</b> 確保
-          {% if ammo_pct < 100 %}（あと ¥{{ ammo_remaining|floatformat:0|intcomma }}）{% else %}✅ 弾薬は満タン。あとは待つだけ{% endif %}
-        </div>
-      </div>
-      {% endif %}
+      {% endfor %}
     </div>
-    <form method="post" class="dr-target-form num">
-      {% csrf_token %}
-      <input type="hidden" name="form_id" value="drill_cash_target" />
-      <label class="dr-label">目標額（円）</label>
-      <input type="number" name="cash_target" min="0" step="10000"
-             value="{% if note.cash_target %}{{ note.cash_target|floatformat:0 }}{% endif %}" placeholder="例: 1000000" />
-      <button type="submit" class="dr-btn">保存</button>
-    </form>
+    <div class="pf-scroll" style="margin-top:14px">
+      <table class="pf-table num">
+        <tr><th style="text-align:left">エピソード</th><th>指数</th><th>型</th><th>深さ</th><th>底まで</th><th>だまし底</th><th>二番底の深さ</th><th>最悪の1日→底</th></tr>
+        {% for name, idx, kind, depth, months, fakes, retest, worst in bottoms %}
+        <tr>
+          <td style="text-align:left">{{ name }}</td>
+          <td>{{ idx }}</td>
+          <td>{% if kind == '急落' %}<span class="dr-chip-fire-text">急落</span>{% else %}<span class="dr-chip-crash-text">後退</span>{% endif %}</td>
+          <td class="pf-neg">{{ depth }}</td>
+          <td>{{ months }}</td>
+          <td>{{ fakes }}</td>
+          <td>{{ retest }}</td>
+          <td>{{ worst }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
     <div class="pf-note">
-      入出金の記録は<a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録ページ</a>から。
-      入金するとこのゲージが増える。
+      だまし底 = 10%以上戻してから更に安値を割った回数。二番底の深さ = 最終底が直前の底の何%下か。<br>
+      読み方: <b>型の見分けが最重要</b>。きっかけがイベント1個なら急落型（速い・セリクラ直後は買える）、
+      信用収縮・景気後退を伴うなら後退型（戻りを信じない・最悪の日はまだ道半ば）。
+      急落型の経験「すぐ戻った」を後退型に当てはめると、3回目のだまし底で弾切れになる。
+      これが「底は当てられない。慌てず段階的に」の根拠。
     </div>
   </div>
 
-  <!-- ⑤ 教訓 -->
+  <!-- ⑥ 教訓 -->
   {% if note.lessons %}
   <div class="pf-card">
     <h2>教訓<span class="pf-hint">自分への申し送り</span></h2>
@@ -148,7 +198,7 @@
   </div>
   {% endif %}
 
-  <!-- ⑥ 歴史的根拠 -->
+  <!-- ⑦ 歴史的根拠 -->
   <div class="pf-card">
     <h2>合言葉の根拠（歴史的実測）<span class="pf-hint">-20%発動ラインで買った場合の過去成績</span></h2>
     <div class="pf-scroll">

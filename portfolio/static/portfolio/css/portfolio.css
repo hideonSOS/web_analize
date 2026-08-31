@@ -136,7 +136,7 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
 .pf-link{ color:#1e90ff; text-decoration:none; }
 .pf-link:hover{ text-decoration:underline; }
 
-/* ══ 避難訓練（/portfolio/drill/） ══ */
+/* ══ 下落上等（/portfolio/drill/） ══ */
 
 /* ① 合言葉: 毎日読むページの主役なので大きく・行間広く */
 .dr-slogans{ margin:0; padding-left:26px; font-size:16px; line-height:2.2; color:#e5e7eb; }
@@ -207,6 +207,14 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
   color:#e5e7eb; padding:9px 12px; font-size:14px; width:180px; box-sizing:border-box; }
 .dr-target-form input:focus{ outline:none; border-color:#1e90ff; }
 .dr-target-form .dr-label{ flex-basis:100%; }
+
+/* ③b 底の付き方（2つの型） */
+.dr-type{ background:#0f172a; border:1px solid #1e3a5f; border-radius:10px; padding:12px 14px; }
+.dr-type-name{ margin-bottom:6px; }
+.dr-type-name .dr-chip{ font-size:12px; padding:3px 12px; }
+.dr-type-trigger{ font-size:11px; color:#6b7280; margin-bottom:8px; line-height:1.6; }
+.dr-type-points{ margin:0; padding-left:18px; font-size:12px; line-height:1.9; color:#d1d5db; }
+.dr-type-points li::marker{ color:#1e90ff; }
 
 /* ⑤ 教訓 */
 .dr-lessons{ font-size:13px; line-height:2; color:#d1d5db; }

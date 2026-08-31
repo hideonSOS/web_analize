@@ -1,6 +1,6 @@
-"""市場指数（日経平均・S&P500）の日次終値を取得する（避難訓練ページ用）
+"""市場指数（日経平均・S&P500）の日次終値を取得する（下落上等ページ用）
 
-避難訓練ページ（/portfolio/drill/）の下落メーターは「52週高値から現在何%下か」を
+下落上等ページ（/portfolio/drill/）の下落メーターは「52週高値から現在何%下か」を
 表示する。その材料となる指数の調整後終値を IndexPrice に蓄積する。
 
     python manage.py update_index_prices               # 差分のみ（cron想定）
@@ -32,7 +32,7 @@ RETRIES = 4
 
 
 class Command(BaseCommand):
-    help = '市場指数（日経平均・S&P500）の日次終値を取得する（避難訓練ページ用）'
+    help = '市場指数（日経平均・S&P500）の日次終値を取得する（下落上等ページ用）'
 
     def add_arguments(self, parser):
         parser.add_argument('--days', type=int, default=DEFAULT_DAYS,

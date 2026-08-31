@@ -266,7 +266,7 @@ class TargetAllocation(models.Model):
 
 
 class DrillNote(models.Model):
-    """避難訓練ページ（/portfolio/drill/）の手入力データ（1行だけ使うシングルトン）
+    """下落上等ページ（/portfolio/drill/）の手入力データ（1行だけ使うシングルトン）
 
     暴落時にパニックにならないための「毎日読む合言葉」のページ。
     - slogan: 毎日読むスローガン（1行=1項目で箇条書き表示する）
@@ -280,7 +280,7 @@ class DrillNote(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return '避難訓練ノート'
+        return '下落上等ノート'
 
     @classmethod
     def get(cls):
