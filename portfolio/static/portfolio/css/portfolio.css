@@ -160,9 +160,11 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
 /* ② 下落メーター */
 .dr-meter{ margin-bottom:20px; }
 .dr-meter:last-child{ margin-bottom:0; }
-.dr-meter-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:8px; }
+.dr-meter-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:8px; flex-wrap:wrap; }
 .dr-meter-name{ font-size:14px; font-weight:bold; color:#e5e7eb; }
 .dr-meter-dd{ font-size:26px; font-weight:bold; color:#87cefa; }
+/* %の隣に現在値も併記（ユーザー要望）。%が主役なので一回り控えめに */
+.dr-meter-price{ font-size:18px; font-weight:bold; color:#e5e7eb; }
 .dr-fired-text{ color:#f87171; text-shadow:0 0 8px rgba(248,113,113,.6); }
 .dr-chip{ font-size:11px; font-weight:bold; border-radius:999px; padding:2px 10px; }
 .dr-chip-calm { background:#0f172a; color:#6b7280; border:1px solid #334155; }
@@ -198,9 +200,10 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
    preserveAspectRatio=none で横に伸ばすため、線幅は vector-effect で固定する。
    軸ラベルはSVG内だと歪むのでHTMLで重ねる（.dr-ylab / .dr-xlabs） */
 .dr-chart-wrap{ position:relative; }
-.dr-chart{ display:block; width:100%; height:240px;
+/* 高さはユーザー要望で1.75倍（240→420 / 180→315）。低いと変化が読めない */
+.dr-chart{ display:block; width:100%; height:420px;
   background:#0f172a; border-radius:6px; }
-@media (max-width:768px){ .dr-chart{ height:180px; } }
+@media (max-width:768px){ .dr-chart{ height:315px; } }
 .dr-grid{ stroke:#1f2937; stroke-width:1; vector-effect:non-scaling-stroke; }
 .dr-grid-th{ stroke-dasharray:4 4; }
 .dr-grid-th-watch{ stroke:#7c5c1d; }

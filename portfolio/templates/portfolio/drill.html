@@ -75,6 +75,11 @@
         <div class="dr-meter-head">
           <span class="dr-meter-name">{{ m.label }}</span>
           <span class="dr-meter-dd {% if m.fired %}dr-fired-text{% endif %}">{{ m.dd|floatformat:1 }}%</span>
+          {% comment %}
+            価格の併記はユーザー要望（%だけでは水準がイメージできない）。
+            ¥は円建ての日経平均だけに付ける（S&P500は指数ポイントで通貨単位が無いため）
+          {% endcomment %}
+          <span class="dr-meter-price">{% if m.key == 'jp' %}¥{% endif %}{{ m.latest|floatformat:0|intcomma }}</span>
           {% if m.level %}
             <span class="dr-chip dr-chip-{{ m.level.tone }}">{{ m.level.name }}</span>
           {% else %}
@@ -91,8 +96,8 @@
         </div>
         <div class="dr-scale"><span>0%</span><span>-10%</span><span>-20%</span><span>-30%</span><span>-40%</span><span>-50%</span></div>
         <div class="dr-meter-foot">
-          現在値 {{ m.latest|floatformat:0|intcomma }}（{{ m.latest_date|date:"n/j" }}）
-          ／ 52週高値 {{ m.high|floatformat:0|intcomma }}（{{ m.high_date|date:"Y/n/j" }}）
+          現在値 {% if m.key == 'jp' %}¥{% endif %}{{ m.latest|floatformat:0|intcomma }}（{{ m.latest_date|date:"n/j" }}）
+          ／ 52週高値 {% if m.key == 'jp' %}¥{% endif %}{{ m.high|floatformat:0|intcomma }}（{{ m.high_date|date:"Y/n/j" }}）
         </div>
       </div>
       {% endif %}
