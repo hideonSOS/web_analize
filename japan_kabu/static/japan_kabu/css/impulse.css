@@ -41,6 +41,27 @@
   margin-left:auto;                                          /* セクター名と同じく右寄せ */
 }
 
+/* セクター名クリックで構成銘柄のティッカーを開閉する（<details>・JSなし）。
+   常時表示すると列幅を取りすぎるため閉じた状態が既定。
+   ⚠️ title属性だけに退避するとスマホのタップでは見られない（実際に苦情が出た） */
+.imp-mem summary{
+  cursor:pointer; list-style:none;               /* 既定の▶マーカーは消して名前だけ見せる */
+}
+.imp-mem summary::-webkit-details-marker{ display:none; }
+.imp-mem summary::after{
+  content:'▾'; font-size:9px; color:#4b5563; margin-left:3px;  /* 開閉できる合図 */
+}
+.imp-mem[open] summary::after{ content:'▴'; }
+.imp-mem summary:hover{ color:#7fd0ff; }
+.imp-mem-list{
+  display:flex; flex-wrap:wrap; gap:2px 4px; justify-content:flex-end;
+  max-width:15ch; margin-left:auto; padding-top:3px;
+}
+.imp-mem-code{
+  font-size:9px; font-weight:400; color:#9ca3af; letter-spacing:0;
+  border:1px solid #1f2937; border-radius:3px; padding:0 3px; line-height:1.5;
+}
+
 .imp-date{
   color:#cbd5e1; font-size:11px; font-weight:400;
   writing-mode:vertical-rl;         /* 参考画像と同じ縦書きの日付 */
