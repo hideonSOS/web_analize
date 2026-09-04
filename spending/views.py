@@ -149,6 +149,21 @@ _EFFECTIVE_CATEGORY = Case(
 )
 
 
+# 分類の出どころ。e-navi（カード明細）には**カテゴリ列が無い**ので、
+# カード行の分類は「突合できた Zaim 行の分類」か「加盟店ルールの推定」のどちらか。
+# 推定は当たっていないことがあるのに、Zaim 由来の分類と同じ見た目で並んでいると
+# どれを疑えばいいのか分からない（実際「遊びに誤りが多い」と指摘を受けた）。
+CATEGORY_SOURCE_FILTERS = {
+    'zaim': Q(category_source='zaim', manual_category=''),
+    'rule': Q(category_source='rule', manual_category=''),
+    'none': Q(category_source='none', manual_category=''),
+    'manual': ~Q(manual_category=''),
+}
+CATEGORY_SOURCE_LABELS = [
+    ('zaim', 'Zaim由来'), ('rule', '自動推定'), ('none', '手がかりなし'), ('manual', '手動で修正済み'),
+]
+
+
 def _category_choices() -> list[str]:
     """絞り込み用のカテゴリ候補。
 
@@ -167,6 +182,7 @@ def transactions(request):
     ym = request.GET.get('ym', '').strip()
     src = request.GET.get('source', '').strip()
     cat = request.GET.get('cat', '').strip()
+    csrc = request.GET.get('csrc', '').strip()
     only_excluded = request.GET.get('excluded') == '1'
 
     if q:
@@ -179,6 +195,8 @@ def transactions(request):
         # 分類が付かなかった行は「未分類」という名前のカテゴリになるので、
         # 空欄用の選択肢は要らない（実測でも空欄は0件）
         qs = qs.filter(cat=cat)
+    if csrc in CATEGORY_SOURCE_FILTERS:
+        qs = qs.filter(CATEGORY_SOURCE_FILTERS[csrc])
     qs = qs.filter(in_total=False) if only_excluded else qs.filter(in_total=True)
 
     if request.method == 'POST' and request.POST.get('form_id') == 'edit':
@@ -199,9 +217,10 @@ def transactions(request):
         # 絞り込んだ結果がいくらだったかは、カテゴリ単位で見直すときの主役になる数字
         'total': qs.aggregate(s=Sum('amount'))['s'] or 0,
         'months': months,
-        'q': q, 'ym': ym, 'source': src, 'cat': cat, 'only_excluded': only_excluded,
+        'q': q, 'ym': ym, 'source': src, 'cat': cat, 'csrc': csrc, 'only_excluded': only_excluded,
         'source_choices': Transaction.SOURCE_KIND,
         'category_choices': _category_choices(),
+        'category_source_choices': CATEGORY_SOURCE_LABELS,
         'necessity_choices': ['必須', '準必須', '裁量', '要確認'],
     }
     return render(request, 'spending/transactions.html', context)

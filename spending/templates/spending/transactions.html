@@ -30,6 +30,11 @@
           <option value="">すべて</option>
           {% for c in category_choices %}<option value="{{ c }}" {% if c == cat %}selected{% endif %}>{{ c }}</option>{% endfor %}
         </select></label>
+      <label class="pf-fld">分類の出どころ
+        <select name="csrc">
+          <option value="">すべて</option>
+          {% for v, l in category_source_choices %}<option value="{{ v }}" {% if v == csrc %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select></label>
       <label class="pf-fld">支払元
         <select name="source">
           <option value="">すべて</option>
@@ -60,8 +65,16 @@
           <td style="text-align:left">{{ t.label|default:t.shop|truncatechars:32 }}
             {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}</td>
           <td class="sp-mid">{{ t.get_source_kind_display }}</td>
+          {% comment %}
+            分類の出どころを必ず添える。e-navi にはカテゴリが無いので、カード行の
+            「自動推定」は加盟店名からの当てずっぽうで、外れていることがある。
+            Zaim由来（＝自分で分類したもの）と同じ見た目にしてはいけない。
+          {% endcomment %}
           <td class="sp-mid">{{ t.manual_category|default:t.category|default:"—" }}
-            {% if t.manual_category %}<span class="sp-manual">手動</span>{% endif %}</td>
+            {% if t.manual_category %}<span class="sp-manual">手動</span>
+            {% elif t.category_source == 'rule' %}<span class="sp-guess" title="加盟店名からの推定。e-naviに分類は無い">推定</span>
+            {% elif t.category_source == 'none' %}<span class="sp-guess">手がかりなし</span>
+            {% endif %}</td>
           <td class="sp-mid">
             {% with n=t.manual_necessity|default:t.necessity %}
             {% if n %}<span class="sp-tag sp-tag-{{ n }}">{{ n }}</span>{% else %}—{% endif %}
