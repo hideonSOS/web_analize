@@ -83,10 +83,37 @@ MIDDLEWARE = [
     'website.middleware.SitePasswordMiddleware',
 ]
 
-# 合言葉の入力を毎回求めないよう、セッションを長めに保つ
+# ログインを毎回求めないよう、セッションを長めに保つ
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30      # 30日
 SESSION_SAVE_EVERY_REQUEST = True           # 使うたびに期限を延長する
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# ── HTTPS（2026-09-05 に Let's Encrypt の IPアドレス証明書で対応）──
+# ⚠️ nginx がリバースプロキシなので、Django から見た通信は常に http に見える。
+# nginx が付ける X-Forwarded-Proto を信頼して「元はhttps」と判断させる。
+# これが無いと SECURE_SSL_REDIRECT でリダイレクトループになる。
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 本番のみ有効にする（開発は http の localhost なので、有効にすると
+# Cookie が送られずログインできなくなる）
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True     # Cookie を https 接続でのみ送る
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True       # http で来たら https へ（nginx側でも301しているが二重の保険）
+    # ⚠️ HSTS は「今後このドメインには必ず https で来い」とブラウザに記憶させる。
+    # IPアドレスの証明書は6日ごとの更新なので、更新に失敗するとアクセス不能に
+    # なりうる。運用が安定するまで短め(1日)にしておき、様子を見て延ばす。
+    SECURE_HSTS_SECONDS = 86400
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False   # IPアドレスにサブドメインは無い
+    SECURE_HSTS_PRELOAD = False
+
+# CSRF の許可オリジン。https を先に置く
+CSRF_TRUSTED_ORIGINS = [
+    'https://160.251.215.92',
+    'http://160.251.215.92',
+    'http://localhost:8001',
+    'http://127.0.0.1:8001',
+]
 
 ROOT_URLCONF = 'web_kabuanalize.urls'
 
