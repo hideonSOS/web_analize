@@ -1,0 +1,34 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>2段階認証 | KABU ANALYZE</title>
+    <link rel="stylesheet" href="{% static 'website/css/base.css' %}?v={% now 'U' %}" />
+    <link rel="stylesheet" href="{% static 'website/css/login.css' %}?v={% now 'U' %}" />
+  </head>
+  <body class="lg-body">
+    <main class="lg">
+      <h1 class="lg-title">KABU ANALYZE</h1>
+      <form method="post" class="lg-form">
+        {% csrf_token %}
+        <label for="code" class="lg-label">認証アプリの6桁コード</label>
+        {% comment %}
+          inputmode=numeric と autocomplete=one-time-code で、スマホでは数字キーボードが
+          出て、コードの自動入力候補も効くようにする
+        {% endcomment %}
+        <input type="text" id="code" name="code" inputmode="numeric"
+               autocomplete="one-time-code" maxlength="12" placeholder="123456"
+               autofocus />
+        <button type="submit">確認</button>
+        {% if error %}<p class="lg-error">{{ error }}</p>{% endif %}
+        <p class="lg-note">
+          スマホを無くした場合は、保管したリカバリコードを入力してください
+          （残り{{ recovery_left }}個）。<br>
+          <a href="{% url 'website:login' %}">ログインをやり直す</a>
+        </p>
+      </form>
+    </main>
+  </body>
+</html>

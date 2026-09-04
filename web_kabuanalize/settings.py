@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'diary',
     'karte',
     'portfolio',
+    'spending',
 ]
 
 MIDDLEWARE = [

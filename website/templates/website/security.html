@@ -1,0 +1,126 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block title %}セキュリティ設定 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'website/css/security.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">セキュリティ設定</h1>
+  <p class="pf-sub">ログイン中: {{ request.user.get_username }}</p>
+
+  {% if message %}<div class="pf-msg">{{ message }}</div>{% endif %}
+  {% if error %}<div class="pf-warn">{{ error }}</div>{% endif %}
+
+  {% if new_codes %}
+  <div class="pf-card sc-codes-card">
+    <h2>リカバリコード <span class="pf-hint">今だけ表示されます</span></h2>
+    <div class="pf-warn">
+      ⚠️ この画面を離れると<b>二度と表示されません</b>。印刷するかパスワードマネージャーに
+      保存してください。スマホを紛失したとき、これが無いとログインできなくなります。
+    </div>
+    <div class="sc-codes">
+      {% for c in new_codes %}<code>{{ c }}</code>{% endfor %}
+    </div>
+    <div class="pf-note">各コードは1回だけ使えます。使い切ったら再発行してください。</div>
+  </div>
+  {% endif %}
+
+  <div class="pf-card">
+    <h2>2段階認証
+      <span class="pf-hint">
+        {% if device and device.confirmed %}有効{% elif device %}設定中{% else %}無効{% endif %}</span></h2>
+
+    {% if device and device.confirmed %}
+      <div class="sc-status sc-on">
+        ✓ 有効です。ログイン時にパスワードに加えて、認証アプリの6桁コードが必要です。
+        <span class="sc-sub">
+          設定日 {{ device.created_at|date:"Y/n/j" }}
+          {% if device.last_used_at %}／ 最終利用 {{ device.last_used_at|date:"n/j H:i" }}{% endif %}
+          ／ リカバリコード残り {{ device.recovery_codes|length }}個
+        </span>
+      </div>
+
+      <div class="sc-actions">
+        <form method="post" class="sc-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="regen">
+          <input type="text" name="code" inputmode="numeric" placeholder="現在の6桁" maxlength="12">
+          <button class="pf-btn sc-btn-sub" type="submit">リカバリコードを再発行</button>
+        </form>
+        <form method="post" class="sc-form"
+              onsubmit="return confirm('2段階認証を解除します。よろしいですか？');">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="disable">
+          <input type="text" name="code" inputmode="numeric" placeholder="現在の6桁" maxlength="12">
+          <button class="pf-btn sc-btn-danger" type="submit">2段階認証を解除</button>
+        </form>
+      </div>
+
+    {% elif device %}
+      <div class="sc-setup">
+        <ol class="sc-steps">
+          <li>スマホに認証アプリを入れる（Google Authenticator / Microsoft Authenticator / 1Password など）</li>
+          <li>アプリで下のQRコードを読み取る</li>
+          <li>表示された6桁を入力して「有効にする」</li>
+        </ol>
+        <div class="sc-qr">{{ qr_svg|safe }}</div>
+        <div class="pf-note">
+          QRが読めない場合は、この文字列を手入力してください:<br>
+          <code class="sc-secret">{{ secret }}</code>
+        </div>
+        <form method="post" class="sc-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="confirm">
+          <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+                 placeholder="123456" maxlength="12" autofocus>
+          <button class="pf-btn" type="submit">有効にする</button>
+        </form>
+        <form method="post" style="margin-top:10px">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="disable">
+          <button class="pf-btn sc-btn-sub" type="submit">設定をやめる</button>
+        </form>
+      </div>
+
+    {% else %}
+      <div class="pf-note" style="margin-top:0">
+        パスワードが漏れても、スマホの認証アプリが無ければログインできなくなります。<br>
+        <b>SMSではなく認証アプリ（TOTP）方式</b>です。SMSはSIMスワップ攻撃に弱く、
+        業者のAPIキーをサーバーに置く必要があり、月額費用もかかるため採用していません。
+        体感の手間は同じです。
+      </div>
+      <form method="post" style="margin-top:14px">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="start">
+        <button class="pf-btn" type="submit">2段階認証を設定する</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="pf-card">
+    <h2>最近のログイン <span class="pf-hint">見覚えのないアクセスがないか</span></h2>
+    <div class="pf-scroll">
+      <table class="pf-table">
+        <tr><th>日時</th><th>結果</th><th>IPアドレス</th><th>端末</th></tr>
+        {% for a in recent_logins %}
+        <tr>
+          <td>{{ a.created_at|date:"n/j H:i" }}</td>
+          <td class="{% if a.success %}pf-pos{% else %}pf-neg{% endif %}">
+            {% if a.success %}成功{% else %}失敗{% endif %}</td>
+          <td>{{ a.ip }}</td>
+          <td class="sc-ua">{{ a.user_agent|truncatechars:40 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="pf-muted">記録がありません。</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="pf-note">
+      失敗が連続すると、そのIPからのログインは15分ロックされます（60分間に5回まで）。
+    </div>
+  </div>
+</div>
+{% endblock %}

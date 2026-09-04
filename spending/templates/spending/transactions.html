@@ -1,0 +1,98 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}支出明細 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'spending/css/spending.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">支出明細</h1>
+  <p class="pf-sub">統合台帳（1決済＝1行・重複なし）
+    ／ <a class="pf-link" href="{% url 'spending:index' %}">← 支出分析</a></p>
+
+  {% for msg in messages %}
+    <div class="{% if msg.tags == 'error' %}pf-warn{% else %}pf-msg{% endif %}">{{ msg }}</div>
+  {% endfor %}
+
+  <div class="pf-card">
+    <form method="get" class="sp-filter">
+      <label class="pf-fld">店名・品目
+        <input type="text" name="q" value="{{ q }}" placeholder="Amazon など"></label>
+      <label class="pf-fld">年月
+        <select name="ym">
+          <option value="">すべて</option>
+          {% for m in months %}<option value="{{ m }}" {% if m == ym %}selected{% endif %}>{{ m }}</option>{% endfor %}
+        </select></label>
+      <label class="pf-fld">支払元
+        <select name="source">
+          <option value="">すべて</option>
+          {% for v, l in source_choices %}<option value="{{ v }}" {% if v == source %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select></label>
+      <label class="pf-fld">表示
+        <select name="excluded">
+          <option value="">集計対象</option>
+          <option value="1" {% if only_excluded %}selected{% endif %}>除外された行</option>
+        </select></label>
+      <button class="pf-btn" type="submit">絞り込む</button>
+    </form>
+  </div>
+
+  <div class="pf-card">
+    <h2>{{ count|intcomma }}件
+      <span class="pf-hint">先頭300件を表示・分類を直すと再取込でも保持されます</span></h2>
+    <div class="pf-scroll">
+      <table class="pf-table num" style="min-width:900px">
+        <tr>
+          <th>日付</th><th>内容</th><th>支払元</th><th>カテゴリ</th>
+          <th>必要度</th><th>金額</th><th>状態</th><th>修正</th>
+        </tr>
+        {% for t in rows %}
+        <tr>
+          <td>{{ t.date|date:"n/j" }}<span class="sp-sub">{{ t.ym }}</span></td>
+          <td style="text-align:left">{{ t.label|default:t.shop|truncatechars:32 }}
+            {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}</td>
+          <td class="sp-mid">{{ t.get_source_kind_display }}</td>
+          <td class="sp-mid">{{ t.manual_category|default:t.category|default:"—" }}
+            {% if t.manual_category %}<span class="sp-manual">手動</span>{% endif %}</td>
+          <td class="sp-mid">
+            {% with n=t.manual_necessity|default:t.necessity %}
+            {% if n %}<span class="sp-tag sp-tag-{{ n }}">{{ n }}</span>{% else %}—{% endif %}
+            {% endwith %}</td>
+          <td>¥{{ t.amount|intcomma }}</td>
+          <td class="sp-mid">
+            {% if not t.in_total %}<span class="pf-muted">{{ t.exclude_reason }}</span>
+            {% elif t.dup_flag %}<span class="sp-manual">重複?</span>
+            {% elif t.match_status == 'enavi_only' %}<span class="sp-manual">e-naviのみ</span>
+            {% else %}—{% endif %}</td>
+          <td>
+            <form method="post" class="sp-edit-form">
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="edit">
+              <input type="hidden" name="id" value="{{ t.id }}">
+              <input type="text" name="category" value="{{ t.manual_category }}" placeholder="分類" size="6">
+              <select name="necessity">
+                <option value="">必要度</option>
+                {% for n in necessity_choices %}
+                <option value="{{ n }}" {% if t.manual_necessity == n %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+              </select>
+              <select name="exclude_override">
+                <option value="" {% if t.exclude_override is None %}selected{% endif %}>自動</option>
+                <option value="1" {% if t.exclude_override == True %}selected{% endif %}>集計する</option>
+                <option value="0" {% if t.exclude_override == False %}selected{% endif %}>除外する</option>
+              </select>
+              <button type="submit" class="pf-link"
+                      style="background:none;border:1px solid #1e3a5f;border-radius:5px;cursor:pointer;font-size:11px;color:#1e90ff;padding:3px 8px">保存</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="pf-muted" style="text-align:center; padding:24px">該当する明細がありません。</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

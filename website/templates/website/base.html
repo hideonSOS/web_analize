@@ -35,6 +35,8 @@
               <li><a href="{% url 'diary:index' %}">売買日記</a></li>
               <li><a href="{% url 'portfolio:index' %}">ポートフォリオ</a></li>
               <li><a href="{% url 'portfolio:drill' %}">下落上等</a></li>
+              <li><a href="{% url 'spending:index' %}">支出分析</a></li>
+              <li><a href="{% url 'spending:month' %}">月次支出</a></li>
             </ul>
           </li>
           <li class="nav-group">
@@ -56,6 +58,7 @@
           </li>
           <li class="nav-group nav-group-etc">
             <ul>
+              <li><a href="{% url 'website:security' %}" class="nav-logout">設定</a></li>
               <li><a href="{% url 'website:logout' %}" class="nav-logout">ログアウト</a></li>
             </ul>
           </li>

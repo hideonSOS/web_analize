@@ -1,0 +1,44 @@
+pattern,merchant,category,subcategory,kind,necessity,note
+Amazon プライム年会費,Amazon Prime,通信,サブスク,年会費,準必須,年1回。月額換算で管理
+AMAZONDOWNLOADS,Amazon デジタル,遊び,電子書籍・動画,変動,裁量,Kindle/ビデオ購入。品目は Amazon 注文履歴でしか分からない
+AMZ\*SESHOP,SEショップ,教育・教養,書籍,変動,裁量,技術書
+Amazon,Amazon.co.jp,日用雑貨,Amazon,変動,要確認,品目不明。Amazon 注文履歴 CSV との突合が必要
+APPLE COM BILL,Apple,通信,サブスク,サブスク,要確認,iCloud/アプリ課金の合算。Apple の購入履歴で内訳確認
+ANTHROPIC,Claude,教育・教養,AIツール,サブスク,準必須,Claude Pro/Max。ChatGPT と重複していないか確認
+CLAUDE.AI,Claude,教育・教養,AIツール,サブスク,準必須,Claude Pro/Max。ChatGPT と重複していないか確認
+CHATGPT,ChatGPT,教育・教養,AIツール,サブスク,準必須,Claude と重複していないか確認
+ChatGPT,ChatGPT,教育・教養,AIツール,サブスク,準必須,Claude と重複していないか確認
+UDEMY,Udemy,教育・教養,オンライン講座,変動,裁量,セール時まとめ買いになりがち。未受講講座の棚卸し
+コミックDAYS,コミックDAYS,遊び,漫画,サブスク,裁量,
+DMM.com,DMM,遊び,デジタルコンテンツ,変動,裁量,ポイント購入。用途を要確認
+FC2.com,FC2,遊び,デジタルコンテンツ,サブスク,裁量,
+DTISERV,DTI,通信,VPN・サーバ,サブスク,要確認,DTI の月額。用途が生きているか確認
+コノハ,ConoHa,通信,VPN・サーバ,サブスク,要確認,VPS/レンタルサーバ。数か月まとめ払い。用途と台数の棚卸し
+ビズコンフオート,ビズコンフォート,大型出費,コワーキング,サブスク,要確認,コワーキング月額。利用頻度に見合うか
+チヨコザツプ,chocoZAP,健康,ジム,サブスク,準必須,
+chocoZAP,chocoZAP,健康,ジム,サブスク,準必須,
+CLT\*KDKTRADING,KDK Trading,遊び,デジタルコンテンツ,サブスク,裁量,海外決済。内容不明なら解約候補
+UN \*24B,24B,遊び,デジタルコンテンツ,サブスク,裁量,海外決済。内容要確認
+NWDSUPPORT,NWD Support,遊び,デジタルコンテンツ,サブスク,裁量,海外決済。内容要確認
+Google Play,Google Play,遊び,アプリ課金,変動,裁量,
+GOOGLE GOOGLE ON,Google One,通信,サブスク,サブスク,準必須,ストレージ
+MICROSOFT,Microsoft,通信,サブスク,サブスク,準必須,Microsoft 365 等
+マイクロソフト,Microsoft,通信,サブスク,サブスク,準必須,Microsoft 365 等
+ソニーインタラクティブ,PlayStation,遊び,ゲーム,変動,裁量,
+プレイステーション,PlayStation,遊び,ゲーム,変動,裁量,
+TRADINGVIEW,TradingView,教育・教養,投資ツール,サブスク,準必須,投資に直結。プランが過剰でないか
+PAYPAL \*MATHPIX,Mathpix,教育・教養,AIツール,サブスク,裁量,
+ST\*メンタ,MENTA,教育・教養,オンライン講座,変動,裁量,
+ST\*,STORES 決済,その他,STORES経由,変動,要確認,STORES 経由の物販。店名は末尾を参照
+ジェークオンツ,J-Quants API,教育・教養,投資ツール,サブスク,準必須,投資データ API
+ヤフーフリマ,Yahoo!フリマ,日用雑貨,フリマ,変動,裁量,
+ペイペイフリマ,PayPayフリマ,日用雑貨,フリマ,変動,裁量,
+リカーBOSS,リカーBOSS,飲料,酒,変動,裁量,
+お得に選べるフードショップ,フードショップ,食費,食料品,変動,準必須,
+楽天キャッシュ,楽天キャッシュ,その他,チャージ,変動,要確認,チャージ先の用途で再分類
+ちょコム,ちょコム,遊び,デジタルコンテンツ,変動,裁量,
+VIDEOBYTE,VideoByte,通信,ソフトウェア,変動,裁量,
+KINGS SUMMIT,Kings Summit,遊び,デジタルコンテンツ,変動,裁量,海外決済。内容要確認
+NEMESIS,Nemesis,遊び,デジタルコンテンツ,変動,裁量,海外決済。内容要確認
+チケットハンバイ,チケット販売,遊び,イベント,変動,裁量,
+オスカーチヤレンジヤー,オスカーチャレンジャー,遊び,イベント,変動,裁量,

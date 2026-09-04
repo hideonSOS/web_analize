@@ -1,0 +1,122 @@
+/* 支出分析。portfolio.css を土台に、支出画面固有の部品だけを足す */
+
+.sp-unit{ font-size:16px; font-weight:normal; color:#6b7280; }
+.sp-sub{ display:block; font-size:10px; color:#6b7280; }
+.sp-mid{ text-align:center !important; }
+.sp-chart{ width:100%; height:320px; }
+@media (max-width:768px){ .sp-chart{ height:260px; } }
+
+/* 横棒（カテゴリ・加盟店） */
+.sp-bars{ display:flex; flex-direction:column; gap:8px; }
+.sp-bar-row{ display:grid; grid-template-columns:130px 1fr 110px; gap:10px; align-items:center; font-size:13px; }
+@media (max-width:768px){ .sp-bar-row{ grid-template-columns:96px 1fr 92px; font-size:12px; } }
+.sp-bar-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sp-bar-track{ height:14px; background:#0f172a; border-radius:3px; overflow:hidden; }
+.sp-bar-fill{ height:100%; border-radius:3px; }
+.sp-bar-amt{ text-align:right; }
+
+/* 歪みの指摘 */
+.sp-alerts{ list-style:none; margin:0; padding:0; font-size:13px; }
+.sp-alerts li{ display:flex; gap:10px; padding:8px 0; border-bottom:1px solid #111827; line-height:1.7; }
+.sp-alerts li:last-child{ border-bottom:none; }
+.sp-alert-mark{ flex:0 0 auto; color:#fbbf24; font-weight:bold; }
+.sp-count{ font-size:10px; color:#fbbf24; border:1px solid #7c5c1d; border-radius:999px; padding:1px 8px; margin-left:6px; }
+
+/* 必要度のタグ */
+.sp-tag{ display:inline-block; font-size:10px; border-radius:999px; padding:1px 9px; border:1px solid; white-space:nowrap; }
+.sp-tag-必須{ color:#63b3ff; border-color:#63b3ff66; }
+.sp-tag-準必須{ color:#34d399; border-color:#34d39966; }
+.sp-tag-裁量{ color:#fbbf24; border-color:#fbbf2466; }
+.sp-tag-要確認{ color:#f87171; border-color:#f8717166; }
+
+/* 節約候補の決定 */
+.sp-plan-form{ display:inline; }
+.sp-plan-form select{
+  background:#0f172a; border:1px solid #334155; border-radius:6px;
+  color:#e5e7eb; padding:4px 8px; font-size:12px; cursor:pointer;
+}
+.sp-cand tr.sp-status-doing td{ background:#07210f; }
+.sp-cand tr.sp-status-done td{ background:#07210f; opacity:.75; }
+.sp-cand tr.sp-status-skip td{ opacity:.4; }
+
+.sp-sec-title{ font-size:11px; color:#87cefa; letter-spacing:1px; margin-bottom:6px; }
+.sp-files{ font-size:12px; color:#9ca3af; margin-top:12px; padding-top:10px; border-top:1px solid #1e3a5f; }
+.sp-actions{ display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+.sp-btn-sub{ background:transparent; color:#87cefa; border:1px solid #334155; box-shadow:none; font-size:12px; padding:8px 14px; }
+.sp-btn-sub:hover{ border-color:#1e90ff; }
+.sp-btn-danger{ background:transparent; color:#f87171; border:1px solid #7c2d2d; box-shadow:none; font-size:12px; padding:8px 14px; }
+
+/* スマホでは見出しのピルを折り返す（nowrap のままだとカード幅を押し広げ、
+   ページ全体に横スクロールが出る。portfolio.css 側と同じ対処） */
+@media (max-width:768px){
+  .pf-card h2{ flex-wrap:wrap; }
+  .pf-card h2 .pf-hint{ white-space:normal; margin-left:0; flex-basis:100%; width:fit-content; }
+}
+
+/* ⚠️ グリッド項目の自動最小サイズ対策。
+   grid の 1fr は minmax(auto,1fr) なので、中身（min-width:560px のテーブル）の
+   min-content がトラック幅を押し広げ、スマホで 594px になってページ全体に
+   横スクロールが出ていた。min-width:0 で「縮んでよい」と明示し、
+   はみ出しは .pf-scroll の中だけに閉じ込める。 */
+.pf-grid2 > *{ min-width: 0; }
+.pf-scroll{ max-width: 100%; }
+
+/* 月次ページ: 月の切り替え */
+.sp-month-nav{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.sp-month-nav select{
+  background:#0f172a; border:1px solid #334155; border-radius:8px;
+  color:#e5e7eb; padding:8px 12px; font-size:14px; cursor:pointer;
+}
+.sp-month-nav .pf-btn{ text-decoration:none; }
+.sp-disabled{ opacity:.3; pointer-events:none; }
+
+/* 月次ページ: 予算 vs 実績（横棒）
+   予算=100%の位置に白い縦線を置き、超過分は右へはみ出す帯で見せる。
+   資産配分の「目標に近づける」バーとは逆で、越えたら赤という向き */
+.sp-budget{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+.sp-bg-row{ display:grid; grid-template-columns:150px 1fr 150px; gap:12px; align-items:center; font-size:13px; }
+@media (max-width:768px){ .sp-bg-row{ grid-template-columns:100px 1fr 108px; gap:8px; font-size:12px; } }
+.sp-bg-name{ overflow:hidden; text-overflow:ellipsis; }
+/* トラックの右 1/3 を「超過ゾーン」として空けておき、予算線を 2/3 の位置に置く。
+   こうすると超過分がトラック内に収まり、予算線が常に見える */
+.sp-bg-track{ position:relative; height:18px; background:#0f172a; border-radius:4px;
+  overflow:hidden; }
+.sp-bg-fill{ position:absolute; left:0; top:0; bottom:0;
+  background:#34d399; opacity:.85; }
+.sp-bg-fill.sp-bg-over{ background:#f87171; }
+/* 超過分は斜線で区別。予算線の右から伸びる */
+.sp-bg-excess{ position:absolute; top:0; bottom:0; left:66.67%;
+  background:repeating-linear-gradient(45deg,#f87171,#f87171 4px,#7c2d2d 4px,#7c2d2d 8px);
+  opacity:.9; }
+/* 予算=100%の目印（トラック幅の 2/3 の位置） */
+.sp-bg-limit{ position:absolute; left:66.67%; top:0; bottom:0; width:2px;
+  background:#e5e7eb; opacity:.85; }
+.sp-bg-amt{ text-align:right; }
+.sp-budget-form{ border-top:1px solid #1e3a5f; padding-top:14px; margin-top:14px; }
+.sp-budget-form select, .sp-budget-form input{
+  background:#0f172a; border:1px solid #334155; border-radius:8px;
+  color:#e5e7eb; padding:9px 11px; font-size:14px; width:100%; box-sizing:border-box;
+}
+
+/* 月次ページ: いつもと違う点 */
+.sp-movers{ display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; }
+.sp-mover{ border:1px solid #334155; border-radius:10px; padding:10px 12px; background:#0f172a; }
+.sp-mover.sp-up{ border-color:#7c2d2d; }
+.sp-mover.sp-down{ border-color:#1e5c2f; }
+.sp-mover-name{ font-size:12px; color:#87cefa; }
+.sp-mover-diff{ font-size:19px; font-weight:bold; margin-top:2px; }
+.sp-up .sp-mover-diff{ color:#f87171; }
+.sp-down .sp-mover-diff{ color:#4ade80; }
+.sp-mover-sub{ font-size:10px; color:#6b7280; margin-top:3px; }
+
+/* 明細ページ */
+.sp-filter{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+.sp-filter input, .sp-filter select{
+  background:#0f172a; border:1px solid #334155; border-radius:8px;
+  color:#e5e7eb; padding:8px 10px; font-size:13px;
+}
+.sp-edit-form select, .sp-edit-form input{
+  background:#0f172a; border:1px solid #334155; border-radius:6px;
+  color:#e5e7eb; padding:4px 6px; font-size:11px;
+}
+.sp-manual{ color:#fbbf24; font-size:10px; }

@@ -1,0 +1,250 @@
+{% extends 'website/base.html' %}
+{% load static humanize spending_extras %}
+{% block title %}支出分析 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'spending/css/spending.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block extra_js %}
+{% if has_data %}{{ monthly_spec|json_script:"sp-monthly" }}{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'spending/js/spending.js' %}?v={% now 'U' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">支出分析</h1>
+  <p class="pf-sub">支出の歪みを見つけて、投資への入金力を増やす
+    ／ <a class="pf-link" href="{% url 'spending:month' %}">月次で見る →</a>
+    ／ <a class="pf-link" href="{% url 'spending:transactions' %}">明細を見る →</a>
+    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">ポートフォリオ →</a></p>
+
+  {% for msg in messages %}
+    <div class="{% if msg.tags == 'error' %}pf-warn{% else %}pf-msg{% endif %}">{{ msg }}</div>
+  {% endfor %}
+
+  {% if has_data %}
+  <!-- ① 入金力（この機能の目的） -->
+  <div class="pf-card">
+    <h2>追加入金力 <span class="pf-hint">節約の決定 → 毎月の投資余力</span></h2>
+    <div class="pf-hero">
+      <div>
+        <div class="k">決定済み（実行中＋完了）</div>
+        <div class="total num pf-pos">＋¥{{ kpi.decided_monthly|intcomma }}<span class="sp-unit"> /月</span></div>
+      </div>
+      <div class="pf-chips">
+        <div class="pf-chip"><div class="k">年額換算</div>
+          <div class="v num">¥{{ kpi.decided_annual|intcomma }}</div></div>
+        <div class="pf-chip"><div class="k">機械試算の上限</div>
+          <div class="v num pf-muted">¥{{ kpi.machine_monthly|intcomma }} /月</div></div>
+        <div class="pf-chip"><div class="k">直近{{ kpi.months }}か月の支出</div>
+          <div class="v num">¥{{ kpi.recent_total|intcomma }}</div></div>
+        <div class="pf-chip"><div class="k">月平均</div>
+          <div class="v num">¥{{ kpi.monthly_avg|intcomma }}</div></div>
+      </div>
+    </div>
+    <div class="pf-note">
+      「機械試算」は裁量・要確認の支出を全部削った場合の上限値。実際に増える入金力は
+      下の節約候補で<b>あなたが決めた分だけ</b>です。
+    </div>
+  </div>
+
+  <!-- ② 月次推移（棒をクリックでその月の詳細へ） -->
+  <div class="pf-card">
+    <h2>支出の推移 <span class="pf-hint">支払元別・{{ period.from }}〜{{ period.to }}</span></h2>
+    <div id="sp-monthly-chart" class="sp-chart"></div>
+    <div class="pf-note">
+      グラフの月をクリックすると、その月の詳細（前月・平常月との比較）が開きます。
+      <a class="pf-link" href="{% url 'spending:month' %}">月次支出を見る →</a>
+    </div>
+  </div>
+
+  <div class="pf-grid2">
+    <!-- ③ カテゴリ内訳 -->
+    <div class="pf-card">
+      <h2>カテゴリ内訳 <span class="pf-hint">直近{{ kpi.months }}か月</span></h2>
+      <div class="sp-bars num">
+        {% for c in category_rows %}
+        <div class="sp-bar-row">
+          <div class="sp-bar-name">{{ c.name }}</div>
+          <div class="sp-bar-track"><div class="sp-bar-fill" style="width:{{ c.pct }}%; background:{{ c.color }}"></div></div>
+          <div class="sp-bar-amt">¥{{ c.value|intcomma }}<span class="sp-sub">{{ c.pct }}%</span></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ④ 歪みの指摘 -->
+    <div class="pf-card">
+      <h2>支出の歪み <span class="pf-hint">機械的な指摘</span></h2>
+      {% if distortion_rows %}
+      <ul class="sp-alerts">
+        {% for d in distortion_rows %}
+        <li><span class="sp-alert-mark">⚠</span>
+          <span><b>{{ d.type }}</b>
+            {% if d.count > 1 %}<span class="sp-count">{{ d.count }}件</span>{% endif %}
+            {% if d.targets %}<span class="sp-sub">{{ d.targets|join:" / " }}{% if d.more %} ほか{{ d.more }}件{% endif %}</span>{% endif %}
+            <span class="sp-sub">{{ d.detail }}</span></span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="pf-note" style="margin-top:0">目立った歪みは検出されませんでした。</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ⑤ 節約候補 → 決定（入金力の源泉） -->
+  <div class="pf-card">
+    <h2>節約候補 <span class="pf-hint">決めた分だけ入金力に反映される</span></h2>
+    {% if cand_rows %}
+    <div class="pf-scroll">
+      <table class="pf-table num sp-cand">
+        <tr><th>対象</th><th>種別</th><th>必要度</th><th>年間効果</th><th>あなたの決定</th></tr>
+        {% for c in cand_rows %}
+        <tr class="sp-status-{{ c.status }}">
+          <td>{{ c.merchant }}<span class="sp-sub">{{ c.action }}</span></td>
+          <td class="sp-mid">{{ c.kind }}</td>
+          <td class="sp-mid"><span class="sp-tag sp-tag-{{ c.necessity }}">{{ c.necessity }}</span></td>
+          <td>¥{{ c.annual_effect|intcomma }}<span class="sp-sub">¥{{ c.annual_effect|div12|intcomma }}/月</span></td>
+          <td class="sp-mid">
+            <form method="post" class="sp-plan-form">
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="plan">
+              <input type="hidden" name="merchant" value="{{ c.merchant }}">
+              <input type="hidden" name="action" value="{{ c.action }}">
+              <input type="hidden" name="annual_effect" value="{{ c.annual_effect }}">
+              <select name="status" onchange="this.form.submit()">
+                <option value="todo" {% if c.status == 'todo' %}selected{% endif %}>検討中</option>
+                <option value="doing" {% if c.status == 'doing' %}selected{% endif %}>実行中</option>
+                <option value="done" {% if c.status == 'done' %}selected{% endif %}>完了</option>
+                <option value="skip" {% if c.status == 'skip' %}selected{% endif %}>やらない</option>
+              </select>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% else %}
+    <div class="pf-note" style="margin-top:0">候補がありません。</div>
+    {% endif %}
+  </div>
+
+  <div class="pf-grid2">
+    <!-- ⑥ サブスク -->
+    <div class="pf-card">
+      <h2>サブスク <span class="pf-hint">{{ kpi.subs_count }}本・年額 ¥{{ kpi.subs_annual|intcomma }}</span></h2>
+      {% if sub_rows %}
+      <div class="pf-scroll">
+        <table class="pf-table num">
+          <tr><th>サービス</th><th>月額目安</th><th>年額</th><th>必要度</th></tr>
+          {% for s in sub_rows %}
+          <tr>
+            <td>{{ s.merchant }}</td>
+            <td>¥{{ s.monthly|default:0|intcomma }}</td>
+            <td>¥{{ s.annual|default:0|intcomma }}</td>
+            <td class="sp-mid"><span class="sp-tag sp-tag-{{ s.necessity }}">{{ s.necessity }}</span></td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      {% else %}
+      <div class="pf-note" style="margin-top:0">検出されませんでした。</div>
+      {% endif %}
+    </div>
+
+    <!-- ⑦ 加盟店 -->
+    <div class="pf-card">
+      <h2>支出の多い先 <span class="pf-hint">直近{{ kpi.months }}か月・上位20</span></h2>
+      <div class="sp-bars num">
+        {% for m in merchant_rows %}
+        <div class="sp-bar-row">
+          <div class="sp-bar-name" title="{{ m.merchant }}">{{ m.merchant }}</div>
+          <div class="sp-bar-track"><div class="sp-bar-fill" style="width:{{ m.width }}%; background:#1e90ff"></div></div>
+          <div class="sp-bar-amt">¥{{ m.total|intcomma }}<span class="sp-sub">{{ m.n }}件</span></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑧ データの健全性 -->
+  <div class="pf-card">
+    <h2>データの健全性 <span class="pf-hint">数字を信用してよいかの確認</span></h2>
+    <div class="pf-grid2">
+      <div>
+        <div class="sp-sec-title">Zaim と e-navi の突合</div>
+        <table class="pf-table num">
+          {% for r in reconcile_rows %}
+          <tr><td>{{ r.label }}</td><td>{{ r.n }}件</td></tr>
+          {% empty %}
+          <tr><td class="pf-muted">e-navi が未アップロードです</td><td></td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div>
+        <div class="sp-sec-title">集計から除外した行</div>
+        <table class="pf-table num">
+          {% for r in exclusion_rows %}
+          <tr><td>{{ r.label }}</td><td>{{ r.n }}件</td><td>¥{{ r.total|intcomma }}</td></tr>
+          {% empty %}
+          <tr><td class="pf-muted">なし</td><td></td><td></td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+    <div class="pf-note">
+      全{{ period.rows|intcomma }}行のうち{{ period.counted|intcomma }}行を集計。除外は消さずに理由を残しています
+      （<a class="pf-link" href="{% url 'spending:transactions' %}?excluded=1">除外分を見る</a>）。
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- データの取り込み -->
+  <div class="pf-card">
+    <h2>CSVの取り込み <span class="pf-hint">手動ダウンロード → アップロード</span></h2>
+    <form method="post" enctype="multipart/form-data" class="pf-frm">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="upload">
+      <label class="pf-fld">CSVファイル（複数選択可・Zaim / e-navi 自動判別）
+        <input type="file" name="csv_files" accept=".csv" multiple>
+      </label>
+      <button class="pf-btn" type="submit">アップロードして取り込む</button>
+    </form>
+    <div class="pf-note">
+      Zaim: 設定 → ファイル入出力 → 記録データをダウンロード（全期間）<br>
+      e-navi: ご利用明細 → 明細CSVをダウンロード（月ごと・複数月まとめて可）<br>
+      ⚠️ このシステムは楽天やZaimのIDとパスワードを一切保持しません。ログインはあなたがブラウザで行い、
+      ダウンロードしたCSVだけをここに上げます。
+    </div>
+    {% if zaim_file or enavi_count %}
+    <div class="sp-files">
+      取り込み済み: {% if zaim_file %}Zaim <b>{{ zaim_file }}</b>{% endif %}
+      {% if enavi_count %}／ e-navi <b>{{ enavi_count }}</b>ファイル{% endif %}
+      {% if last_import %}<span class="pf-muted">（最終取り込み {{ last_import.created_at|date:"n/j H:i" }}・{{ last_import.rows_total|intcomma }}行）</span>{% endif %}
+    </div>
+    <div class="sp-actions">
+      <form method="post" style="display:inline">
+        {% csrf_token %}<input type="hidden" name="form_id" value="reimport">
+        <button class="pf-btn sp-btn-sub" type="submit">再取り込み（ルール変更後など）</button>
+      </form>
+      <form method="post" style="display:inline"
+            onsubmit="return confirm('取り込み済みデータとCSVをすべて削除します。よろしいですか？');">
+        {% csrf_token %}<input type="hidden" name="form_id" value="clear">
+        <button class="pf-btn sp-btn-danger" type="submit">全削除</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if not has_data %}
+  <div class="pf-card">
+    <div class="pf-empty">
+      まだデータがありません。上のフォームから Zaim のCSVをアップロードすると分析が始まります。<br>
+      e-navi のCSVも一緒に上げると、カード明細の突合（取りこぼしの検出）ができます。
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

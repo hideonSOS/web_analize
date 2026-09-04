@@ -1,0 +1,39 @@
+/* セキュリティ設定（2段階認証）。portfolio.css を土台に固有部分だけ定義 */
+
+.sc-status{ font-size:13px; line-height:1.8; padding:10px 14px; border-radius:8px; }
+.sc-on{ border:1px solid #1e5c2f; background:#05170b; color:#4ade80; }
+.sc-sub{ display:block; font-size:11px; color:#6b7280; margin-top:4px; }
+
+.sc-actions{ display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; }
+.sc-form{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.sc-form input[type=text]{
+  background:#0f172a; border:1px solid #334155; border-radius:8px;
+  color:#e5e7eb; padding:9px 11px; font-size:15px; width:130px;
+  font-variant-numeric:tabular-nums; letter-spacing:2px;
+}
+.sc-form input:focus{ outline:none; border-color:#1e90ff; }
+.sc-btn-sub{ background:transparent; color:#87cefa; border:1px solid #334155; box-shadow:none; }
+.sc-btn-danger{ background:transparent; color:#f87171; border:1px solid #7c2d2d; box-shadow:none; }
+
+/* 設定手順 */
+.sc-steps{ font-size:13px; line-height:2; color:#e5e7eb; padding-left:20px; margin:0 0 14px; }
+.sc-qr{ display:inline-block; padding:10px; background:#0b1220;
+  border:1px solid #1e3a5f; border-radius:10px; margin-bottom:12px; }
+.sc-qr svg{ display:block; }
+.sc-secret{ display:inline-block; font-size:13px; letter-spacing:2px; color:#87cefa;
+  background:#0f172a; border:1px solid #334155; border-radius:6px; padding:6px 10px; margin-top:4px;
+  word-break:break-all; }
+
+/* リカバリコード */
+.sc-codes-card{ border-color:#7c5c1d; }
+.sc-codes{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+  gap:8px; margin:12px 0; }
+.sc-codes code{ font-size:15px; letter-spacing:1px; color:#fbbf24; text-align:center;
+  background:#0f172a; border:1px solid #334155; border-radius:6px; padding:8px 6px; }
+
+.sc-ua{ color:#6b7280; font-size:11px; }
+
+@media (max-width:768px){
+  .sc-actions{ flex-direction:column; gap:12px; }
+  .sc-form input[type=text]{ width:110px; }
+}

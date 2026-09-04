@@ -1,0 +1,232 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}{{ ym }}の支出 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'spending/css/spending.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block extra_js %}
+{% if has_data %}{{ daily_spec|json_script:"sp-daily" }}{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="{% static 'spending/js/month.js' %}?v={% now 'U' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+  <h1 class="pf-title">月次の支出</h1>
+  <p class="pf-sub">その月に何が起きたかを、前月・平常月と比べて読む
+    ／ <a class="pf-link" href="{% url 'spending:index' %}">← 支出分析</a>
+    ／ <a class="pf-link" href="{% url 'spending:transactions' %}">明細 →</a></p>
+
+  {% if not has_data %}
+    <div class="pf-card">
+      <div class="pf-empty">
+        まだデータがありません。
+        <a class="pf-link" href="{% url 'spending:index' %}">支出分析</a>からCSVを取り込んでください。
+      </div>
+    </div>
+  {% else %}
+
+  <!-- 月の選択 -->
+  <div class="pf-card">
+    <form method="get" class="sp-month-nav">
+      {% if prev_ym %}<a class="pf-btn sp-btn-sub" href="?ym={{ prev_ym }}">← {{ prev_ym }}</a>
+      {% else %}<span class="pf-btn sp-btn-sub sp-disabled">←</span>{% endif %}
+      <select name="ym" onchange="this.form.submit()">
+        {% for m in months %}<option value="{{ m }}" {% if m == ym %}selected{% endif %}>{{ m }}</option>{% endfor %}
+      </select>
+      {% if next_ym %}<a class="pf-btn sp-btn-sub" href="?ym={{ next_ym }}">{{ next_ym }} →</a>
+      {% else %}<span class="pf-btn sp-btn-sub sp-disabled">→</span>{% endif %}
+    </form>
+  </div>
+
+  <!-- サマリー -->
+  <div class="pf-card">
+    <div class="pf-hero">
+      <div>
+        <div class="k">{{ ym }} の支出（{{ count }}件）</div>
+        <div class="total num">¥{{ total|intcomma }}</div>
+      </div>
+      <div class="pf-chips">
+        <div class="pf-chip"><div class="k">前月比</div>
+          <div class="v num {% if vs_prev.value > 0 %}pf-neg{% elif vs_prev.value < 0 %}pf-pos{% endif %}">
+            {% if vs_prev.value > 0 %}+{% endif %}¥{{ vs_prev.value|intcomma }}
+            {% if vs_prev.pct is not None %}<span class="sp-unit">{% if vs_prev.pct > 0 %}+{% endif %}{{ vs_prev.pct }}%</span>{% endif %}
+          </div></div>
+        <div class="pf-chip"><div class="k">平常月との差</div>
+          <div class="v num {% if vs_median.value > 0 %}pf-neg{% elif vs_median.value < 0 %}pf-pos{% endif %}">
+            {% if vs_median.value > 0 %}+{% endif %}¥{{ vs_median.value|intcomma }}
+          </div></div>
+        <div class="pf-chip"><div class="k">平常月（中央値）</div>
+          <div class="v num pf-muted">¥{{ median|intcomma }}</div></div>
+        <div class="pf-chip"><div class="k">固定費</div>
+          <div class="v num">¥{{ fixed|intcomma }}<span class="sp-unit">{{ fixed_pct }}%</span></div></div>
+      </div>
+    </div>
+    <div class="pf-note">
+      「平常月」は直近12か月の<b>中央値</b>です。平均だと年払いや大型出費のある月に引っ張られて
+      「いつも」を表さないため、中央値を基準にしています。
+    </div>
+  </div>
+
+  <!-- 予算 vs 実績 -->
+  <div class="pf-card">
+    <h2>予算と実績
+      <span class="pf-hint">
+        {% if budget_summary %}{{ budget_summary.limit|intcomma }}円の予算に対し{{ budget_summary.rate }}%
+        {% else %}まず予算を設定する{% endif %}</span></h2>
+
+    {% if budget_rows %}
+    {% if budget_summary.over_count %}
+    <div class="pf-warn">
+      ⚠ {{ budget_summary.over_count }}カテゴリが予算を超えています（合計
+      {% if budget_summary.diff > 0 %}+{% endif %}¥{{ budget_summary.diff|intcomma }}）。
+    </div>
+    {% endif %}
+
+    <div class="sp-budget num">
+      {% for b in budget_rows %}
+      <div class="sp-bg-row">
+        <div class="sp-bg-name">{{ b.category }}
+          <span class="sp-sub">予算 ¥{{ b.limit|intcomma }}</span></div>
+        <div class="sp-bg-track">
+          <div class="sp-bg-fill {% if b.over %}sp-bg-over{% endif %}" style="width:{{ b.width }}%"></div>
+          {% if b.over %}<div class="sp-bg-excess" style="width:{{ b.over_width }}%"></div>{% endif %}
+          <div class="sp-bg-limit"></div>
+        </div>
+        <div class="sp-bg-amt">
+          <span class="{% if b.over %}pf-neg{% else %}pf-pos{% endif %}">¥{{ b.actual|intcomma }}</span>
+          <span class="sp-sub">
+            {% if b.over %}+¥{{ b.diff|intcomma }} 超過{% else %}残り ¥{{ b.diff|intcomma|cut:"-" }}{% endif %}
+            ／{{ b.rate }}%</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="pf-note">
+      白い縦線が予算（100%）。支出は「使わないほど良い」ので、超過が赤・予算内が緑です。
+      予算の合計 ¥{{ budget_summary.limit|intcomma }} に対し実績 ¥{{ budget_summary.actual|intcomma }}。
+    </div>
+    {% else %}
+    <div class="pf-note" style="margin-top:0">
+      まだ予算が設定されていません。下のフォームで1件ずつ設定するか、
+      平常月（直近12か月の中央値）を初期値として一括設定できます。
+    </div>
+    <form method="post" style="margin-top:12px">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="budget_seed">
+      <input type="hidden" name="ym" value="{{ ym }}">
+      <button class="pf-btn" type="submit">平常月の水準で予算を一括設定する</button>
+    </form>
+    {% endif %}
+
+    <!-- 予算の設定 -->
+    <form method="post" class="pf-frm sp-budget-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="budget">
+      <input type="hidden" name="ym" value="{{ ym }}">
+      <div class="pf-row2">
+        <label class="pf-fld">カテゴリ
+          <select name="category">
+            {% for c in all_categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select></label>
+        <label class="pf-fld">月の上限（円・空で削除）
+          <input type="number" name="monthly_limit" placeholder="例: 50000"></label>
+      </div>
+      <button class="pf-btn sp-btn-sub" type="submit">予算を保存</button>
+    </form>
+
+    {% if unbudgeted %}
+    <div class="pf-note">
+      予算未設定で今月支出のあるカテゴリ:
+      {% for u in unbudgeted %}<b>{{ u.name }}</b>（¥{{ u.amount|intcomma }}）{% if not forloop.last %} ／ {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- いつもと違う点 -->
+  {% if movers %}
+  <div class="pf-card">
+    <h2>いつもと違う点 <span class="pf-hint">平常月との差が大きいカテゴリ</span></h2>
+    <div class="sp-movers num">
+      {% for m in movers %}
+      <div class="sp-mover {% if m.vs_base > 0 %}sp-up{% else %}sp-down{% endif %}">
+        <div class="sp-mover-name">{{ m.name }}</div>
+        <div class="sp-mover-diff">{% if m.vs_base > 0 %}+{% endif %}¥{{ m.vs_base|intcomma }}</div>
+        <div class="sp-mover-sub">今月 ¥{{ m.amount|intcomma }} ／ 平常 ¥{{ m.baseline|intcomma }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 日別の推移 -->
+  <div class="pf-card">
+    <h2>月内の使い方 <span class="pf-hint">日別（棒）と累計（線）</span></h2>
+    <div id="sp-daily-chart" class="sp-chart"></div>
+  </div>
+
+  <div class="pf-grid2">
+    <!-- カテゴリ別 -->
+    <div class="pf-card">
+      <h2>カテゴリ別 <span class="pf-hint">前月・平常月と比較</span></h2>
+      <div class="pf-scroll">
+        <table class="pf-table num">
+          <tr><th>カテゴリ</th><th>今月</th><th>構成</th><th>前月比</th><th>平常比</th></tr>
+          {% for c in cat_rows %}
+          <tr>
+            <td style="text-align:left">{{ c.name }}</td>
+            <td>¥{{ c.amount|intcomma }}</td>
+            <td class="pf-muted">{{ c.pct }}%</td>
+            <td class="{% if c.vs_prev > 0 %}pf-neg{% elif c.vs_prev < 0 %}pf-pos{% endif %}">
+              {% if c.vs_prev %}{% if c.vs_prev > 0 %}+{% endif %}{{ c.vs_prev|intcomma }}{% else %}—{% endif %}</td>
+            <td class="{% if c.vs_base > 0 %}pf-neg{% elif c.vs_base < 0 %}pf-pos{% endif %}">
+              {% if c.vs_base %}{% if c.vs_base > 0 %}+{% endif %}{{ c.vs_base|intcomma }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div class="pf-note">増加は赤・減少は緑。支出なので減った方が良い、という向きで色を付けています。</div>
+    </div>
+
+    <!-- 支払元別 -->
+    <div class="pf-card">
+      <h2>支払元別</h2>
+      <div class="sp-bars num">
+        {% for s in src_rows %}
+        <div class="sp-bar-row">
+          <div class="sp-bar-name">{{ s.name }}</div>
+          <div class="sp-bar-track"><div class="sp-bar-fill" style="width:{{ s.pct }}%; background:#1e90ff"></div></div>
+          <div class="sp-bar-amt">¥{{ s.amount|intcomma }}<span class="sp-sub">{{ s.n }}件・{{ s.pct }}%</span></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 大きな支出 -->
+  <div class="pf-card">
+    <h2>この月の大きな支出 <span class="pf-hint">上位{{ big_rows|length }}件</span></h2>
+    <div class="pf-scroll">
+      <table class="pf-table num">
+        <tr><th>日</th><th>内容</th><th>カテゴリ</th><th>支払元</th><th>金額</th></tr>
+        {% for b in big_rows %}
+        <tr>
+          <td>{{ b.date|date:"n/j" }}</td>
+          <td style="text-align:left">{{ b.label|default:b.merchant|truncatechars:36 }}</td>
+          <td class="pf-muted">{{ b.category|default:"—" }}</td>
+          <td class="pf-muted">{{ b.source_label }}</td>
+          <td>¥{{ b.amount|intcomma }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="pf-note">
+      <a class="pf-link" href="{% url 'spending:transactions' %}?ym={{ ym }}">{{ ym }}の明細をすべて見る →</a>
+    </div>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}
