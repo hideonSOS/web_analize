@@ -9,6 +9,7 @@
 from datetime import date
 
 from django.contrib import messages
+from django.db.models import Case, CharField, F, Q, Sum, When
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
@@ -138,20 +139,46 @@ def month(request):
     return render(request, 'spending/month.html', monthly.build(request.GET.get('ym')))
 
 
+# 実効カテゴリ = 画面で直した分類（manual_category）があればそれ、無ければ自動分類。
+# ⚠️ 画面の表示（manual_category|default:category）と同じ規則にすること。ずれると
+# 「カテゴリで絞ったのに、その分類で表示されている行が出てこない」ことになる。
+_EFFECTIVE_CATEGORY = Case(
+    When(manual_category='', then=F('category')),
+    default=F('manual_category'),
+    output_field=CharField(),
+)
+
+
+def _category_choices() -> list[str]:
+    """絞り込み用のカテゴリ候補。
+
+    Budget の登録カテゴリではなく**台帳に実在するカテゴリ**から作る。
+    予算を付けていない分類（＝見直したい分類）が候補から漏れないようにするため。
+    """
+    cats = (Transaction.objects.annotate(cat=_EFFECTIVE_CATEGORY)
+            .values_list('cat', flat=True).distinct())
+    return sorted({c for c in cats if c})
+
+
 def transactions(request):
     """明細一覧（絞り込みつき）。分類を直すのはここ。"""
-    qs = Transaction.objects.all()
+    qs = Transaction.objects.annotate(cat=_EFFECTIVE_CATEGORY)
     q = request.GET.get('q', '').strip()
     ym = request.GET.get('ym', '').strip()
     src = request.GET.get('source', '').strip()
+    cat = request.GET.get('cat', '').strip()
     only_excluded = request.GET.get('excluded') == '1'
 
     if q:
-        qs = qs.filter(merchant__icontains=q) | qs.filter(label__icontains=q) | qs.filter(shop__icontains=q)
+        qs = qs.filter(Q(merchant__icontains=q) | Q(label__icontains=q) | Q(shop__icontains=q))
     if ym:
         qs = qs.filter(ym=ym)
     if src:
         qs = qs.filter(source_kind=src)
+    if cat:
+        # 分類が付かなかった行は「未分類」という名前のカテゴリになるので、
+        # 空欄用の選択肢は要らない（実測でも空欄は0件）
+        qs = qs.filter(cat=cat)
     qs = qs.filter(in_total=False) if only_excluded else qs.filter(in_total=True)
 
     if request.method == 'POST' and request.POST.get('form_id') == 'edit':
@@ -169,9 +196,12 @@ def transactions(request):
     context = {
         'rows': qs.select_related()[:300],
         'count': qs.count(),
+        # 絞り込んだ結果がいくらだったかは、カテゴリ単位で見直すときの主役になる数字
+        'total': qs.aggregate(s=Sum('amount'))['s'] or 0,
         'months': months,
-        'q': q, 'ym': ym, 'source': src, 'only_excluded': only_excluded,
+        'q': q, 'ym': ym, 'source': src, 'cat': cat, 'only_excluded': only_excluded,
         'source_choices': Transaction.SOURCE_KIND,
+        'category_choices': _category_choices(),
         'necessity_choices': ['必須', '準必須', '裁量', '要確認'],
     }
     return render(request, 'spending/transactions.html', context)

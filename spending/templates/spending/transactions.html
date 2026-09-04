@@ -25,6 +25,11 @@
           <option value="">すべて</option>
           {% for m in months %}<option value="{{ m }}" {% if m == ym %}selected{% endif %}>{{ m }}</option>{% endfor %}
         </select></label>
+      <label class="pf-fld">カテゴリ
+        <select name="cat">
+          <option value="">すべて</option>
+          {% for c in category_choices %}<option value="{{ c }}" {% if c == cat %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select></label>
       <label class="pf-fld">支払元
         <select name="source">
           <option value="">すべて</option>
@@ -40,8 +45,9 @@
   </div>
 
   <div class="pf-card">
-    <h2>{{ count|intcomma }}件
-      <span class="pf-hint">先頭300件を表示・分類を直すと再取込でも保持されます</span></h2>
+    <h2>{{ count|intcomma }}件 ¥{{ total|intcomma }}
+      <span class="pf-hint">
+        {% if cat %}{{ cat }}の合計{% if ym %}（{{ ym }}）{% endif %}・{% endif %}先頭300件を表示・分類を直すと再取込でも保持されます</span></h2>
     <div class="pf-scroll">
       <table class="pf-table num" style="min-width:900px">
         <tr>
