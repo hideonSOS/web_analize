@@ -14,17 +14,19 @@ from pathlib import Path
 
 from django.conf import settings
 
-from .models import ImportLog, MerchantRule, Transaction
+from .models import AmazonOrderItem, ImportLog, MerchantRule, Transaction
 
 # アップロードされた CSV の保管先（nginx が配信しない場所・.gitignore 済み）
 DATA_DIR = Path(settings.BASE_DIR) / 'data' / 'spending'
 ENAVI_DIR = DATA_DIR / 'enavi'
+AMAZON_DIR = DATA_DIR / 'amazon'
 
 MAX_UPLOAD_SIZE = 20 * 1024 * 1024   # 1ファイル20MB（Zaim全期間で約1.5MB）
 
 
 def _ensure_dirs():
     ENAVI_DIR.mkdir(parents=True, exist_ok=True)
+    AMAZON_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def detect_csv_kind(head: str) -> str:
@@ -38,6 +40,11 @@ def detect_csv_kind(head: str) -> str:
         return 'enavi'
     if '日付' in h and ('支出' in h or '収入' in h or '方法' in h):
         return 'zaim'
+    # Amazon は書き出し元によって列名が和英・形式ともばらばらなので、
+    # 固定文字列ではなく列名の対応表で判定する（amazon_loader 参照）
+    from card_insight.amazon_loader import looks_like_amazon
+    if looks_like_amazon(h):
+        return 'amazon'
     return ''
 
 
@@ -77,6 +84,56 @@ def latest_zaim() -> Path | None:
 
 def enavi_glob() -> str | None:
     return str(ENAVI_DIR / '*.csv') if any(ENAVI_DIR.glob('*.csv')) else None
+
+
+def amazon_glob() -> str | None:
+    return str(AMAZON_DIR / '*.csv') if any(AMAZON_DIR.glob('*.csv')) else None
+
+
+def import_amazon() -> dict:
+    """Amazon 注文履歴を取り込み、カードの Amazon 行に紐づける。
+
+    ⚠️ 台帳（Transaction）の取り込みより**後**に呼ぶこと。突合先の id が要る。
+    台帳と同じく毎回作り直す（手で直す項目を持たないので消して入れ直してよい）。
+    """
+    import pandas as pd
+    from card_insight.amazon_loader import load_amazon
+    from card_insight.amazon_match import match
+
+    pattern = amazon_glob()
+    if not pattern:
+        return {'rows': 0, 'matched': 0, 'charges': 0, 'explained': 0, 'message': ''}
+
+    items = load_amazon(pattern)
+    charges = pd.DataFrame(list(
+        Transaction.objects.filter(merchant__startswith='Amazon', source_kind='card')
+        .values('id', 'date', 'amount')))
+    res = match(items, charges)
+
+    AmazonOrderItem.objects.all().delete()
+    AmazonOrderItem.objects.bulk_create([
+        AmazonOrderItem(
+            order_id=r['order_id'], product_name=r['product_name'][:300],
+            order_date=(None if pd.isna(r['order_date']) else pd.Timestamp(r['order_date']).date()),
+            quantity=int(r['quantity']), item_total=int(r['item_total']),
+            order_total=int(r['order_total']), status=str(r['status'])[:40],
+            source_file=str(r['source_file'])[:200],
+            transaction_id=(None if pd.isna(r['charge_id']) else int(r['charge_id'])),
+            match_how=r['match_how'],
+        ) for r in res.to_dict('records')
+    ], batch_size=500)
+
+    linked = res['charge_id'].notna()
+    explained = int(charges[charges['id'].isin(res.loc[linked, 'charge_id'])]['amount'].sum()) if len(charges) else 0
+    total = int(charges['amount'].sum()) if len(charges) else 0
+    return {
+        'rows': int(len(res)), 'matched': int(linked.sum()),
+        'charges': int(res.loc[linked, 'charge_id'].nunique()),
+        'explained': explained, 'total': total,
+        'message': (f'Amazon注文 {len(res):,}商品 → カード請求 '
+                    f'{res.loc[linked, "charge_id"].nunique():,}/{len(charges):,}件に紐付け'
+                    f'（{explained:,}円 / {total:,}円）'),
+    }
 
 
 def seed_rules_if_empty() -> int:
@@ -229,6 +286,8 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
     if removed:
         Transaction.objects.filter(id__in=[t.id for t in removed]).delete()
 
+    amazon = import_amazon()
+
     return ImportLog.objects.create(
         ok=True,
         zaim_file=Path(zaim_path).name,
@@ -239,12 +298,15 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
             f'（新規{len(to_create):,} / 更新{len(to_update):,} / 削除{len(removed):,}）'
             + (f' ／ {start_ym} 以降に限定（e-navi の無い古い{trimmed:,}行は対象外）'
                if start_ym else '')
+            + (f' ／ {amazon["message"]}' if amazon['message'] else '')
         ),
     )
 
 
 def clear_data():
     """保管中の CSV と取り込み済みデータを全部消す（やり直し用）"""
+    # Transaction への FK は SET_NULL なので、消し忘れると品目だけが孤児として残る
+    AmazonOrderItem.objects.all().delete()
     Transaction.objects.all().delete()
     if DATA_DIR.exists():
         shutil.rmtree(DATA_DIR)

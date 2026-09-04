@@ -188,3 +188,44 @@ class ImportLog(models.Model):
 
     def __str__(self):
         return f'{self.created_at:%Y-%m-%d %H:%M} {self.rows_total}行 (+{self.rows_added}/-{self.rows_removed})'
+
+
+class AmazonOrderItem(models.Model):
+    """Amazon 注文履歴の 1 商品 1 行。カード明細の「Amazon.co.jp」を品目に分解する。
+
+    カード明細も Zaim も、Amazon の支出は加盟店名 `Amazon.co.jp` としか記録しない。
+    実測で 82 件・約 20 万円が使途不明のまま残っており、カード支出で最大の塊だった。
+
+    ⚠️ カードの請求は注文単位ではなく**出荷単位**で立つため、1 注文が複数の請求に
+    割れる。だから商品 → 請求は多対一で持つ（transaction が同じ商品が複数ある）。
+    金額が合わなかった商品は transaction=None のまま残す。埋めないのが正しい
+    （間違った品目を出すくらいなら不明のままの方がよい）。
+
+    台帳と同じく**毎回 CSV から作り直す**。手で直す項目は持たない。
+    """
+    MATCH_HOW = [
+        ('charge', 'クレカ請求額で一致'),
+        ('order', '注文合計で一致'),
+        ('item', '商品小計で一致'),
+    ]
+
+    order_id = models.CharField(max_length=40, db_index=True)
+    order_date = models.DateField(null=True, blank=True)
+    product_name = models.CharField(max_length=300)
+    quantity = models.IntegerField(default=1)
+    item_total = models.IntegerField(default=0, help_text='この商品の小計（円）')
+    order_total = models.IntegerField(default=0, help_text='注文全体の合計（円）')
+    status = models.CharField(max_length=40, blank=True)
+    source_file = models.CharField(max_length=200, blank=True)
+
+    transaction = models.ForeignKey(
+        Transaction, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='amazon_items', help_text='対応するカード請求。突合できなければ空')
+    match_how = models.CharField(max_length=10, blank=True, choices=MATCH_HOW)
+
+    class Meta:
+        ordering = ['-order_date', 'order_id']
+        indexes = [models.Index(fields=['order_date'])]
+
+    def __str__(self):
+        return f'{self.order_date} {self.product_name[:30]} {self.item_total:,}円'

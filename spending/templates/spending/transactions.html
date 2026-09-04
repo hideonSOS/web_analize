@@ -63,7 +63,23 @@
         <tr>
           <td>{{ t.date|date:"n/j" }}<span class="sp-sub">{{ t.ym }}</span></td>
           <td style="text-align:left">{{ t.label|default:t.shop|truncatechars:32 }}
-            {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}</td>
+            {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}
+            {% comment %}
+              Amazon の請求は加盟店名が「Amazon.co.jp」としか出ないので、
+              注文履歴CSVから突合できた品目をここに開く（既定は閉じて場所を取らない）
+            {% endcomment %}
+            {% if t.amazon_items.all %}
+            <details class="sp-items">
+              <summary>品目 {{ t.amazon_items.all|length }}件</summary>
+              <ul>
+                {% for it in t.amazon_items.all %}
+                <li>{{ it.product_name|truncatechars:60 }}
+                  {% if it.quantity > 1 %}<b>×{{ it.quantity }}</b>{% endif %}
+                  <span>¥{{ it.item_total|intcomma }}</span></li>
+                {% endfor %}
+              </ul>
+            </details>
+            {% endif %}</td>
           <td class="sp-mid">{{ t.get_source_kind_display }}</td>
           {% comment %}
             分類の出どころを必ず添える。e-navi にはカテゴリが無いので、カード行の

@@ -261,7 +261,7 @@
     <form method="post" enctype="multipart/form-data" class="pf-frm">
       {% csrf_token %}
       <input type="hidden" name="form_id" value="upload">
-      <label class="pf-fld">CSVファイル（複数選択可・Zaim / e-navi 自動判別）
+      <label class="pf-fld">CSVファイル（複数選択可・Zaim / e-navi / Amazon注文履歴 を自動判別）
         <input type="file" name="csv_files" accept=".csv" multiple>
       </label>
       <button class="pf-btn" type="submit">アップロードして取り込む</button>
@@ -272,6 +272,9 @@
       答え合わせができず精度が揃わないので対象外にしています。<br><br>
       Zaim: 設定 → ファイル入出力 → 記録データをダウンロード（全期間）<br>
       e-navi: ご利用明細 → 明細CSVをダウンロード（月ごと・複数月まとめて可）<br>
+      Amazon: 注文履歴のCSV（<b>任意</b>）。カード明細は加盟店名が「Amazon.co.jp」としか出ず
+      何を買ったか分からないので、これを上げると請求1件ごとに品目が並びます。
+      書き出し形式は複数ありますが、列名で自動判別します。<br>
       ⚠️ このシステムは楽天やZaimのIDとパスワードを一切保持しません。ログインはあなたがブラウザで行い、
       ダウンロードしたCSVだけをここに上げます。
     </div>

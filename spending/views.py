@@ -34,7 +34,7 @@ def index(request):
                     continue
                 kind = services.detect_csv_kind(services.read_head(f))
                 if not kind:
-                    skipped.append(f'{f.name}（Zaimでもe-naviでもない形式）')
+                    skipped.append(f'{f.name}（Zaim・e-navi・Amazon注文履歴のいずれでもない形式）')
                     continue
                 services.save_upload(f, kind)
                 saved.append(f'{f.name}→{kind}')
@@ -212,7 +212,8 @@ def transactions(request):
 
     months = list(Transaction.objects.values_list('ym', flat=True).distinct().order_by('-ym'))
     context = {
-        'rows': qs.select_related()[:300],
+        # Amazon 行にぶら下がる品目。1請求に複数商品があるので prefetch で1回にまとめる
+        'rows': qs.prefetch_related('amazon_items')[:300],
         'count': qs.count(),
         # 絞り込んだ結果がいくらだったかは、カテゴリ単位で見直すときの主役になる数字
         'total': qs.aggregate(s=Sum('amount'))['s'] or 0,
