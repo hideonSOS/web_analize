@@ -46,8 +46,9 @@
     <script src="{% static 'website/js/passkey.js' %}?v={% now 'U' %}"></script>
     <script>
       (function () {
-        if (!window.PasskeySupported || !PasskeySupported()) return;
         var area = document.getElementById('pk-area');
+        // パスキーが使えない環境ではサーバー側が要素ごと出さない（IPアドレス運用など）
+        if (!area || !window.PasskeySupported || !PasskeySupported()) return;
         var btn = document.getElementById('pk-login');
         var err = document.getElementById('pk-error');
         area.hidden = false;
