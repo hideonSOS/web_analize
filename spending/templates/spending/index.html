@@ -132,24 +132,78 @@
   </div>
 
   <div class="pf-grid2">
-    <!-- ⑥ サブスク -->
+    <!-- ⑥ サブスク・固定費 -->
+    {% comment %}
+      毎月・年払い・止まっているものを1つの表に混ぜると誤読する。実際
+      Amazon Prime（年1回）が月額492円と出て毎月払っているように見えていた。
+      「毎月いくら出ていくか」が節約判断の起点なので、そこだけ切り出して大きく出す。
+    {% endcomment %}
     <div class="pf-card">
-      <h2>サブスク <span class="pf-hint">{{ kpi.subs_count }}本・年額 ¥{{ kpi.subs_annual|intcomma }}</span></h2>
-      {% if sub_rows %}
+      <h2>サブスク・固定費 <span class="pf-hint">直近{{ kpi.months }}か月・{{ kpi.subs_count }}本</span></h2>
+
+      <div class="sp-fixed">
+        <div class="sp-fixed-lbl">毎月確実に出ていく額</div>
+        <div class="sp-fixed-amt num">¥{{ sub_monthly_total|intcomma }}<span>/月</span></div>
+        <div class="sp-fixed-sub num">この調子なら年 ¥{{ sub_monthly_annual|intcomma }}</div>
+      </div>
+
+      {% if sub_monthly %}
+      <h3 class="sp-subsec">毎月引き落とし <span>{{ sub_monthly|length }}本</span></h3>
       <div class="pf-scroll">
         <table class="pf-table num">
-          <tr><th>サービス</th><th>月額目安</th><th>年額</th><th>必要度</th></tr>
-          {% for s in sub_rows %}
+          <tr><th>サービス</th><th>平常月</th><th>連続</th><th>必要度</th></tr>
+          {% for s in sub_monthly %}
           <tr>
             <td>{{ s.merchant }}</td>
-            <td>¥{{ s.monthly|default:0|intcomma }}</td>
-            <td>¥{{ s.annual|default:0|intcomma }}</td>
+            <td>¥{{ s.monthly|intcomma }}</td>
+            <td>{{ s.streak }}か月</td>
             <td class="sp-mid"><span class="sp-tag sp-tag-{{ s.necessity }}">{{ s.necessity }}</span></td>
           </tr>
           {% endfor %}
         </table>
       </div>
-      {% else %}
+      <p class="pf-note sp-subnote">「平常月」は連続している月の中央値。年額プランへの切替や
+        入会金が1回混ざっても跳ねないようにしている。</p>
+      {% endif %}
+
+      {% if sub_yearly %}
+      <h3 class="sp-subsec">年払い・不定期 <span>{{ sub_yearly|length }}本</span></h3>
+      <div class="pf-scroll">
+        <table class="pf-table num">
+          <tr><th>サービス</th><th>直近{{ kpi.months }}か月の支払</th><th>回数</th><th>必要度</th></tr>
+          {% for s in sub_yearly %}
+          <tr>
+            <td>{{ s.merchant }}</td>
+            <td>¥{{ s.annual|intcomma }}</td>
+            <td>{{ s.months }}か月</td>
+            <td class="sp-mid"><span class="sp-tag sp-tag-{{ s.necessity }}">{{ s.necessity }}</span></td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      <p class="pf-note sp-subnote">毎月ではないので月額に均さず、実際に払った合計で出している。</p>
+      {% endif %}
+
+      {% if sub_check %}
+      <h3 class="sp-subsec sp-subsec-warn">要確認 <span>{{ sub_check|length }}本・止まっている</span></h3>
+      <div class="pf-scroll">
+        <table class="pf-table num">
+          <tr><th>サービス</th><th>払った合計</th><th>最後の請求</th><th>必要度</th></tr>
+          {% for s in sub_check %}
+          <tr>
+            <td>{{ s.merchant }}</td>
+            <td>¥{{ s.annual|intcomma }}</td>
+            <td>{{ s.last }}</td>
+            <td class="sp-mid"><span class="sp-tag sp-tag-{{ s.necessity }}">{{ s.necessity }}</span></td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      <p class="pf-note sp-subnote">数か月出て止まっているもの。解約済みならこのまま、
+        使っていないのに残っているなら解約対象。</p>
+      {% endif %}
+
+      {% if not sub_rows %}
       <div class="pf-note" style="margin-top:0">検出されませんでした。</div>
       {% endif %}
     </div>

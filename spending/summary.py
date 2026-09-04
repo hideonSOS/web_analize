@@ -15,6 +15,12 @@ from .models import SavingsPlan, Transaction
 
 RECENT_MONTHS = 12
 
+# 「毎月引き落とし」と見なす連続月数。⚠️ 出現月数の合計で判定しないこと。
+# 12か月中8か月でも、途中で一度解約して再契約したものは毎月払いに見えず弾かれる
+# （実際 Claude は 2025-11〜2026-01 に空白があり「不定期」に落ちた）。
+# 見るのは**直近から何か月続いているか**。
+MONTHLY_MIN_STREAK = 3
+
 
 def _frame() -> pd.DataFrame:
     """Transaction → analyze が期待する形の DataFrame
@@ -52,6 +58,38 @@ def _frame() -> pd.DataFrame:
     df['rule_note'] = ''
     df['shop'] = df['shop_norm']
     return df
+
+
+def _monthly_profile(recent: pd.DataFrame) -> dict:
+    """加盟店ごとに「直近から何か月連続で出ているか」と「平常月の金額」を出す。
+
+    平常月の金額に**平均ではなく中央値**を使うのは、年額プランへの切替や初月の
+    入会金が1回混ざるだけで平均が跳ねるため（実測: Claude 8月 17,580円、
+    chocoZAP 初月 9,008円。平均だと毎月の固定費が実態の2倍近くになる）。
+    """
+    piv = recent.pivot_table(index='merchant', columns='ym', values='amount', aggfunc='sum')
+    yms = sorted(piv.columns)
+    out = {}
+    for merchant, row in piv.iterrows():
+        i = len(yms) - 1
+        # 当月はまだ引き落とし日が来ていないことがあるので、1か月だけ猶予を見る
+        if i >= 0 and pd.isna(row.get(yms[i])):
+            i -= 1
+        streak = 0
+        while i >= 0 and pd.notna(row.get(yms[i])):
+            streak += 1
+            i -= 1
+        # 平常月の金額は連続している区間で見る。連続していない（＝止まっている）
+        # ものは区間が無いので、出現した月すべてから取る
+        window = yms[len(yms) - streak - 1:] if streak else yms
+        vals = [float(row[y]) for y in window if pd.notna(row.get(y))]
+        if streak:
+            vals = vals[-streak:]
+        out[merchant] = {
+            'streak': streak,
+            'typical': int(pd.Series(vals).median()) if vals else 0,
+        }
+    return out
 
 
 def build(months: int = RECENT_MONTHS) -> dict:
@@ -129,20 +167,51 @@ def build(months: int = RECENT_MONTHS) -> dict:
         for r in mer.to_dict('records')
     ]
 
-    # --- サブスク一覧（日本語列 → 英字キーへ） -------------------------------
-    sub_rows = []
+    # --- サブスク一覧 -------------------------------------------------------
+    # ⚠️ 「毎月引き落とし」と「年払い」「止まっているもの」を同じ表に並べると誤読する。
+    # 実際 Amazon Prime（年1回）に月額492円と出て毎月払っているように見えていた。
+    # 出現月数で3つに分ける（ユーザー要望）:
+    #   monthly  直近12か月で10か月以上 → 毎月確実に出ていく固定費
+    #   yearly   出現は少ないが kind=年会費、または年1〜2回の課金
+    #   check    数か月だけ出て止まっている → 解約済み？ 使っていない？ の確認対象
+    sub_rows, sub_monthly, sub_yearly, sub_check = [], [], [], []
+    profile = _monthly_profile(recent)
     if len(subs):
         for r in subs.sort_values('年額換算', ascending=False).to_dict('records'):
-            sub_rows.append({
-                'merchant': r.get('merchant', ''),
-                'monthly': int(r.get('月額換算') or 0),
+            name = r.get('merchant', '')
+            prof = profile.get(name, {'streak': 0, 'typical': 0})
+            kind = r.get('kind', '')
+            active = bool(r.get('直近月に発生'))
+            streak = prof['streak']
+            row = {
+                'merchant': name,
+                # ⚠️ 月額換算は「窓内の総額÷12」。途中で始めたものは実額より小さく出るし、
+                # 年1回払いは払っていない月も払っているように見える。毎月の固定費として
+                # 足し上げてよいのは平常月の実額（typical）だけ
+                'monthly': int(prof['typical']),
                 'annual': int(r.get('年額換算') or 0),
+                'annual_at_current': int(prof['typical']) * 12,
                 'necessity': r.get('necessity', ''),
-                'kind': r.get('kind', ''),
+                'kind': kind,
                 'months': int(r.get('months') or 0),
-                'active': bool(r.get('直近月に発生')),
+                'streak': streak,
+                'active': active,
+                'first': str(pd.Timestamp(r['first']).to_period('M')),
+                'last': str(pd.Timestamp(r['last']).to_period('M')),
                 'note': r.get('note', '') or '',
-            })
+            }
+            sub_rows.append(row)
+
+            if streak >= MONTHLY_MIN_STREAK:
+                sub_monthly.append(row)      # 直近から続いている＝毎月きっちり出ていく
+            elif kind == '年会費' or active:
+                sub_yearly.append(row)       # 年1回、または飛び飛びだが今も課金されている
+            else:
+                sub_check.append(row)        # 止まっている＝解約済み？ の確認対象
+
+    sub_monthly.sort(key=lambda r: -r['monthly'])
+    sub_yearly.sort(key=lambda r: -r['annual'])
+    sub_check.sort(key=lambda r: -r['annual'])
 
     # --- 節約候補（同上）。本人の決定（SavingsPlan）を突き合わせる -------------
     planned = {p.merchant: p for p in SavingsPlan.objects.all()}
@@ -205,6 +274,12 @@ def build(months: int = RECENT_MONTHS) -> dict:
         'category_rows': category_rows,
         'merchant_rows': merchant_rows,
         'sub_rows': sub_rows,
+        'sub_monthly': sub_monthly,
+        'sub_yearly': sub_yearly,
+        'sub_check': sub_check,
+        # 「毎月確実に出ていく固定費」の実額。ここが節約判断の起点になる
+        'sub_monthly_total': sum(r['monthly'] for r in sub_monthly),
+        'sub_monthly_annual': sum(r['annual_at_current'] for r in sub_monthly),
         'cand_rows': cand_rows,
         'distortion_rows': distortion_rows,
         'reconcile_rows': reconcile_rows,
