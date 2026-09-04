@@ -33,6 +33,7 @@
         パスキーでのログイン。HTTPSでないとブラウザが機能を無効にするため、
         対応環境でだけJSがボタンを表示する（未対応なら何も出ない）
       {% endcomment %}
+      {% if passkey_available %}
       <div id="pk-area" class="lg-passkey" data-next="{{ next }}" hidden>
         <div class="lg-or">または</div>
         <button type="button" id="pk-login" class="lg-pk-btn">
@@ -40,6 +41,7 @@
         </button>
         <p id="pk-error" class="lg-error" hidden></p>
       </div>
+      {% endif %}
     </main>
     <script src="{% static 'website/js/passkey.js' %}?v={% now 'U' %}"></script>
     <script>

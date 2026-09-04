@@ -96,6 +96,8 @@ def login(request):
         'error': error,
         'locked_for': locked_for,
         'next': request.GET.get('next', ''),
+        # パスキーはドメイン必須（IPでは使えない）。使える環境でだけボタンを出す
+        'passkey_available': passkeys.is_available(request),
     }
     return render(request, 'website/login.html', context)
 
@@ -271,6 +273,7 @@ def security(request):
         'error': error,
         'passkeys': Passkey.objects.filter(user=request.user),
         'is_secure': request.is_secure(),
+        'passkey_available': passkeys.is_available(request),
         'recent_logins': LoginAttempt.objects.filter(
             username=request.user.get_username())[:10],
     })

@@ -52,7 +52,11 @@
   </div>
   {% endif %}
 
-  {% comment %} パスキーを最上位に置く（ユーザーが選んだ主たるログイン手段） {% endcomment %}
+  {% comment %}
+    パスキーは**ドメイン名が必須**（IPアドレスでは仕様上ブラウザが拒否する）。
+    使えない環境ではカードごと隠す。ドメイン取得後は自動で表示される
+  {% endcomment %}
+  {% if passkey_available %}
   <div class="pf-card">
     <h2>パスキー
       <span class="pf-hint">顔・指紋・QRでログイン（パスワード不要）</span></h2>
@@ -102,6 +106,7 @@
       このブラウザはパスキーに対応していません。
     </div>
   </div>
+  {% endif %}
 
   <div class="pf-card">
     <h2>2段階認証

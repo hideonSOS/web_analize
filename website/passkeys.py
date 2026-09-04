@@ -33,6 +33,26 @@ def rp_id(request) -> str:
     return request.get_host().split(':')[0]
 
 
+def is_available(request) -> bool:
+    """この環境でパスキーが使えるか
+
+    ⚠️ **WebAuthn の RP ID はドメイン名でなければならず、IPアドレスは使えない**
+    （仕様上 "valid domain string" が要求される）。IPで開くとブラウザが
+    "The effective domain of the document is not a valid domain" で拒否する。
+    実装は完成しているので、**ドメインを取得すればコード変更なしで有効になる**。
+    localhost は仕様上の例外として許可されている。
+    """
+    host = rp_id(request)
+    if host == 'localhost':
+        return True
+    if not request.is_secure():
+        return False          # HTTPS必須
+    # IPアドレス（v4/v6）は不可。ドット区切りが全部数字ならIPv4、コロンを含めばIPv6
+    if all(part.isdigit() for part in host.split('.')) or ':' in host:
+        return False
+    return '.' in host        # ドメイン名らしきもの
+
+
 def origin(request) -> str:
     """スキーム込みのオリジン。ブラウザが送るものと完全一致する必要がある"""
     scheme = 'https' if request.is_secure() else 'http'
