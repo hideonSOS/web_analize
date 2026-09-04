@@ -115,7 +115,10 @@ def rules_dataframe():
     if not rows:
         from card_insight.normalize import load_rules
         return load_rules()
-    df = pd.DataFrame(rows).fillna('').sort_values('priority').reset_index(drop=True)
+    # ⚠️ kind='stable' は必須。classify_name は**先に当たったルールが勝つ**ので、
+    # 同じ priority のルール同士の順番が変わると、当たるルールが黙って入れ替わる
+    # （既定の quicksort は不安定ソート）。Meta.ordering の priority,id 順を保つこと
+    df = pd.DataFrame(rows).fillna('').sort_values('priority', kind='stable').reset_index(drop=True)
     # classify_name が参照するコンパイル済み正規表現。load_rules と同じ形にする
     # （壊れたパターンを1つ入れても全体が落ちないよう、個別に握り潰して無効化する）
     compiled = []
