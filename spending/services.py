@@ -128,6 +128,30 @@ def rules_dataframe():
     return df
 
 
+def _trim_to_enavi_period(led, enavi):
+    """台帳を「Zaimとe-naviの両方が揃った期間」に絞る（ユーザー方針）
+
+    なぜ絞るか: e-navi は過去16か月しか取得できないため、それ以前は Zaim 単独に
+    なり「カード明細の答え合わせができない期間」が混ざる。直近1年の見直しが目的
+    なので、揃っている期間だけを台帳に載せて精度を揃える。
+
+    ⚠️ 絞るのは**開始側だけ**。終端は切らない。e-navi は当月分の反映が数日遅れる
+    ので、終端を切ると「Zaimにはあるが e-navi にまだ無い直近の支出」が消えてしまう。
+
+    開始月は e-navi の最初の月。ただしその月が途中から始まる場合（例: 4/29 開始）は
+    月次グラフで不自然に小さい月になるため、翌月から採用する。
+    """
+    import pandas as pd
+    if enavi is None or not len(enavi) or 'date' not in enavi.columns:
+        return led, None
+    first = pd.to_datetime(enavi['date']).min()
+    if pd.isna(first):
+        return led, None
+    start = first if first.day == 1 else (first + pd.offsets.MonthBegin(1))
+    start_ym = start.strftime('%Y-%m')
+    return led[led['ym'] >= start_ym].copy(), start_ym
+
+
 # --- 取り込み本体 -----------------------------------------------------------
 
 # card_insight の列名 → モデルのフィールド名（同名はそのまま）
@@ -159,6 +183,9 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
         zaim = load_zaim(zaim_path)
         enavi = load_enavi(enavi_pattern) if enavi_pattern else pd.DataFrame()
         led = build_ledger(zaim, enavi, rules_dataframe())['ledger']
+        before = len(led)
+        led, start_ym = _trim_to_enavi_period(led, enavi)
+        trimmed = before - len(led)
     except Exception as e:  # noqa: BLE001  取り込み失敗は画面に出して原因を追えるようにする
         return ImportLog.objects.create(
             ok=False, zaim_file=Path(zaim_path).name,
@@ -204,7 +231,12 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
         zaim_file=Path(zaim_path).name,
         enavi_files=len(list(ENAVI_DIR.glob('*.csv'))),
         rows_total=len(led), rows_added=len(to_create), rows_removed=len(removed),
-        message=f'{len(led):,}行を取り込みました（新規{len(to_create):,} / 更新{len(to_update):,} / 削除{len(removed):,}）',
+        message=(
+            f'{len(led):,}行を取り込みました'
+            f'（新規{len(to_create):,} / 更新{len(to_update):,} / 削除{len(removed):,}）'
+            + (f' ／ {start_ym} 以降に限定（e-navi の無い古い{trimmed:,}行は対象外）'
+               if start_ym else '')
+        ),
     )
 
 
