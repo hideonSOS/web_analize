@@ -37,3 +37,16 @@
   .sc-actions{ flex-direction:column; gap:12px; }
   .sc-form input[type=text]{ width:110px; }
 }
+
+/* パスキー */
+.sc-pk{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:14px; }
+.sc-pk input{
+  background:#0f172a; border:1px solid #334155; border-radius:8px;
+  color:#e5e7eb; padding:9px 11px; font-size:14px; width:200px;
+}
+.sc-pk-msg{ font-size:12px; margin:0; flex-basis:100%; }
+.sc-pk-err{ color:#f87171; }
+.sc-del{
+  background:none; border:1px solid #7c2d2d; border-radius:6px;
+  color:#f87171; font-size:11px; padding:3px 10px; cursor:pointer;
+}

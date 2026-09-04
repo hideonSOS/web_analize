@@ -21,3 +21,16 @@
 .lg-form button:hover:not(:disabled){ background:rgba(59,130,246,.4); }
 .lg-form button:disabled, .lg-form input:disabled{ opacity:.5; cursor:not-allowed; }
 .lg-error{ color:#fca5a5; font-size:13px; margin:4px 0 0; }
+
+/* パスキーでのログイン（HTTPS環境でのみJSが表示する） */
+.lg-passkey{ margin-top: 18px; }
+.lg-or{ text-align:center; font-size:11px; color:#6b7280; margin-bottom:12px;
+  display:flex; align-items:center; gap:10px; }
+.lg-or::before, .lg-or::after{ content:''; flex:1; height:1px; background:#1e3a5f; }
+.lg-pk-btn{
+  width:100%; padding:12px; font-size:14px; cursor:pointer;
+  background:transparent; color:#87cefa;
+  border:1px solid #1e90ff; border-radius:8px;
+}
+.lg-pk-btn:hover:not(:disabled){ background:#12233d; }
+.lg-pk-btn:disabled{ opacity:.5; cursor:default; }

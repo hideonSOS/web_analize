@@ -49,7 +49,11 @@ class SitePasswordMiddleware:
         # ここを保護対象にすると「パスワードは通ったがまだ未ログイン」の状態で
         # ログイン画面へ戻され、コードを入力できず永久に入れなくなる（実際に踏んだ）。
         # この画面自体はセッションの PENDING_USER_KEY が無いと何も表示しない。
-        if path in (reverse('website:login'), reverse('website:login_verify'), '/admin/login/'):
+        # パスキーでのログインAPIも除外（未ログイン状態で叩くものなので当然）
+        if path in (reverse('website:login'), reverse('website:login_verify'),
+                    reverse('website:passkey_auth_options'),
+                    reverse('website:passkey_auth_verify'),
+                    '/admin/login/'):
             return False
         return True
 

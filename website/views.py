@@ -6,8 +6,12 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_POST
+
+from . import passkeys
 from .middleware import client_ip
-from .models import LoginAttempt, TotpDevice
+from .models import LoginAttempt, Passkey, TotpDevice
 
 # 2段階認証の途中経過を持つセッションキー（パスワードは通ったがコード未入力の状態）
 PENDING_USER_KEY = 'totp_pending_user_id'
@@ -137,6 +141,75 @@ def login_verify(request):
                   {'error': error, 'recovery_left': len(device.recovery_codes or [])})
 
 
+# ── パスキー（WebAuthn）のAPI ──────────────────────────
+# ⚠️ すべて HTTPS でのみ動く。http（localhost以外）ではブラウザが機能を無効化する。
+
+@require_POST
+def passkey_register_options(request):
+    """パスキー登録の開始。ログイン済みユーザーのみ"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'ログインしてください'}, status=403)
+    return HttpResponse(passkeys.registration_options(request, request.user),
+                        content_type='application/json')
+
+
+@require_POST
+def passkey_register_verify(request):
+    """ブラウザが作った鍵を保存する"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'ログインしてください'}, status=403)
+    try:
+        pk = passkeys.verify_registration(
+            request, request.user, request.body.decode('utf-8'),
+            name=request.GET.get('name', ''))
+    except Exception as e:  # noqa: BLE001  画面にそのまま出して原因を追えるようにする
+        return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse({'ok': True, 'name': pk.name})
+
+
+@require_POST
+def passkey_auth_options(request):
+    """パスキーでのログイン開始。**ユーザー名は不要**（端末が鍵を選ぶ）"""
+    ip = client_ip(request)
+    if LoginAttempt.recent_failures(ip, WINDOW_MINUTES) >= MAX_ATTEMPTS:
+        return JsonResponse({'error': '試行回数が多すぎます。しばらく待ってください。'}, status=429)
+    return HttpResponse(passkeys.authentication_options(request),
+                        content_type='application/json')
+
+
+@require_POST
+def passkey_auth_verify(request):
+    """パスキーの署名を検証してログインさせる"""
+    ip = client_ip(request)
+    if LoginAttempt.recent_failures(ip, WINDOW_MINUTES) >= MAX_ATTEMPTS:
+        return JsonResponse({'error': '試行回数が多すぎます。'}, status=429)
+    try:
+        passkey = passkeys.verify_authentication(request, request.body.decode('utf-8'))
+    except Exception as e:  # noqa: BLE001
+        LoginAttempt.objects.create(
+            ip=ip, username='(passkey)', success=False,
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:200])
+        return JsonResponse({'error': str(e)}, status=400)
+
+    user = passkey.user
+    LoginAttempt.objects.create(
+        ip=ip, username=user.get_username()[:254], success=True,
+        user_agent=request.META.get('HTTP_USER_AGENT', '')[:200])
+    # パスキーは所持（端末）と生体の2要素を1回で満たすので、TOTPは要求しない
+    auth_login(request, user)
+    nxt = request.GET.get('next', '')
+    return JsonResponse({'ok': True,
+                         'redirect': nxt if nxt.startswith('/') and not nxt.startswith('//') else '/'})
+
+
+@require_POST
+def passkey_delete(request, pk):
+    if not request.user.is_authenticated:
+        return redirect('website:login')
+    Passkey.objects.filter(pk=pk, user=request.user).delete()
+    return redirect('website:security')
+
+
 def security(request):
     """2段階認証の設定画面（有効化 / 解除 / リカバリコードの再発行）"""
     import pyotp
@@ -196,6 +269,8 @@ def security(request):
         'new_codes': new_codes,
         'message': message,
         'error': error,
+        'passkeys': Passkey.objects.filter(user=request.user),
+        'is_secure': request.is_secure(),
         'recent_logins': LoginAttempt.objects.filter(
             username=request.user.get_username())[:10],
     })

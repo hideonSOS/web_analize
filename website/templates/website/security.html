@@ -6,6 +6,30 @@
 <link rel="stylesheet" href="{% static 'website/css/security.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
+{% block extra_js %}
+<script src="{% static 'website/js/passkey.js' %}?v={% now 'U' %}"></script>
+<script>
+  (function () {
+    var area = document.getElementById('pk-reg-area');
+    var unsup = document.getElementById('pk-unsupported');
+    if (!window.PasskeySupported || !PasskeySupported()) { unsup.hidden = false; return; }
+    area.hidden = false;
+    var btn = document.getElementById('pk-add');
+    var msg = document.getElementById('pk-msg');
+    btn.addEventListener('click', function () {
+      msg.hidden = true;
+      btn.disabled = true; btn.textContent = '登録中...';
+      passkeyRegister(document.getElementById('pk-name').value,
+        function () { location.reload(); },
+        function (m) {
+          msg.textContent = m; msg.hidden = false; msg.className = 'sc-pk-msg sc-pk-err';
+          btn.disabled = false; btn.textContent = 'この端末にパスキーを登録';
+        });
+    });
+  })();
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="pf-wrap">
   <h1 class="pf-title">セキュリティ設定</h1>
@@ -27,6 +51,57 @@
     <div class="pf-note">各コードは1回だけ使えます。使い切ったら再発行してください。</div>
   </div>
   {% endif %}
+
+  {% comment %} パスキーを最上位に置く（ユーザーが選んだ主たるログイン手段） {% endcomment %}
+  <div class="pf-card">
+    <h2>パスキー
+      <span class="pf-hint">顔・指紋・QRでログイン（パスワード不要）</span></h2>
+
+    {% if not is_secure %}
+      <div class="pf-warn">
+        ⚠️ パスキーは <b>HTTPS でのみ動作</b>します。
+        <code>https://160.251.215.92/</code> で開き直してください
+        （いまは暗号化されていない接続です）。
+      </div>
+    {% endif %}
+
+    {% if passkeys %}
+    <div class="pf-scroll">
+      <table class="pf-table">
+        <tr><th>端末</th><th>登録日</th><th>最終利用</th><th></th></tr>
+        {% for p in passkeys %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td>{{ p.created_at|date:"Y/n/j" }}</td>
+          <td>{% if p.last_used_at %}{{ p.last_used_at|date:"n/j H:i" }}{% else %}—{% endif %}</td>
+          <td>
+            <form method="post" action="{% url 'website:passkey_delete' p.pk %}"
+                  onsubmit="return confirm('{{ p.name }} のパスキーを削除しますか？');">
+              {% csrf_token %}
+              <button type="submit" class="sc-del">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% else %}
+    <div class="pf-note" style="margin-top:0">
+      まだ登録されていません。登録すると、次回から<b>パスワードを入力せず</b>
+      顔認証や指紋でログインできます。<br>
+      PCの場合は画面にQRが出るので、スマホで読み取って顔認証すればPCがログインします。
+    </div>
+    {% endif %}
+
+    <div id="pk-reg-area" class="sc-pk" hidden>
+      <input type="text" id="pk-name" maxlength="60" placeholder="端末名（例: iPhone）">
+      <button type="button" id="pk-add" class="pf-btn">この端末にパスキーを登録</button>
+      <p id="pk-msg" class="sc-pk-msg" hidden></p>
+    </div>
+    <div id="pk-unsupported" class="pf-note" hidden>
+      このブラウザはパスキーに対応していません。
+    </div>
+  </div>
 
   <div class="pf-card">
     <h2>2段階認証

@@ -53,6 +53,45 @@ def _new_recovery_codes(n=8):
     return [f'{secrets.token_hex(2)}-{secrets.token_hex(2)}' for _ in range(n)]
 
 
+class Passkey(models.Model):
+    """パスキー（WebAuthn）。指紋・顔認証でログインする鍵
+
+    ユーザー要望「QRを読んでタップするだけでログインしたい」への回答。
+    TOTP（6桁を毎回手入力）は手間として不採用になった経緯がある。
+
+    仕組み: 秘密鍵はスマホ/PCの安全な領域から出ず、サーバーは**公開鍵だけ**を持つ。
+    そのため DB が漏れてもログインされない（TOTP の secret とはここが決定的に違う）。
+    フィッシングにも強い（ブラウザがドメインを検証するため、偽サイトでは動かない）。
+
+    ⚠️ HTTPS 必須。localhost 以外の http では**ブラウザが機能自体を無効にする**。
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='passkeys')
+    name = models.CharField(max_length=60, default='パスキー',
+                            help_text='どの端末か分かる名前（iPhone / 会社PC など）')
+    credential_id = models.CharField(max_length=400, unique=True, db_index=True,
+                                     help_text='base64url。ブラウザが返す鍵のID')
+    public_key = models.TextField(help_text='base64url。検証にはこれだけを使う')
+    # 署名回数。クローンされた鍵の検出に使う（増えていなければ異常）
+    sign_count = models.BigIntegerField(default=0)
+    transports = models.CharField(max_length=100, blank=True,
+                                  help_text='internal / hybrid など。QRログインの可否判定用')
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-last_used_at', '-created_at']
+
+    def __str__(self):
+        return f'{self.name}（{self.user}）'
+
+    def touch(self, sign_count=None):
+        if sign_count is not None:
+            self.sign_count = sign_count
+        self.last_used_at = timezone.now()
+        self.save(update_fields=['sign_count', 'last_used_at'])
+
+
 class TotpDevice(models.Model):
     """認証アプリ（Google Authenticator 等）による2段階認証
 

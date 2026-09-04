@@ -28,6 +28,38 @@
         <button type="submit" {% if locked_for %}disabled{% endif %}>ログイン</button>
         {% if error %}<p class="lg-error">{{ error }}</p>{% endif %}
       </form>
+
+      {% comment %}
+        パスキーでのログイン。HTTPSでないとブラウザが機能を無効にするため、
+        対応環境でだけJSがボタンを表示する（未対応なら何も出ない）
+      {% endcomment %}
+      <div id="pk-area" class="lg-passkey" data-next="{{ next }}" hidden>
+        <div class="lg-or">または</div>
+        <button type="button" id="pk-login" class="lg-pk-btn">
+          パスキーでログイン（顔・指紋・QR）
+        </button>
+        <p id="pk-error" class="lg-error" hidden></p>
+      </div>
     </main>
+    <script src="{% static 'website/js/passkey.js' %}?v={% now 'U' %}"></script>
+    <script>
+      (function () {
+        if (!window.PasskeySupported || !PasskeySupported()) return;
+        var area = document.getElementById('pk-area');
+        var btn = document.getElementById('pk-login');
+        var err = document.getElementById('pk-error');
+        area.hidden = false;
+        btn.addEventListener('click', function () {
+          err.hidden = true;
+          btn.disabled = true;
+          btn.textContent = '認証中...';
+          passkeyLogin(area.dataset.next || '', function (m) {
+            err.textContent = m; err.hidden = false;
+            btn.disabled = false;
+            btn.textContent = 'パスキーでログイン（顔・指紋・QR）';
+          });
+        });
+      })();
+    </script>
   </body>
 </html>

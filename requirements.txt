@@ -35,3 +35,4 @@ PyOTP==2.10.0
 segno==1.6.6
 openpyxl==3.1.5
 pandas==2.3.3
+webauthn==3.0.0
