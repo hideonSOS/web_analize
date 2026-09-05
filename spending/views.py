@@ -14,7 +14,9 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from . import monthly, services, summary
-from .models import Budget, FixedCostEntry, ImportLog, MonthlyIncome, SavingsPlan, Transaction
+from .models import (
+    Budget, FixedCostEntry, ImportLog, MonthlyIncome, SavingsPlan, TemplateItem, Transaction,
+)
 
 
 def index(request):
@@ -143,6 +145,26 @@ def month(request):
                 category=category,
                 defaults={'monthly_limit': limit, 'note': request.POST.get('note', '').strip()})
             messages.success(request, f'{category} の予算を月 ¥{limit:,} に設定しました。')
+            return redirect(back)
+
+        if form_id == 'template_item':
+            # 理想の支出テンプレートの項目（名前＋理想の月額）。すべて手入力・台帳とは無関係
+            name = request.POST.get('name', '').strip()
+            raw = request.POST.get('ideal', '').strip().replace(',', '')
+            if not name:
+                messages.error(request, '項目名を入力してください。')
+                return redirect(back)
+            if raw == '':
+                TemplateItem.objects.filter(name=name).delete()
+                messages.success(request, f'テンプレートから {name} を削除しました。')
+                return redirect(back)
+            try:
+                ideal = max(0, int(float(raw)))
+            except ValueError:
+                messages.error(request, '理想の額は数字で入力してください。')
+                return redirect(back)
+            TemplateItem.objects.update_or_create(name=name, defaults={'ideal': ideal})
+            messages.success(request, f'{name} の理想を月 ¥{ideal:,} にしました。')
             return redirect(back)
 
         if form_id == 'fixed_cost':

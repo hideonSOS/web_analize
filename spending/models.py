@@ -329,3 +329,24 @@ class FixedCostEntry(models.Model):
 
     def __str__(self):
         return f'{self.ym} {self.item} {self.amount:,}円'
+
+
+class TemplateItem(models.Model):
+    """理想の支出テンプレートの1項目（家賃・電気・ガス・水道 … と、その理想の月額）。
+
+    ⚠️ 台帳（Transaction）とも予算（Budget）とも**つながない**。ユーザー方針
+    （2026-09-06）: 理想も実際もすべて手入力で、月次ページの先頭に積み上げ横棒で
+    「理想」と「実際」を並べて比べる。実際の月ごとの額は FixedCostEntry（ym, item）。
+    台帳の自動集計を混ぜると「口座振替で CSV に無い項目」と「レシートで拾える項目」で
+    精度が揃わず、比較の意味が壊れるため、この機能は台帳から独立させてある。
+    """
+    name = models.CharField(max_length=50, unique=True)
+    ideal = models.IntegerField(help_text='理想の月額（円）')
+    order = models.IntegerField(default=100, help_text='並び順（小さいほど先）')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', '-ideal', 'name']
+
+    def __str__(self):
+        return f'{self.name} 理想 {self.ideal:,}円/月'

@@ -176,6 +176,21 @@
 .sp-fix{ color:#a3e635; font-size:10px; border:1px solid #3f6212; border-radius:4px;
   padding:0 3px; white-space:nowrap; }
 
-/* 理想テンプレートと実際の円グラフ2つ。スマホでは上下に並ぶので高さを取る */
-.sp-pie{ height:300px; }
-@media (max-width:560px){ .sp-pie{ height:520px; } }
+/* 理想の支出テンプレートと実際: 積み上げ横棒2本（上=理想・下=実際）。
+   2本とも「大きい方の合計」を100%にして描くので、長さで比べられる。すべて手入力 */
+.sp-tpl{ display:flex; flex-direction:column; gap:10px; margin:6px 0 10px; }
+.sp-tpl-row{ display:grid; grid-template-columns:96px 1fr 92px; align-items:center; gap:8px; }
+.sp-tpl-label{ font-size:12px; color:#cbd5e1; }
+.sp-tpl-track{ background:#0f172a; border:1px solid #1f2937; border-radius:6px; height:26px; overflow:hidden; }
+.sp-tpl-bar{ display:flex; height:100%; }
+.sp-tpl-seg{ height:100%; border-right:1px solid #0b1220; min-width:1px; }
+.sp-tpl-total{ font-size:13px; font-weight:700; color:#e5e7eb; text-align:right; }
+.sp-tpl-legend{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:4px 14px; margin-bottom:6px; }
+.sp-tpl-item{ display:flex; align-items:baseline; gap:6px; font-size:11px; color:#9ca3af; }
+.sp-tpl-swatch{ width:9px; height:9px; border-radius:2px; flex:none; position:relative; top:0; }
+.sp-tpl-name{ color:#e5e7eb; }
+.sp-tpl-nums b{ font-weight:600; }
+@media (max-width:560px){
+  .sp-tpl-row{ grid-template-columns:64px 1fr 76px; }
+  .sp-tpl-label{ font-size:11px; }
+}
