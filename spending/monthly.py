@@ -18,6 +18,7 @@ from datetime import date
 from django.db.models import Count, Sum
 
 from .models import FixedCostEntry, SpendingSetting, TemplateItem, Transaction
+from . import freshness
 
 # 理想テンプレートの積み上げ横棒の色。テンプレートの並び順に割り当て、
 # 「理想」「実際」の2本で同じ項目は同じ色
@@ -177,7 +178,12 @@ def build(ym: str | None = None) -> dict:
     # --- 平常月（直近12か月の中央値）との比較 ------------------------------
     # ⚠️ 平均ではなく中央値。年払いや大型出費のある月に引っ張られないため
     idx = months.index(ym)
-    baseline_months = months[idx + 1: idx + 1 + BASELINE_MONTHS]
+    # ⚠️ 平常月の根拠は「全ソースが揃っている月」だけ。Zaim だけ毎晩更新される運用では、
+    # カードや家賃の無い月が混ざると中央値・日別累計の平均が偽って下がる
+    fresh = freshness.source_freshness()
+    full_ym = fresh['full_through_ym']
+    baseline_months = [m for m in months[idx + 1:] if full_ym is None or m <= full_ym][:BASELINE_MONTHS]
+    coverage = freshness.month_coverage(ym, fresh)
     hist = (Transaction.objects.filter(in_total=True, ym__in=baseline_months)
             .values('ym').annotate(t=Sum('amount')))
     hist_vals = [int(r['t'] or 0) for r in hist]
@@ -410,4 +416,6 @@ def build(ym: str | None = None) -> dict:
         'template_summary': template_summary,
         'schedule': schedule,
         'spending_setting': setting,
+        'coverage': coverage,
+        'freshness': fresh,
     }

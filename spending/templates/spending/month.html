@@ -64,9 +64,31 @@
           <div class="v num">¥{{ fixed|intcomma }}<span class="sp-unit">{{ fixed_pct }}%</span></div></div>
       </div>
     </div>
+    {% comment %}
+      データの揃い具合（2026-09-06）。Zaim は毎晩自動、カード・銀行は手動なので
+      この月にどこまで入っているかを明示する。揃っていなければ支出が少なく見えるだけで
+      減ったわけではない、と読めるようにする。全部揃えば自動で消える
+    {% endcomment %}
+    {% if not coverage.complete %}
+    <div class="sp-cover num">
+      <span class="k">この月のデータ:</span>
+      {% for r in coverage.rows %}
+        <span class="sp-cover-item {% if r.state == 'full' %}ok{% elif r.stale %}bad{% else %}part{% endif %}">
+          {{ r.label }}
+          {% if r.state == 'full' %}月末まで{% elif r.state == 'partial' %}{{ r.through_day }}日まで{% else %}未反映{% if r.last_date %}（最終 {{ r.last_date|date:"n/j" }}）{% endif %}{% endif %}
+        </span>
+      {% endfor %}
+      <span class="sp-cover-note">
+        {% if coverage.is_current %}当月は締まっていません。{% endif %}
+        揃っていないソースの分だけ支出が小さく見えます（減ったわけではありません）。
+        {% for r in coverage.incomplete %}{% if r.stale %}<b>{{ r.label }}が古い</b>: {{ r.todo }}。{% endif %}{% endfor %}
+      </span>
+    </div>
+    {% endif %}
     <div class="pf-note">
       「平常月」は直近12か月の<b>中央値</b>です。平均だと年払いや大型出費のある月に引っ張られて
       「いつも」を表さないため、中央値を基準にしています。
+      {% if freshness.full_through_ym %}根拠は全ソースが揃っている {{ freshness.full_through_ym }} までの月です。{% endif %}
     </div>
   </div>
 

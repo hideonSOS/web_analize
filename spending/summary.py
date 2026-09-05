@@ -12,6 +12,7 @@ import pandas as pd
 from card_insight import analyze
 
 from .models import MonthlyIncome, SavingsPlan, Transaction
+from . import freshness
 
 RECENT_MONTHS = 12
 
@@ -66,15 +67,19 @@ def _frame() -> pd.DataFrame:
     return df
 
 
-def _monthly_profile(recent: pd.DataFrame) -> dict:
+def _monthly_profile(recent: pd.DataFrame, cutoff_ym: str | None = None) -> dict:
     """加盟店ごとに「直近から何か月連続で出ているか」と「平常月の金額」を出す。
+
+    cutoff_ym: カード明細がある最後の月。それより後の月は「請求が無い」のではなく
+    「まだ明細が来ていない」ので、連続の判定から外す（Zaim だけ毎晩更新される運用で、
+    カード CSV が2か月古いだけで全サブスクが「止まっている」に落ちるのを防ぐ）
 
     平常月の金額に**平均ではなく中央値**を使うのは、年額プランへの切替や初月の
     入会金が1回混ざるだけで平均が跳ねるため（実測: Claude 8月 17,580円、
     chocoZAP 初月 9,008円。平均だと毎月の固定費が実態の2倍近くになる）。
     """
     piv = recent.pivot_table(index='merchant', columns='ym', values='amount', aggfunc='sum')
-    yms = sorted(piv.columns)
+    yms = sorted(y for y in piv.columns if cutoff_ym is None or y <= cutoff_ym)
     out = {}
     for merchant, row in piv.iterrows():
         i = len(yms) - 1
@@ -98,7 +103,7 @@ def _monthly_profile(recent: pd.DataFrame) -> dict:
     return out
 
 
-def _record_quality(total: pd.DataFrame, months: int) -> tuple[list, dict]:
+def _record_quality(total: pd.DataFrame, months: int, full_ym: str | None = None) -> tuple[list, dict]:
     """記録の質（支払元がどれだけ埋まっているか）を月ごとに出す。
 
     なぜ見るか: Zaim のレシート撮影で取り込んだ行には**支払元も店名も付かない**。
@@ -123,6 +128,8 @@ def _record_quality(total: pd.DataFrame, months: int) -> tuple[list, dict]:
     # ⚠️ 当月は締まっていない。5日時点の数字をそのまま並べると「0%に改善した」と
     # 読めてしまう（実際そう出た）。行としては出すが、判定からは必ず外す
     this_month = pd.Timestamp.today().strftime('%Y-%m')
+    # ⚠️ カード・銀行が揃っていない月も判定から外す。レシート（Zaim）だけ毎晩更新される
+    # 運用では、カード分の無い月は分母が小さく「未設定率」が偽って跳ね上がる
     rows = []
     for ym, r in g.iterrows():
         tot = int(r['total']) or 1
@@ -131,7 +138,7 @@ def _record_quality(total: pd.DataFrame, months: int) -> tuple[list, dict]:
             'noshop': int(r['noshop']),
             'pct': round(int(r['unset']) / tot * 100, 1),
             'noshop_pct': round(int(r['noshop']) / tot * 100, 1),
-            'partial': ym >= this_month,
+            'partial': ym >= this_month or (full_ym is not None and ym > full_ym),
         })
 
     closed = [r for r in rows if not r['partial']]
@@ -299,6 +306,11 @@ def build(months: int = RECENT_MONTHS) -> dict:
 
     total = df[df['in_total']].copy()
     recent = analyze._recent(total, months)
+    # ソースの鮮度。Zaim（レシート）は毎晩自動、カード・銀行・Amazon は手動なので
+    # ズレる。揃っている月（full_through_ym）までを判定の根拠にする
+    fresh = freshness.source_freshness()
+    full_ym = fresh['full_through_ym']
+    card_last_ym = fresh['by_key']['card']['last_ym']
 
     # --- KPI --------------------------------------------------------------
     monthly_sum = total.groupby('ym')['amount'].sum().sort_index()
@@ -384,13 +396,17 @@ def build(months: int = RECENT_MONTHS) -> dict:
     #   yearly   出現は少ないが kind=年会費、または年1〜2回の課金
     #   check    数か月だけ出て止まっている → 解約済み？ 使っていない？ の確認対象
     sub_rows, sub_monthly, sub_yearly, sub_check = [], [], [], []
-    profile = _monthly_profile(recent)
+    profile = _monthly_profile(recent, cutoff_ym=card_last_ym)
     if len(subs):
         for r in subs.sort_values('年額換算', ascending=False).to_dict('records'):
             name = r.get('merchant', '')
             prof = profile.get(name, {'streak': 0, 'typical': 0})
             kind = r.get('kind', '')
-            active = bool(r.get('直近月に発生'))
+            # 「直近月に発生」はデータの最終月基準。カード明細が古いときは、その最終月か
+            # 直前の月に出ていれば「今も課金中」とみなす（明細が来ていないだけ）
+            last_ym = str(pd.Timestamp(r['last']).to_period('M'))
+            active = bool(r.get('直近月に発生')) or (
+                card_last_ym is not None and last_ym >= str((pd.Period(card_last_ym, 'M') - 1)))
             streak = prof['streak']
             row = {
                 'merchant': name,
@@ -479,7 +495,7 @@ def build(months: int = RECENT_MONTHS) -> dict:
         for k, g in ex.groupby('exclude_reason') if k
     ]
 
-    quality_rows, quality = _record_quality(total, months)
+    quality_rows, quality = _record_quality(total, months, full_ym=full_ym)
     suspect_rows = _zaim_mislearn(total)
     receipt_rows = _receipt_suspects(total)
     income_rows, income = _income_rows(total, months)
@@ -504,6 +520,7 @@ def build(months: int = RECENT_MONTHS) -> dict:
         # 「毎月確実に出ていく固定費」の実額。ここが節約判断の起点になる
         'sub_monthly_total': sum(r['monthly'] for r in sub_monthly),
         'sub_monthly_annual': sum(r['annual_at_current'] for r in sub_monthly),
+        'freshness': fresh,
         'cand_rows': cand_rows,
         'distortion_rows': distortion_rows,
         'reconcile_rows': reconcile_rows,

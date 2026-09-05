@@ -205,3 +205,17 @@
 .sp-edit[open] > summary::before{ content:'▾ '; }
 .sp-edit > summary .pf-hint{ margin-left:6px; }
 .sp-edit .sp-budget-form:first-child, .sp-edit .pf-grid2 .sp-budget-form{ border-top:none; margin-top:4px; padding-top:0; }
+
+/* データの揃い具合（月次）・ソースの鮮度（トップ） */
+.sp-cover{ display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; font-size:12px; margin:8px 0 4px; }
+.sp-cover .k{ color:#9ca3af; }
+.sp-cover-item{ border:1px solid #334155; border-radius:6px; padding:2px 8px; color:#cbd5e1; }
+.sp-cover-item.ok{ border-color:#1e5c2f; color:#86efac; }
+.sp-cover-item.part{ border-color:#7c5a1e; color:#fcd34d; }
+.sp-cover-item.bad{ border-color:#7c2d2d; color:#fca5a5; }
+.sp-cover-note{ flex-basis:100%; color:#9ca3af; font-size:11px; line-height:1.6; }
+.sp-cover-note b{ color:#fca5a5; }
+.sp-fresh{ margin-top:10px; font-size:12px; }
+.sp-fresh td, .sp-fresh th{ padding:5px 8px; }
+.sp-fresh-bad td{ color:#fca5a5; }
+.sp-fresh-bad td b{ color:#f87171; }

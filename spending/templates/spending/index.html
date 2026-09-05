@@ -486,10 +486,34 @@
     </div>
     {% if zaim_file or enavi_count %}
     <div class="sp-files">
-      取り込み済み: {% if zaim_file %}Zaim <b>{{ zaim_file }}</b>{% endif %}
+      取り込み済み: {% if zaim_file %}Zaim <b>{{ zaim_file }}</b>{% if freshness.zaim_mode == 'api' %} <span class="sp-fix">API 自動</span>{% endif %}{% endif %}
       {% if enavi_count %}／ e-navi <b>{{ enavi_count }}</b>ファイル{% endif %}
       {% if last_import %}<span class="pf-muted">（最終取り込み {{ last_import.created_at|date:"n/j H:i" }}・{{ last_import.rows_total|intcomma }}行）</span>{% endif %}
     </div>
+    {% comment %}
+      ソースごとの鮮度（2026-09-06）。Zaim だけ毎晩自動なので、手動のカード・銀行・Amazon が
+      どこまで入っているかを常に見せる。古いものは赤で「何をアップするか」を添える
+    {% endcomment %}
+    {% if freshness %}
+    <div class="pf-scroll">
+      <table class="pf-table num sp-fresh">
+        <tr><th style="text-align:left">ソース</th><th>最終日</th><th>遅れ</th><th style="text-align:left">状態</th></tr>
+        {% for r in freshness.rows %}
+        <tr class="{% if r.stale %}sp-fresh-bad{% endif %}">
+          <td style="text-align:left">{{ r.label }}<span class="sp-sub">{{ r.origin }}</span></td>
+          <td>{% if r.last_date %}{{ r.last_date|date:"Y/n/j" }}{% else %}—{% endif %}</td>
+          <td>{% if r.days_behind is not None %}{{ r.days_behind }}日{% else %}—{% endif %}</td>
+          <td style="text-align:left">{% if r.stale %}<b>古い</b> → {{ r.todo }}{% else %}OK{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="sp-sub" style="margin-top:4px">
+      全ソースが揃っているのは {% if freshness.full_through_ym %}<b>{{ freshness.full_through_ym }}</b> まで{% else %}—{% endif %}。
+      平常月・記録の質・サブスクの判定はそこまでを根拠にし、それより後の月は表示だけします。
+      ファイルをアップロードすれば自動で進みます。
+    </div>
+    {% endif %}
     <div class="sp-actions">
       <form method="post" style="display:inline">
         {% csrf_token %}<input type="hidden" name="form_id" value="reimport">
