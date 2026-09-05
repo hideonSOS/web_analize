@@ -1,11 +1,11 @@
-/* 月内の使い方（日別の棒＋目安線）
+/* 月内の使い方（日別の棒＋平均支出額の横線）
  *
- * 縦軸は金額、横軸は日。棒＝今月その日に使った額、点線＝平常月のその日の平均
- * （直近12か月・3日移動平均。サーバー側で算出し月末まで予め引く）。
- * 棒が点線を越えた日は赤。**スケールは1つだけ**。
- * ⚠️ 累計線や右軸を足さないこと。日別と累計はスケールが2桁違い、同じグラフに
- * 混ぜると読めない（実際に指摘された）。直線の目安（月合計÷日数）にもしないこと
- * （家賃・カード引き落としの日が必ず越えて指標にならない）。
+ * 縦軸は金額、横軸は日。棒＝今月その日に使った額、横線＝平常月の1日あたり平均支出額
+ * （サーバー側で算出。目標額があれば 目標額÷日数）。線を越えた日の棒は赤。
+ * **スケールは1つ、目安線は水平線1本だけ**。
+ * ⚠️ 累計線や右軸を足さないこと（スケールが2桁違って読めない、と指摘された）。
+ * ⚠️ 日ごとに違う目安（日別平均の曲線）にしないこと（「意味が分からない、平均支出額で
+ *    いい」と指摘された）。
  */
 (function () {
   var el = document.getElementById('sp-daily');
@@ -16,12 +16,11 @@
   var chart = echarts.init(dom);
 
   function yen(v) { return '¥' + Math.round(v).toLocaleString('ja-JP'); }
-  var refName = (spec.target_source === 'manual' ? '目標の日別配分' : '平常月の日別平均');
+  var refName = (spec.target_source === 'manual' ? '目標（1日あたり）' : '平均支出額（1日あたり）');
 
-  var bars = spec.values.map(function (v, i) {
+  var bars = spec.values.map(function (v) {
     if (v === null || v === undefined) return null;         // 当月の未来日
-    var over = v > (spec.reference[i] || 0);
-    return { value: v, itemStyle: { color: over ? '#f87171' : '#1e90ff' } };
+    return { value: v, itemStyle: { color: v > spec.avg_daily ? '#f87171' : '#1e90ff' } };
   });
 
   chart.setOption({
@@ -38,8 +37,7 @@
         if (!ps.length) return '';
         var s = ps[0].axisValue + '日<br>';
         ps.forEach(function (p) {
-          if (p.value === null || p.value === undefined) return;
-          var v = (typeof p.value === 'object') ? p.value.value : p.value;
+          var v = (p.value !== null && typeof p.value === 'object') ? p.value.value : p.value;
           if (v === null || v === undefined) return;
           s += p.marker + p.seriesName + ' ' + yen(v) + '<br>';
         });
@@ -60,9 +58,9 @@
     series: [
       { name: '今月の日別', type: 'bar', data: bars },
       {
-        name: refName, type: 'line', symbol: 'none', smooth: true,
-        lineStyle: { color: '#a78bfa', width: 1.5, type: 'dashed' },
-        data: spec.reference,
+        name: refName, type: 'line', symbol: 'none',
+        lineStyle: { color: '#fbbf24', width: 1.5, type: 'dashed' },
+        data: spec.days.map(function () { return spec.avg_daily; }),
       },
     ],
   });

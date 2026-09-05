@@ -285,21 +285,22 @@
   <!-- 日別の推移 -->
   <div class="pf-card">
     <h2>月内の使い方
-      <span class="pf-hint">縦軸は金額・横軸は日。棒＝今月その日に使った額、点線＝
-        {% if daily_spec.target_source == 'manual' %}目標の日別配分（平常月の形で月合計 ¥{{ daily_spec.target|intcomma }}）{% else %}平常月の日別平均（直近{{ daily_spec.base_months }}か月・3日移動平均）{% endif %}。
-        棒が点線を越えた日は赤</span></h2>
+      <span class="pf-hint">縦軸は金額・横軸は日。棒＝今月その日に使った額、横線＝
+        {% if daily_spec.target_source == 'manual' %}目標の1日あたり額 ¥{{ daily_spec.avg_daily|intcomma }}（月の目標 ¥{{ daily_spec.target|intcomma }} ÷ 日数）{% else %}平常月の1日あたり平均支出額 ¥{{ daily_spec.avg_daily|intcomma }}（直近{{ daily_spec.base_months }}か月）{% endif %}。
+        線を越えた日は赤</span></h2>
     {% comment %}
       1つの金額スケールだけ。累計や右軸を足さないこと（スケールが2桁違って読めない、と
-      実際に指摘された）。点線は先月までの「その日に使う額」の平均を月末まで予め引いた目安
+      実際に指摘された）。目安は平均支出額の水平線1本（日ごとに違う目安線も「意味が
+      分からない」と指摘されたので戻さないこと）
     {% endcomment %}
     {% if pace_status %}
     <p class="sp-pace num {% if pace_status.over %}over{% endif %}">
       {{ pace_status.today }}日までの合計 <b>¥{{ pace_status.cum_today|intcomma }}</b>
-      ／ 点線の{{ pace_status.today }}日までの合計 <b>¥{{ pace_status.ref_today|intcomma }}</b>
+      ／ 平均なら <b>¥{{ pace_status.ref_today|intcomma }}</b>（¥{{ pace_status.avg_daily|intcomma }}×{{ pace_status.today }}日）
       ／ {% if pace_status.over %}超過 <b>¥{{ pace_status.margin|intcomma }}</b>{% else %}余裕 <b>¥{{ pace_status.margin|intcomma }}</b>{% endif %}
-      {% if pace_status.over_days %}／ 点線を越えた日: {{ pace_status.over_days|join:"日, " }}日{% endif %}
-      <span class="pf-hint">残りを点線どおりに使うと月合計 ¥{{ pace_status.projected|intcomma }}（点線の月合計 ¥{{ pace_status.target|intcomma }}）。
-        {% if pace_status.source == 'average' %}月の目標額を「基準日と目標」に入れると、点線を平常月の形のまま目標額に合わせます{% endif %}</span>
+      {% if pace_status.over_days %}／ 線を越えた日: {{ pace_status.over_days|join:"日, " }}日{% endif %}
+      <span class="pf-hint">残りを平均どおりに使うと月合計 ¥{{ pace_status.projected|intcomma }}（線の月合計 ¥{{ pace_status.target|intcomma }}）。
+        {% if pace_status.source == 'average' %}月の目標額を「基準日と目標」に入れると、線は 目標額÷日数 になります{% endif %}</span>
     </p>
     {% endif %}
     <div id="sp-daily-chart" class="sp-chart"></div>
