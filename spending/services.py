@@ -48,17 +48,27 @@ def detect_csv_kind(head: str) -> str:
     return ''
 
 
-def read_head(django_file, size=2048) -> str:
-    """文字コードを問わず先頭を文字列で読む（Shift-JIS / UTF-8 BOM の揺れに対応）"""
-    django_file.seek(0)
-    raw = django_file.read(size)
-    django_file.seek(0)
+def decode_head(raw: bytes) -> str:
+    """先頭バイト列を文字列にする（Shift-JIS / UTF-8 BOM の揺れに対応）
+
+    ⚠️ 固定長で切ったバイト列は日本語の途中で切れるので、どの文字コードでも
+    デコードに失敗しうる。最後は errors='ignore' で必ず文字列を返すこと。
+    ここで空文字を返すと形式判別が丸ごと不発になる（実際に踏んだ）。
+    """
     for enc in ('utf-8-sig', 'cp932', 'utf-8'):
         try:
             return raw.decode(enc)
         except UnicodeDecodeError:
             continue
     return raw.decode('utf-8', errors='ignore')
+
+
+def read_head(django_file, size=2048) -> str:
+    """アップロードされたファイルの先頭を文字列で読む"""
+    django_file.seek(0)
+    raw = django_file.read(size)
+    django_file.seek(0)
+    return decode_head(raw)
 
 
 def save_upload(django_file, kind: str) -> Path:
@@ -69,7 +79,7 @@ def save_upload(django_file, kind: str) -> Path:
     """
     _ensure_dirs()
     name = Path(django_file.name).name.replace('/', '_').replace('\\', '_')
-    dest = (ENAVI_DIR if kind == 'enavi' else DATA_DIR) / name
+    dest = {'enavi': ENAVI_DIR, 'amazon': AMAZON_DIR}.get(kind, DATA_DIR) / name
     with open(dest, 'wb') as f:
         for chunk in django_file.chunks():
             f.write(chunk)
@@ -86,7 +96,36 @@ def enavi_glob() -> str | None:
     return str(ENAVI_DIR / '*.csv') if any(ENAVI_DIR.glob('*.csv')) else None
 
 
+def adopt_stray_amazon_csvs() -> list[str]:
+    """DATA_DIR 直下に紛れた Amazon の CSV を amazon/ へ移す。
+
+    なぜ要るか: 保存先の振り分けに不具合があり、アップロードされた Amazon の CSV が
+    DATA_DIR 直下に落ちて**黙って無視されていた**（実際に本番で発生）。
+    振り分けは直したが、既に置かれてしまったファイルは拾えないままになる。
+    Zaim は `Zaim*.csv` で名前指定、e-navi は enavi/ にあるので、直下の CSV のうち
+    中身が Amazon のものだけを移せば取り違えない。
+    """
+    moved = []
+    for p in DATA_DIR.glob('*.csv'):
+        if p.name.startswith('Zaim'):
+            continue
+        try:
+            with open(p, 'rb') as f:
+                head = decode_head(f.read(2048))
+        except OSError:
+            continue
+        # ⚠️ looks_like_amazon を直接呼ばないこと。実ファイルの列名は "Product Name" と
+        # 引用符付きで、detect_csv_kind が引用符を外してから渡している。生のまま渡すと
+        # 常に False になる（実際にこれで救済が不発だった）
+        if detect_csv_kind(head) == 'amazon':
+            _ensure_dirs()
+            p.replace(AMAZON_DIR / p.name)
+            moved.append(p.name)
+    return moved
+
+
 def amazon_glob() -> str | None:
+    adopt_stray_amazon_csvs()
     return str(AMAZON_DIR / '*.csv') if any(AMAZON_DIR.glob('*.csv')) else None
 
 
