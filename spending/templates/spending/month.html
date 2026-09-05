@@ -229,8 +229,11 @@
           <input type="number" name="card_debit_day" min="1" max="31" value="{{ spending_setting.card_debit_day }}"></label>
         <label class="pf-fld">給与日（カレンダーの目印）
           <input type="number" name="salary_day" min="1" max="31" value="{{ spending_setting.salary_day }}"></label>
+        <label class="pf-fld">月の目標支出額（円・空なら平常月）
+          <input type="number" name="monthly_target" min="0" step="1000" placeholder="{{ median }}"
+                 value="{{ spending_setting.monthly_target|default_if_none:'' }}"></label>
       </div>
-      <button class="pf-btn sp-btn-sub" type="submit">基準日を保存</button>
+      <button class="pf-btn sp-btn-sub" type="submit">基準日と目標を保存</button>
     </form>
   </div>
 
@@ -281,7 +284,22 @@
 
   <!-- 日別の推移 -->
   <div class="pf-card">
-    <h2>月内の使い方 <span class="pf-hint">日別（棒）と累計（線）</span></h2>
+    <h2>月内の使い方
+      <span class="pf-hint">日別（棒）・累計（線）・目標ペース（点線＝
+        {% if daily_spec.target_source == 'manual' %}月の目標{% else %}平常月{% endif %} ¥{{ daily_spec.target|intcomma }} を日割り）</span></h2>
+    {% comment %}
+      点線は「予めこの線を越えない」ための上限。累計（緑）が点線の下にあれば余裕、
+      上に出たら使いすぎ。当月は今日までしか累計を描かない（先を描くと横一線になる）
+    {% endcomment %}
+    {% if pace_status %}
+    <p class="sp-pace num {% if pace_status.over %}over{% endif %}">
+      {{ pace_status.today }}日時点の目標 <b>¥{{ pace_status.pace_today|intcomma }}</b>
+      ／ 実績 <b>¥{{ pace_status.cum_today|intcomma }}</b>
+      ／ {% if pace_status.over %}超過 <b>¥{{ pace_status.margin|intcomma }}</b>{% else %}余裕 <b>¥{{ pace_status.margin|intcomma }}</b>{% endif %}
+      <span class="pf-hint">このペースなら月末 ¥{{ pace_status.projected|intcomma }}（目標 ¥{{ pace_status.target|intcomma }}・1日 ¥{{ pace_status.target_daily|intcomma }}）
+        {% if pace_status.source == 'median' %}／ 目標は上の「基準日と目標」で手入力できます{% endif %}</span>
+    </p>
+    {% endif %}
     <div id="sp-daily-chart" class="sp-chart"></div>
   </div>
 

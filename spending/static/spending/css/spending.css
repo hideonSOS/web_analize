@@ -188,3 +188,9 @@
 
 /* 引き落としカレンダー: 給与日より前の日は翌月扱い */
 .sp-sched-next{ font-size:9px; color:#9ca3af; border:1px solid #374151; border-radius:4px; padding:0 3px; margin-right:4px; }
+
+/* 月内の使い方: 今日時点の目標との差 */
+.sp-pace { margin: 2px 0 8px; font-size: 13px; color: #9ca3af; line-height: 1.7; }
+.sp-pace b { color: #34d399; }
+.sp-pace.over b { color: #f87171; }
+.sp-pace .pf-hint { display: block; }

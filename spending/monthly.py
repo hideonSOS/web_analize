@@ -247,16 +247,43 @@ def build(ym: str | None = None) -> dict:
         daily[r['date'].day] += int(r['t'] or 0)
     y, m = int(ym[:4]), int(ym[5:7])
     last_day = (date(y + (m == 12), (m % 12) + 1, 1) - date.resolution).day
+    setting = SpendingSetting.get()
+    today = date.today()
+    is_current = ym == today.strftime('%Y-%m')
+    # 目標ペース（点線）は「予めこの線を越えない」ための上限。手入力の月目標があれば
+    # それ、無ければ平常月（直近12か月の中央値）を代用する。日割りは 30 ではなく
+    # **その月の日数**で割り、月末で目標額にぴたり届く線にする
+    target = setting.monthly_target or median
+    target_daily = target / last_day if target else 0
     daily_spec = {
         'days': list(range(1, last_day + 1)),
         'values': [daily.get(d, 0) for d in range(1, last_day + 1)],
         'cumulative': [],
-        'baseline_daily': round(median / 30) if median else 0,
+        'target': target,
+        'target_source': 'manual' if setting.monthly_target else 'median',
+        'target_daily': round(target_daily),
+        'pace': [round(target_daily * d) for d in range(1, last_day + 1)],
+        'today': today.day if is_current else None,
     }
     acc = 0
     for d in range(1, last_day + 1):
         acc += daily.get(d, 0)
-        daily_spec['cumulative'].append(acc)
+        # ⚠️ 当月は今日より先を描かない。描くと累計が今日の値のまま月末まで
+        # 横一線に伸び、「ペース線が機能していない」ように見える（実際に指摘された）
+        daily_spec['cumulative'].append(None if is_current and d > today.day else acc)
+    # 今日時点の目標との差（当月だけ）。線の読み方を文章でも出す
+    pace_status = None
+    if is_current and target:
+        pace_today = round(target_daily * today.day)
+        cum_today = daily_spec['cumulative'][today.day - 1] or 0
+        pace_status = {
+            'target': target, 'target_daily': round(target_daily),
+            'source': daily_spec['target_source'],
+            'today': today.day, 'pace_today': pace_today, 'cum_today': cum_today,
+            'margin': abs(pace_today - cum_today),
+            'over': cum_today > pace_today,
+            'projected': round(cum_today / today.day * last_day) if cum_today else 0,
+        }
 
     # --- サブスク・固定費の比率 ---------------------------------------------
     fixed = int(qs.filter(kind__in=['サブスク', '年会費']).aggregate(t=Sum('amount'))['t'] or 0)
@@ -300,7 +327,6 @@ def build(ym: str | None = None) -> dict:
     # --- 引き落としカレンダー（理想額を日付順に並べ、累計で「その日までにいくら出るか」） ---
     # ⚠️ カード払いの項目は各サービスの日ではなく**カードの引き落とし日に1本**にまとめる
     # （実際の口座の動きに合わせる）。金額は理想額を使う（実際は月ごとに揃わないため）。
-    setting = SpendingSetting.get()
     dated, undated, card_items = [], [], []
     for t in items:
         if t.via_card:
@@ -314,8 +340,6 @@ def build(ym: str | None = None) -> dict:
         dated.append({'day': setting.card_debit_day, 'name': 'カード引き落とし',
                       'amount': sum(t.ideal for t in card_items), 'color': '#94a3b8', 'kind': 'card',
                       'members': [t.name for t in card_items]})
-    today = date.today()
-    is_current = ym == today.strftime('%Y-%m')
     if items and setting.salary_day:
         dated.append({'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
                       'color': '#34d399', 'kind': 'salary'})
@@ -360,6 +384,7 @@ def build(ym: str | None = None) -> dict:
         'big_rows': [{**b, 'source_label': labels.get(b['source_kind'], '')} for b in big],
         'src_rows': src_rows,
         'daily_spec': daily_spec,
+        'pace_status': pace_status,
         'all_categories': sorted(set(cur_cat) | set(base_cat)),
         'template_bars': template_bars,
         'template_items': template_items,

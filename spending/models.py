@@ -368,6 +368,8 @@ class SpendingSetting(models.Model):
     """支出分析の設定（1行だけ使うシングルトン）。引き落としカレンダーの基準日。"""
     card_debit_day = models.IntegerField(default=27, help_text='カードの引き落とし日（楽天=27）')
     salary_day = models.IntegerField(default=25, help_text='給与日（累計を切る目印）')
+    # 月の目標支出額（月内の使い方の点線）。未設定なら平常月＝直近12か月の中央値を代用
+    monthly_target = models.IntegerField(null=True, blank=True, help_text='月の目標支出額（円）。空なら平常月を代用')
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

@@ -18,17 +18,48 @@ from .models import AmazonOrderItem, ImportLog, LabelRule, MerchantRule, Monthly
 
 # アップロードされた CSV の保管先（nginx が配信しない場所・.gitignore 済み）
 DATA_DIR = Path(settings.BASE_DIR) / 'data' / 'spending'
-ENAVI_DIR = DATA_DIR / 'enavi'
-AMAZON_DIR = DATA_DIR / 'amazon'
-BANK_DIR = DATA_DIR / 'bank'       # 銀行明細（三菱UFJ）。家賃・光熱費・給料はここでしか取れない
+# ソースごとに1ディレクトリ（2026-09-06 整理）。ファイル名ではなく置き場で役割が分かるようにする
+ZAIM_DIR = DATA_DIR / 'zaim'          # Zaim 記録データ（全期間・世代を残し名前順で最新を採用）
+ENAVI_DIR = DATA_DIR / 'e_navi'       # 楽天e-navi 月別明細
+BANK_DIR = DATA_DIR / 'ufj_bank'      # 三菱UFJ銀行明細。家賃・光熱費・給料はここでしか取れない
+AMAZON_DIR = DATA_DIR / 'amazon'      # Amazon 注文履歴（Order History / Digital Content Orders）
+SOURCE_DIRS = {'zaim': ZAIM_DIR, 'enavi': ENAVI_DIR, 'bank': BANK_DIR, 'amazon': AMAZON_DIR}
+# 旧レイアウト（直下の Zaim*.csv / enavi/ / bank/）→ 新レイアウトへの移動表
+LEGACY_DIRS = {DATA_DIR / 'enavi': ENAVI_DIR, DATA_DIR / 'bank': BANK_DIR}
 
 MAX_UPLOAD_SIZE = 20 * 1024 * 1024   # 1ファイル20MB（Zaim全期間で約1.5MB）
 
 
 def _ensure_dirs():
-    ENAVI_DIR.mkdir(parents=True, exist_ok=True)
-    AMAZON_DIR.mkdir(parents=True, exist_ok=True)
-    BANK_DIR.mkdir(parents=True, exist_ok=True)
+    for d in SOURCE_DIRS.values():
+        d.mkdir(parents=True, exist_ok=True)
+
+
+def migrate_legacy_layout() -> list[str]:
+    """旧レイアウトのファイルを新しい置き場へ移す（冪等・取り込みのたびに呼ぶ）。
+
+    旧: 直下に Zaim*.csv、enavi/、bank/。新: zaim/、e_navi/、ufj_bank/、amazon/。
+    本番は git pull しても data/ は触られないので、コードだけ新レイアウトにすると
+    旧 dir のファイルが**黙って読まれなくなる**。ここで移してから読む。
+    """
+    moved = []
+    if not DATA_DIR.exists():
+        return moved
+    _ensure_dirs()
+    for p in DATA_DIR.glob('Zaim*.csv'):
+        p.replace(ZAIM_DIR / p.name)
+        moved.append(f'{p.name} → zaim/')
+    for old, new in LEGACY_DIRS.items():
+        if not old.is_dir() or old == new:
+            continue
+        for p in old.glob('*.csv'):
+            p.replace(new / p.name)
+            moved.append(f'{old.name}/{p.name} → {new.name}/')
+        try:
+            old.rmdir()   # 空になったときだけ消える（CSV以外が残っていれば残す）
+        except OSError:
+            pass
+    return moved
 
 
 def detect_csv_kind(head: str) -> str:
@@ -93,7 +124,7 @@ def save_upload(django_file, kind: str) -> Path:
     """
     _ensure_dirs()
     name = Path(django_file.name).name.replace('/', '_').replace('\\', '_')
-    dest = {'enavi': ENAVI_DIR, 'amazon': AMAZON_DIR, 'bank': BANK_DIR}.get(kind, DATA_DIR) / name
+    dest = SOURCE_DIRS.get(kind, DATA_DIR) / name   # 判別不能('')だけ直下。取り込み時に中身で救済する
     with open(dest, 'wb') as f:
         for chunk in django_file.chunks():
             f.write(chunk)
@@ -102,11 +133,13 @@ def save_upload(django_file, kind: str) -> Path:
 
 def latest_zaim() -> Path | None:
     """保管先にある最新の Zaim CSV（ファイル名にタイムスタンプが入るので名前順で最新）"""
-    files = sorted(DATA_DIR.glob('Zaim*.csv'))
+    migrate_legacy_layout()
+    files = sorted(ZAIM_DIR.glob('Zaim*.csv')) if ZAIM_DIR.exists() else []
     return files[-1] if files else None
 
 
 def enavi_glob() -> str | None:
+    migrate_legacy_layout()
     return str(ENAVI_DIR / '*.csv') if any(ENAVI_DIR.glob('*.csv')) else None
 
 
@@ -116,8 +149,8 @@ def adopt_stray_amazon_csvs() -> list[str]:
     なぜ要るか: 保存先の振り分けに不具合があり、アップロードされた Amazon の CSV が
     DATA_DIR 直下に落ちて**黙って無視されていた**（実際に本番で発生）。
     振り分けは直したが、既に置かれてしまったファイルは拾えないままになる。
-    Zaim は `Zaim*.csv` で名前指定、e-navi は enavi/ にあるので、直下の CSV のうち
-    中身が Amazon のものだけを移せば取り違えない。
+    直下に残る CSV は「判別できなかったもの」だけ（各ソースは自分の dir に入る）なので、
+    中身を見て Amazon のものだけを移せば取り違えない。
     """
     moved = []
     for p in DATA_DIR.glob('*.csv'):
@@ -190,6 +223,7 @@ def import_amazon() -> dict:
 
 
 def bank_glob() -> str | None:
+    migrate_legacy_layout()
     return str(BANK_DIR / '*.csv') if any(BANK_DIR.glob('*.csv')) else None
 
 

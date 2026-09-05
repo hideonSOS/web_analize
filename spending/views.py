@@ -204,9 +204,20 @@ def month(request):
             if not (1 <= card <= 31 and 1 <= salary <= 31):
                 messages.error(request, '日付は 1〜31 の範囲で入力してください。')
                 return redirect(back)
-            s.card_debit_day, s.salary_day = card, salary
-            s.save(update_fields=['card_debit_day', 'salary_day'])
-            messages.success(request, f'カード引き落とし日 {card}日・給与日 {salary}日 に設定しました。')
+            raw_target = (request.POST.get('monthly_target') or '').replace(',', '').strip()
+            try:
+                target = int(raw_target) if raw_target else None
+            except ValueError:
+                messages.error(request, '月の目標支出額は数字で入力してください（空欄で平常月を使います）。')
+                return redirect(back)
+            if target is not None and target <= 0:
+                target = None
+            s.card_debit_day, s.salary_day, s.monthly_target = card, salary, target
+            s.save(update_fields=['card_debit_day', 'salary_day', 'monthly_target'])
+            messages.success(
+                request,
+                f'カード引き落とし日 {card}日・給与日 {salary}日・月の目標支出額 '
+                + (f'¥{target:,}' if target else '未設定（平常月を代用）') + ' に設定しました。')
             return redirect(back)
 
         if form_id == 'fixed_cost':
