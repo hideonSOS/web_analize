@@ -189,6 +189,12 @@ class ZaimClient:
 
 
 # --- 記録 → CSV 行 ----------------------------------------------------------
+def _csv_quirk(v: str) -> str:
+    """Zaim エクスポートは先頭が "-" の文字列に "'" を付ける。同じ記録が同じ ledger_id になるよう合わせる"""
+    v = str(v)
+    return "'" + v if v.startswith('-') and v != '-' else v
+
+
 def _name(master: dict, key, default: str = '-') -> str:
     try:
         return master[int(key)]['name'] if key not in (None, '', 0, '0') else default
@@ -221,9 +227,13 @@ def records_to_rows(records, categories: dict, genres: dict, accounts: dict) -> 
             'カテゴリの内訳': _name(genres, r.get('genre_id')) if mode != 'transfer' else '-',
             '支払元': from_acc if mode in ('payment', 'transfer') else '-',
             '入金先': to_acc if mode in ('income', 'transfer') else '-',
-            '品目': r.get('name') or '',
-            'メモ': r.get('comment') or '',
-            'お店': r.get('place') or '',
+            # ⚠️ エクスポート CSV の癖に合わせる（台帳の ledger_id を手動 CSV と一致させるため）:
+            #   お店が空なら "-"。先頭が "-" の文字列には "'" が付く（Excel の数式対策と思われる。
+            #   実物: 品目 "'-辛" "'-◆クイックディナー…"）。合わせないと同じ記録が別 ID になり
+            #   手動修正が外れる（実測 3 行）
+            '品目': _csv_quirk(r.get('name') or ''),
+            'メモ': _csv_quirk(r.get('comment') or ''),
+            'お店': _csv_quirk(r.get('place') or '') or '-',
             '通貨': r.get('currency_code') or 'JPY',
             '収入': amount if mode == 'income' else 0,
             '支出': amount if mode == 'payment' else 0,

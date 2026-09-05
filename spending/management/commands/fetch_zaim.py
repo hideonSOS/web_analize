@@ -39,6 +39,8 @@ class Command(BaseCommand):
         parser.add_argument('--check', action='store_true',
                             help='最新の手動 CSV と月×支払元で突き合わせ、欠けを表示（保存も取り込みもしない）')
         parser.add_argument('--keep', type=int, default=KEEP_API_FILES)
+        parser.add_argument('--no-manual', action='store_true',
+                            help='最新の手動 CSV から口座連携の行を補完しない（API の行だけで保存）')
 
     def handle(self, *args, **opts):
         conf = getattr(settings, 'ZAIM_API', {}) or {}
@@ -73,6 +75,14 @@ class Command(BaseCommand):
             self._check(rows)
             return
 
+        # 口座連携の行（楽天カード・銀行・balance）は API が返さないので、最新の手動 CSV から
+        # その分だけ補う。API が返す行と重ならない（支払元/入金先の組が API 側に無い行だけ）
+        if not opts['no_manual']:
+            extra = self._manual_supplement(rows)
+            if extra:
+                rows = sorted(rows + extra, key=lambda x: x['日付'])
+                self.stdout.write(f'手動 CSV から口座連携の行 {len(extra):,}件を補完（API では取れない分）')
+
         services._ensure_dirs()
         path = services.ZAIM_DIR / zaim_api.api_csv_name(datetime.now())
         zaim_api.write_csv(rows, path)
@@ -92,6 +102,39 @@ class Command(BaseCommand):
         for p in files[:-keep] if keep > 0 else []:
             p.unlink(missing_ok=True)
             self.stdout.write(f'古い API 生成ファイルを削除: {p.name}')
+
+    # --- 口座連携の行を手動 CSV から補う -------------------------------------
+    @staticmethod
+    def _latest_manual():
+        manual = [p for p in sorted(services.ZAIM_DIR.glob('Zaim*.csv')) if '.api.' not in p.name]
+        return manual[-1] if manual else None
+
+    def _manual_supplement(self, api_rows: list[dict]) -> list[dict]:
+        """API が返さない行（口座連携の楽天カード・銀行、残高調整）を最新の手動 CSV から取る。
+
+        実測（2026-09-06・--check）: API は手入力＋レシートの行は 1 件残らず一致するが、
+        楽天カード連携 1,137 行・三菱UFJ 連携 371 行・給料 76 行・balance 67 行が無い。
+        判定は「方法が balance」または「(支払元, 入金先) の組が API 側に一つも無い」。
+        API が返す組（お財布・未設定・ゆうちょ）の行は取らないので重複しない。
+        手動 CSV が古ければその分だけ古い（月1回程度の手動アップロードで更新する運用）
+        """
+        import pandas as pd
+        p = self._latest_manual()
+        if p is None:
+            return []
+        m = pd.read_csv(p, encoding='cp932').fillna('')
+        api_pairs = {(r['支払元'], r['入金先']) for r in api_rows}
+        pair = list(zip(m['支払元'].astype(str), m['入金先'].astype(str)))
+        take = (m['方法'] == 'balance') | pd.Series([pr not in api_pairs for pr in pair], index=m.index)
+        sub = m[take].copy()
+        for col in ('収入', '支出', '振替', '残高調整', '通貨変換前の金額'):
+            sub[col] = pd.to_numeric(sub[col], errors='coerce').fillna(0).astype(int)
+        rows = sub.to_dict('records')
+        for r in rows:
+            r['日付'] = str(r['日付'])[:10]
+            r['_id'] = 0
+        self.stdout.write(f'補完元: {p.name}（{p.stat().st_mtime and datetime.fromtimestamp(p.stat().st_mtime):%Y-%m-%d}）')
+        return rows
 
     # --- 手動 CSV との突き合わせ ---------------------------------------------
     def _check(self, rows: list[dict]):
