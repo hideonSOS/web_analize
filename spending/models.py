@@ -273,3 +273,32 @@ class MonthlyIncome(models.Model):
         out = {i.ym: i.amount for i in cls.objects.filter(source='zaim')}
         out.update({i.ym: i.amount for i in cls.objects.filter(source='manual')})
         return out
+
+
+class LabelRule(models.Model):
+    """品目名 → 分類の上書きルール。**Zaim の分類より優先**する唯一の仕組み。
+
+    なぜ要るか: Zaim のレシート撮影は品目名から分類を学習し、一度誤ると同じ品目が
+    毎回同じ誤った分類で入ってくる（実測: ごぼう→通信 が18回連続、豆腐→遊び/風俗）。
+    明細の手動修正は**その行**にしか効かないので、翌月に同じ品目を買えば再発する。
+    取り込み時に品目名で当てて分類を差し替えれば、今後のアップロードにも効く。
+
+    優先順位: **品目ルール > Zaim の分類 > 加盟店ルール**（category_source='fix'）。
+    表示時の manual_* はさらにその上（人が直したものは常に勝つ）。
+
+    ⚠️ 外税・割引・レジ袋のような「レシート付随行」にはルールを作らないこと。
+    正しい分類はレシート次第（食料品のレシートなら食費、通信のレシートなら通信）で、
+    品目名だけでは決められない。
+    """
+    priority = models.IntegerField(default=100, help_text='小さいほど先に評価する')
+    pattern = models.CharField(max_length=200, help_text='品目名に対する正規表現（部分一致）')
+    category = models.CharField(max_length=50)
+    subcategory = models.CharField(max_length=50, blank=True)
+    note = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['priority', 'id']
+
+    def __str__(self):
+        return f'/{self.pattern}/ → {self.category}/{self.subcategory}'

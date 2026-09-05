@@ -178,11 +178,14 @@ _EFFECTIVE_CATEGORY = Case(
 CATEGORY_SOURCE_FILTERS = {
     'zaim': Q(category_source='zaim', manual_category=''),
     'rule': Q(category_source='rule', manual_category=''),
+    # 品目ルール（LabelRule）で Zaim の誤学習を取り込み時に打ち消した行
+    'fix': Q(category_source='fix', manual_category=''),
     'none': Q(category_source='none', manual_category=''),
     'manual': ~Q(manual_category=''),
 }
 CATEGORY_SOURCE_LABELS = [
-    ('zaim', 'Zaim由来'), ('rule', '自動推定'), ('none', '手がかりなし'), ('manual', '手動で修正済み'),
+    ('zaim', 'Zaim由来'), ('rule', '自動推定'), ('fix', '品目ルールで訂正'),
+    ('none', '手がかりなし'), ('manual', '手動で修正済み'),
 ]
 
 

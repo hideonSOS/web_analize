@@ -14,7 +14,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from .models import AmazonOrderItem, ImportLog, MerchantRule, MonthlyIncome, Transaction
+from .models import AmazonOrderItem, ImportLog, LabelRule, MerchantRule, MonthlyIncome, Transaction
 
 # アップロードされた CSV の保管先（nginx が配信しない場所・.gitignore 済み）
 DATA_DIR = Path(settings.BASE_DIR) / 'data' / 'spending'
@@ -213,6 +213,106 @@ def import_income(zaim_path: Path) -> dict:
     }
 
 
+def seed_label_rules_if_empty() -> int:
+    """label_rules.csv を LabelRule へ初回シードする。以後は DB が正（sync_label_rules で反映）。"""
+    if LabelRule.objects.exists():
+        return 0
+    import pandas as pd
+    csv = Path(settings.BASE_DIR) / 'card_insight' / 'label_rules.csv'
+    if not csv.exists():
+        return 0
+    df = pd.read_csv(csv, encoding='utf-8-sig').fillna('')
+    objs = [
+        LabelRule(priority=int(r.get('priority') or 100), pattern=str(r['pattern']),
+                  category=str(r.get('category') or ''), subcategory=str(r.get('subcategory') or ''),
+                  note=str(r.get('note') or ''))
+        for _, r in df.iterrows() if str(r.get('pattern') or '').strip()
+    ]
+    LabelRule.objects.bulk_create(objs)
+    return len(objs)
+
+
+def apply_label_rules(led):
+    """品目名に当たる LabelRule で category/subcategory を差し替える。
+
+    ⚠️ ここは **Zaim の分類より優先**する唯一の経路。Zaim のレシート撮影は品目名から
+    分類を学習し、一度誤ると同じ品目が毎回同じ誤りで入ってくる（ごぼう→通信 が18回）。
+    明細の手動修正はその行にしか効かないので、翌月の同じ品目には取り込み時に効く
+    仕組みが要る。差し替えた行は category_source='fix' にして出どころを追えるようにする。
+
+    ⚠️ レシート付随行（外税・割引・レジ袋）には当てない。正しい分類はレシート次第で
+    品目名だけでは決まらないため（label_kind が item の行だけを対象にする）。
+    """
+    import re
+    seed_label_rules_if_empty()
+    rules = list(LabelRule.objects.all())
+    if not rules or 'label' not in led.columns:
+        return led
+    compiled = []
+    for r in rules:
+        try:
+            compiled.append((re.compile(r.pattern), r))
+        except re.error:
+            continue   # 壊れたパターンを1つ入れても全体は止めない
+    target = led['label_kind'].eq('item') if 'label_kind' in led.columns else led['label'].notna()
+    for idx in led.index[target]:
+        name = str(led.at[idx, 'label'] or '')
+        if not name:
+            continue
+        for pat, r in compiled:
+            if pat.search(name):
+                led.at[idx, 'category'] = r.category
+                led.at[idx, 'subcategory'] = r.subcategory or led.at[idx, 'subcategory']
+                led.at[idx, 'category_source'] = 'fix'
+                break
+    return _default_food_for_formulaic_categories(led)
+
+
+# 「本物の行は定型句」なカテゴリ。ここに入った商品行のうち定型句に当たらないものは、
+# ユーザーの実データではほぼ食料品のレシートだった（交通に10行のスーパーのレシート等）。
+# ⚠️ 医療・保険／健康／日用雑貨は入れないこと。ドラッグストアのレシートは薬と食品が
+# 本当に混ざるので、品目名が読めない行を食費に倒すと薬を食費にしてしまう
+DEFAULT_FOOD_CATEGORIES = ('交通', '通信', '教育・教養', '遊び')
+
+
+def _default_food_for_formulaic_categories(led):
+    """辞書（nonfood_phrases.csv）に無い商品行を食費に倒す。品目ルールの後に効く。
+
+    ユーザーの発案: 通信・交通・学習は本物の行がほぼ同じ文言で出るのに対し、
+    そこに紛れる不明な行はほぼ食料品。なら「本物の文言」を辞書にして、
+    それ以外を食費にする方が、食べ物の語を全部列挙するより漏れが少ない。
+    対象は Zaim 由来の商品行だけ（ルールや手動で決まった行は触らない）。
+    """
+    import re
+    import pandas as pd
+    csv = Path(settings.BASE_DIR) / 'card_insight' / 'nonfood_phrases.csv'
+    if not csv.exists() or 'label_kind' not in led.columns:
+        return led
+    try:
+        df = pd.read_csv(csv, encoding='utf-8-sig').fillna('')
+    except Exception:  # noqa: BLE001  辞書が壊れていても取り込みは止めない
+        return led
+    keep = {}
+    for _, r in df.iterrows():
+        cat, pat = str(r.get('category') or '').strip(), str(r.get('pattern') or '').strip()
+        if cat and pat:
+            try:
+                keep[cat] = re.compile(pat, re.IGNORECASE)
+            except re.error:
+                continue
+    mask = (led['label_kind'].eq('item') & led['category_source'].eq('zaim')
+            & led['category'].isin(DEFAULT_FOOD_CATEGORIES) & led['label'].fillna('').ne(''))
+    for idx in led.index[mask]:
+        cat = led.at[idx, 'category']
+        pat = keep.get(cat)
+        if pat is not None and pat.search(str(led.at[idx, 'label'])):
+            continue                      # 定型句に当たる＝本物
+        led.at[idx, 'category'] = '食費'
+        led.at[idx, 'subcategory'] = '食料品'
+        led.at[idx, 'category_source'] = 'fix'
+    return led
+
+
 def seed_rules_if_empty() -> int:
     """merchant_rules.csv を MerchantRule へ初回シードする。以後は DB が正。"""
     if MerchantRule.objects.exists():
@@ -328,6 +428,8 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
         # レシート付随行（外税・割引・袋代など）に印を付ける。集計からは外さない
         led['label_kind'] = led['label'].map(classify_label)
         led['label_clean'] = led['label'].map(clean_label)
+        # 品目ルール（Zaim の誤学習を打ち消す）。⚠️ Zaim の分類より上で効く唯一の経路
+        led = apply_label_rules(led)
     except Exception as e:  # noqa: BLE001  取り込み失敗は画面に出して原因を追えるようにする
         return ImportLog.objects.create(
             ok=False, zaim_file=Path(zaim_path).name,

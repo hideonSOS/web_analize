@@ -37,6 +37,9 @@ def _frame() -> pd.DataFrame:
         'category', 'subcategory', 'category_source', 'kind', 'necessity',
         'in_total', 'exclude_reason', 'row_type', 'match_status', 'dup_flag',
         'manual_category', 'manual_subcategory', 'manual_necessity', 'exclude_override',
+        # ⚠️ label_kind を落とすと _zaim_mislearn の「商品行だけ」の絞りが黙って無効になり、
+        # 外税・レジ袋が誤学習として大量に検出される（実際にそうなった）
+        'label_kind',
     ))
     if not rows:
         return pd.DataFrame()
@@ -201,6 +204,89 @@ def _income_rows(total: pd.DataFrame, months: int) -> tuple[list, dict]:
         'spend_last': max(spend) if spend else None,
         'stale': bool(spend) and max(income) < max(spend),
     }
+
+
+MISLEARN_MIN_ROWS = 3       # 同じ品目名がこれ以上あるときだけ疑う（1〜2件では偶然と区別できない）
+MISLEARN_FOOD_HINT = ('食費', '飲料')
+
+
+def _zaim_mislearn(total: pd.DataFrame) -> list:
+    """Zaim の誤学習の疑いがある品目を、**ルールを書かずに**データから見つける。
+
+    Zaim は品目名から分類を学習するため、誤ると同じ品目が毎回同じ誤りで入る
+    （ごぼう→通信 が18回）。品目ルール（LabelRule）は知っている誤りにしか効かないので、
+    **未知の誤り**を拾う検出が別に要る。
+
+    判定: 同じ品目名（商品行・Zaim由来）が複数のカテゴリに割れていて、少数派が
+    通信・遊び・教育など**食料品ではないカテゴリ**にあるもの。
+    ⚠️ 自動では直さない。人が見て LabelRule に足すか、明細で直す。
+    """
+    if total.empty:
+        return []
+    df = total[(total['category_source'] == 'zaim')]
+    if 'label_kind' in df.columns:
+        df = df[df['label_kind'].eq('item')]
+    df = df[df['label'].fillna('').str.strip() != '']
+    if df.empty:
+        return []
+    g = df.groupby(['label', 'category_final'])['amount'].agg(['size', 'sum']).reset_index()
+    out = []
+    for label, grp in g.groupby('label'):
+        if grp['size'].sum() < MISLEARN_MIN_ROWS or len(grp) < 2:
+            continue
+        grp = grp.sort_values('size', ascending=False)
+        major = grp.iloc[0]
+        minors = grp.iloc[1:]
+        # 多数派か少数派のどちらかが食料品なら「食べ物が別カテゴリに紛れた」疑い
+        cats = set(grp['category_final'])
+        if not cats & set(MISLEARN_FOOD_HINT):
+            continue
+        odd = grp[~grp['category_final'].isin(MISLEARN_FOOD_HINT)]
+        if odd.empty:
+            continue
+        out.append({
+            'label': label,
+            'major': major['category_final'], 'major_n': int(major['size']),
+            'odd': ' / '.join(f"{r['category_final']}×{int(r['size'])}" for _, r in odd.iterrows()),
+            'odd_n': int(odd['size'].sum()), 'odd_sum': int(odd['sum'].sum()),
+        })
+    out.sort(key=lambda r: -r['odd_n'])
+    return out[:12]
+
+
+RECEIPT_MIN_LINES = 4                       # これ以上の商品行があれば「レシート」とみなす
+RECEIPT_NONFOOD = ('交通', '通信', '遊び', '教育・教養', '医療・保険', '大型出費', '未分類')
+
+
+def _receipt_suspects(total: pd.DataFrame) -> list:
+    """レシートごと別カテゴリに紛れた疑いを、行数の形から見つける。
+
+    _zaim_mislearn は「同じ品目名が繰り返し誤る」ケースしか拾えない。
+    実際にはスーパーのレシート1枚（10行）が丸ごと「交通」に入っていた
+    （2026-01-02・定期代と同じ日）。品目はどれも1回しか出ないので品目単位では見えない。
+
+    交通・通信・医療のレシートは1〜2行で終わる。**4行以上の商品行が非食料品カテゴリに
+    並んでいたら、それは食料品のレシート**の可能性が高い。閾値は実測から
+    （2026-01-02 交通10行 / スギ薬局 医療・保険5行 / ダイソー 健康6行）。
+    ⚠️ 自動では直さない。ダイソーの「健康」6行のように本物のこともある。
+    """
+    if total.empty or 'label_kind' not in total.columns:
+        return []
+    df = total[total['label_kind'].eq('item') & total['category_source'].isin(['zaim', 'fix'])].copy()
+    if df.empty:
+        return []
+    df['shop'] = df['shop'].fillna('').astype(str)
+    df['cat'] = df['category_final']
+    g = (df.groupby(['ym', 'date', 'shop', 'cat'])
+           .agg(n=('amount', 'size'), s=('amount', 'sum'), sample=('label', lambda x: ' / '.join(str(v)[:8] for v in list(x)[:4])))
+           .reset_index())
+    g = g[(g['n'] >= RECEIPT_MIN_LINES) & g['cat'].isin(RECEIPT_NONFOOD)]
+    out = [{
+        'date': pd.Timestamp(r['date']).strftime('%Y-%m-%d'),
+        'ym': r['ym'], 'shop': r['shop'] or '(店名なし)',
+        'category': r['cat'], 'n': int(r['n']), 'sum': int(r['s']), 'sample': r['sample'],
+    } for _, r in g.sort_values(['n', 's'], ascending=False).iterrows()]
+    return out[:12]
 
 
 def build(months: int = RECENT_MONTHS) -> dict:
@@ -389,6 +475,8 @@ def build(months: int = RECENT_MONTHS) -> dict:
     ]
 
     quality_rows, quality = _record_quality(total, months)
+    suspect_rows = _zaim_mislearn(total)
+    receipt_rows = _receipt_suspects(total)
     income_rows, income = _income_rows(total, months)
 
     return {
@@ -398,6 +486,8 @@ def build(months: int = RECENT_MONTHS) -> dict:
         'quality': quality,
         'income_rows': income_rows,
         'income': income,
+        'suspect_rows': suspect_rows,
+        'receipt_rows': receipt_rows,
         'monthly_spec': monthly_spec,
         'monthly_stack_top': MONTHLY_STACK_TOP,
         'category_rows': category_rows,

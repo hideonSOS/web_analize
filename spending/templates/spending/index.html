@@ -330,6 +330,71 @@
   </div>
 
   {% comment %}
+    Zaim の誤学習の疑い。Zaim は品目名から分類を学習するため、一度誤ると同じ品目が
+    毎回同じ誤りで入ってくる（ごぼう→通信 が18回、豆腐→遊び/風俗）。
+    ここは**ルールを書かずに**データから割れている品目を拾う。自動では直さない。
+    直し方は2つ: 品目ルール（label_rules.csv → sync_label_rules）に足せば今後の
+    取り込みにも効く／明細の一括修正はその行だけに効く。
+  {% endcomment %}
+  {% if suspect_rows or receipt_rows %}
+  <div class="pf-card">
+    <h2>Zaimの誤分類の疑い <span class="pf-hint">自動では直しません。見て判断してください</span></h2>
+
+    {% if receipt_rows %}
+    {% comment %}
+      レシートごと別カテゴリに入った疑い。交通・通信・医療のレシートは1〜2行で終わるので、
+      4行以上の商品行が非食料品カテゴリに並んでいたら食料品のレシートの可能性が高い
+      （実例: 2026-01-02 に10行のスーパーのレシートが丸ごと「交通」に入っていた）
+    {% endcomment %}
+    <h3 class="sp-subsec">レシートごと紛れた疑い <span>{{ receipt_rows|length }}枚・4行以上が非食料品カテゴリ</span></h3>
+    <div class="pf-scroll">
+      <table class="pf-table num">
+        <tr><th>日付</th><th>店</th><th>入っている先</th><th>行数</th><th>金額</th><th>品目の例</th><th></th></tr>
+        {% for r in receipt_rows %}
+        <tr>
+          <td>{{ r.date }}</td>
+          <td style="text-align:left">{{ r.shop|truncatechars:14 }}</td>
+          <td class="sp-mid">{{ r.category }}</td>
+          <td>{{ r.n }}</td>
+          <td>¥{{ r.sum|intcomma }}</td>
+          <td style="text-align:left" class="pf-muted">{{ r.sample }}</td>
+          <td><a class="pf-link" href="{% url 'spending:transactions' %}?ym={{ r.ym }}&cat={{ r.category|urlencode }}&csrc=zaim">明細 →</a></td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <p class="pf-note sp-subnote">明細を開き、その日の行にチェックを付けて「まとめて変更」で直せます。ダイソーの「健康」のように本物のこともあります。</p>
+    {% endif %}
+
+    {% if suspect_rows %}
+    <h3 class="sp-subsec">同じ品目が割れている <span>{{ suspect_rows|length }}品目・Zaimの誤学習</span></h3>
+    <div class="pf-scroll">
+      <table class="pf-table num">
+        <tr><th>品目</th><th>多数派</th><th>紛れている先</th><th>件数</th><th>金額</th><th></th></tr>
+        {% for s in suspect_rows %}
+        <tr>
+          <td style="text-align:left">{{ s.label|truncatechars:24 }}</td>
+          <td class="sp-mid">{{ s.major }} ×{{ s.major_n }}</td>
+          <td class="sp-mid">{{ s.odd }}</td>
+          <td>{{ s.odd_n }}</td>
+          <td>¥{{ s.odd_sum|intcomma }}</td>
+          <td><a class="pf-link" href="{% url 'spending:transactions' %}?q={{ s.label|urlencode }}&csrc=zaim">明細 →</a></td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+    <div class="pf-note">
+      Zaimは品目名から分類を学習するため、一度誤ると同じ品目が毎回同じ誤りで入ってきます。
+      <b>根本対処はZaimアプリ側でその品目の分類を一度直すこと</b>（学習し直します）。<br>
+      こちら側では <code>card_insight/label_rules.csv</code> に品目→分類を足して
+      <code>sync_label_rules</code> → 再取込すると、今後のアップロードでも自動で訂正されます
+      （明細に「訂正」と表示）。明細の一括修正はその行だけに効きます。
+    </div>
+  </div>
+  {% endif %}
+
+  {% comment %}
     記録の質。Zaimのレシート撮影で取り込んだ行には支払元も店名も付かず、
     実測で支出の62%が「どの財布から出たか分からない」状態だった。
     金額の合計は正しい（レシートとカード請求の二重計上は0件と確認済み）ので

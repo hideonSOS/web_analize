@@ -114,6 +114,7 @@
           <td class="sp-mid">{{ t.manual_category|default:t.category|default:"—" }}
             {% if t.manual_category %}<span class="sp-manual">手動</span>
             {% elif t.category_source == 'rule' %}<span class="sp-guess" title="加盟店名からの推定。e-naviに分類は無い">推定</span>
+            {% elif t.category_source == 'fix' %}<span class="sp-fix" title="品目ルールでZaimの誤学習を訂正">訂正</span>
             {% elif t.category_source == 'none' %}<span class="sp-guess">手がかりなし</span>
             {% endif %}</td>
           <td class="sp-mid">

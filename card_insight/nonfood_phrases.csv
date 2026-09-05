@@ -1,0 +1,5 @@
+category,pattern,note
+交通,定期|ICOCA|Suica|PASMO|PiTaPa|チャージ|切符|きっぷ|乗車券|新幹線|特急|タクシー|バス|高速|ETC|駐車|ガソリン|給油|レンタカー|航空|空港|フェリー,交通で本物の行に出る定型句。これに当たらない商品行は食料品のレシートとみなす
+通信,Apple|APPLE|iCloud|Google|Microsoft|ConoHa|コノハ|お名前|ドメイン|サーバ|VPN|SIM|携帯|スマホ|ソフトバンク|ドコモ|docomo|au |UQ|楽天モバイル|Wi-?Fi|プロバイダ|回線|通信|Prime|プライム|Netflix|Spotify|YouTube|Adobe|Office|ソフト|ライセンス|アプリ|Dropbox|Notion|Slack|Zoom,通信で本物の行に出る定型句
+教育・教養,書籍|本|Kindle|Udemy|講座|セミナー|受講|教材|参考書|四季報|新聞|雑誌|Claude|ANTHROPIC|ChatGPT|OpenAI|J-Quants|ジェークオンツ|TradingView|Mathpix|MENTA|自習室|オスカー|資格|検定|試験|学費|授業|レッスン|英会話,教育・教養で本物の行に出る定型句
+遊び,PlayStation|プレイステーション|ソニー|DMM|FC2|コミック|漫画|マンガ|ゲーム|チケット|映画|入場|観覧|遊園地|カラオケ|ボウリング|温泉|スパ|旅行|ホテル|宿|NWDSUPPORT|KINGS|NEMESIS|Steam|Nintendo|任天堂|DVD|Blu-ray|グッズ|ガチャ|パチンコ|競艇|競馬|宝くじ|デート|風俗|パートナー,遊びで本物の行に出る定型句
