@@ -59,6 +59,16 @@ def _pct(s: str) -> str:
     return urllib.parse.quote(str(s), safe='-._~')
 
 
+def _raise_with_body(r: requests.Response, what: str):
+    """Zaim は失敗理由を JSON 本文に入れて返す（例: "401 Consumer is not found"）。
+    raise_for_status だけだと本文が消えて原因が分からない（実際に困った）"""
+    if r.ok:
+        return
+    raise RuntimeError(f'{what}の取得に失敗: HTTP {r.status_code} {r.text[:300]} '
+                       '→ "Consumer is not found" なら Consumer Key/Secret が違う（dev.zaim.net の'
+                       'アプリ画面の コンシューマID/シークレット を貼る）')
+
+
 class ZaimClient:
     """OAuth 1.0a（HMAC-SHA1）で署名して Zaim API を叩く最小クライアント"""
 
@@ -104,7 +114,7 @@ class ZaimClient:
     def request_token(self, callback: str = DEFAULT_CALLBACK) -> dict:
         h = self.auth_header('GET', AUTH_REQUEST_URL, extra={'oauth_callback': callback})
         r = self.session.get(AUTH_REQUEST_URL, headers={'Authorization': h}, timeout=30)
-        r.raise_for_status()
+        _raise_with_body(r, 'リクエストトークン')
         d = dict(urllib.parse.parse_qsl(r.text))
         self.token, self.token_secret = d['oauth_token'], d['oauth_token_secret']
         return d
@@ -115,7 +125,7 @@ class ZaimClient:
     def access_token(self, verifier: str) -> dict:
         h = self.auth_header('GET', AUTH_ACCESS_URL, extra={'oauth_verifier': verifier})
         r = self.session.get(AUTH_ACCESS_URL, headers={'Authorization': h}, timeout=30)
-        r.raise_for_status()
+        _raise_with_body(r, 'アクセストークン')
         d = dict(urllib.parse.parse_qsl(r.text))
         self.token, self.token_secret = d['oauth_token'], d['oauth_token_secret']
         return d
