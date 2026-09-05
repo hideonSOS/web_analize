@@ -70,28 +70,7 @@
 .sp-month-nav .pf-btn{ text-decoration:none; }
 .sp-disabled{ opacity:.3; pointer-events:none; }
 
-/* 月次ページ: 予算 vs 実績（横棒）
-   予算=100%の位置に白い縦線を置き、超過分は右へはみ出す帯で見せる。
-   資産配分の「目標に近づける」バーとは逆で、越えたら赤という向き */
-.sp-budget{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
-.sp-bg-row{ display:grid; grid-template-columns:150px 1fr 150px; gap:12px; align-items:center; font-size:13px; }
-@media (max-width:768px){ .sp-bg-row{ grid-template-columns:100px 1fr 108px; gap:8px; font-size:12px; } }
-.sp-bg-name{ overflow:hidden; text-overflow:ellipsis; }
-/* トラックの右 1/3 を「超過ゾーン」として空けておき、予算線を 2/3 の位置に置く。
-   こうすると超過分がトラック内に収まり、予算線が常に見える */
-.sp-bg-track{ position:relative; height:18px; background:#0f172a; border-radius:4px;
-  overflow:hidden; }
-.sp-bg-fill{ position:absolute; left:0; top:0; bottom:0;
-  background:#34d399; opacity:.85; }
-.sp-bg-fill.sp-bg-over{ background:#f87171; }
-/* 超過分は斜線で区別。予算線の右から伸びる */
-.sp-bg-excess{ position:absolute; top:0; bottom:0; left:66.67%;
-  background:repeating-linear-gradient(45deg,#f87171,#f87171 4px,#7c2d2d 4px,#7c2d2d 8px);
-  opacity:.9; }
-/* 予算=100%の目印（トラック幅の 2/3 の位置） */
-.sp-bg-limit{ position:absolute; left:66.67%; top:0; bottom:0; width:2px;
-  background:#e5e7eb; opacity:.85; }
-.sp-bg-amt{ text-align:right; }
+/* 月次ページ: 入力フォーム（理想テンプレート・実績・基準日で共用） */
 .sp-budget-form{ border-top:1px solid #1e3a5f; padding-top:14px; margin-top:14px; }
 .sp-budget-form select, .sp-budget-form input{
   background:#0f172a; border:1px solid #334155; border-radius:8px;

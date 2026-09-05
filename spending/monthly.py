@@ -17,7 +17,7 @@ from datetime import date
 
 from django.db.models import Count, Sum
 
-from .models import Budget, FixedCostEntry, SpendingSetting, TemplateItem, Transaction
+from .models import FixedCostEntry, SpendingSetting, TemplateItem, Transaction
 
 # 理想テンプレートの積み上げ横棒の色。テンプレートの並び順に割り当て、
 # 「理想」「実際」の2本で同じ項目は同じ色
@@ -261,31 +261,6 @@ def build(ym: str | None = None) -> dict:
     # --- サブスク・固定費の比率 ---------------------------------------------
     fixed = int(qs.filter(kind__in=['サブスク', '年会費']).aggregate(t=Sum('amount'))['t'] or 0)
 
-    # --- 予算 vs 実績 --------------------------------------------------------
-    # ⚠️ 支出の予算は「上限」。資産配分の目標（近づけたい値）と向きが逆で、
-    # 超過が赤・未達が緑になる。バー幅は予算を100%とした消化率
-    budgets = list(Budget.objects.all())
-    budget_rows = []
-    for b in budgets:
-        actual = cur_cat.get(b.category, 0)
-        limit = b.monthly_limit or 0
-        rate = round(actual / limit * 100, 1) if limit else None
-        budget_rows.append({
-            'category': b.category,
-            'limit': limit,
-            'actual': actual,
-            'diff': actual - limit,           # 正=超過
-            'rate': rate,
-            # バーの幅はトラックの 2/3 を予算=100% とする座標系に写す。
-            # 150%（=予算の1.5倍）でトラック右端に届き、それ以上は頭打ち
-            'width': round(min((rate or 0), 150) / 1.5, 1),
-            # 超過分の斜線帯（予算線から右へ）。同じ座標系
-            'over_width': round(min(max((rate or 0) - 100, 0), 50) / 1.5, 1),
-            'over': actual > limit,
-            'note': b.note,
-        })
-    budget_rows.sort(key=lambda r: -(r['rate'] or 0))
-
     # --- 理想の支出テンプレートと実際（積み上げ横棒2本・すべて手入力） -----------
     # ⚠️ 台帳の数字は一切使わない（ユーザー方針）。理想は TemplateItem、実際はその月の
     # FixedCostEntry。2本の棒は「大きい方の合計」を100%として描くので長さで比べられる。
@@ -366,23 +341,6 @@ def build(ym: str | None = None) -> dict:
     bank_schedule = _bank_schedule(setting, today, is_current)
     if bank_schedule:
         schedule = bank_schedule
-    budget_limit_total = sum(r['limit'] for r in budget_rows)
-    budget_actual_total = sum(r['actual'] for r in budget_rows)
-    budget_summary = {
-        'limit': budget_limit_total,
-        'actual': budget_actual_total,
-        'diff': budget_actual_total - budget_limit_total,
-        'rate': round(budget_actual_total / budget_limit_total * 100, 1) if budget_limit_total else None,
-        'over_count': sum(1 for r in budget_rows if r['over']),
-    } if budget_rows else None
-
-    # 予算未設定のカテゴリ（設定を促すため、金額の大きい順に出す）
-    unbudgeted = [
-        {'name': n, 'amount': a, 'baseline': base_cat.get(n, 0)}
-        for n, a in sorted(cur_cat.items(), key=lambda x: -x[1])
-        if n not in {b.category for b in budgets}
-    ][:8]
-
     return {
         'has_data': True,
         'ym': ym,
@@ -402,9 +360,6 @@ def build(ym: str | None = None) -> dict:
         'big_rows': [{**b, 'source_label': labels.get(b['source_kind'], '')} for b in big],
         'src_rows': src_rows,
         'daily_spec': daily_spec,
-        'budget_rows': budget_rows,
-        'budget_summary': budget_summary,
-        'unbudgeted': unbudgeted,
         'all_categories': sorted(set(cur_cat) | set(base_cat)),
         'template_bars': template_bars,
         'template_items': template_items,

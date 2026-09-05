@@ -15,7 +15,7 @@ from django.urls import reverse
 
 from . import monthly, services, summary
 from .models import (
-    Budget, FixedCostEntry, ImportLog, MonthlyIncome, SavingsPlan, SpendingSetting,
+    FixedCostEntry, ImportLog, MonthlyIncome, SavingsPlan, SpendingSetting,
     TemplateItem, Transaction,
 )
 
@@ -119,34 +119,12 @@ def month(request):
 
     トップが「全期間の傾向」なのに対し、ここは「その月に何が起きたか」を
     前月・平常月（直近12か月の中央値）との差で読む。
-    POST はカテゴリ別の月次予算（上限）の設定を受ける。
+    POST は理想テンプレート・月別の実績・基準日の設定を受ける（予算機能は 2026-09-06 に削除）。
     """
     if request.method == 'POST':
         form_id = request.POST.get('form_id')
         ym = request.POST.get('ym', '')
         back = f"{reverse('spending:month')}?ym={ym}" if ym else reverse('spending:month')
-
-        if form_id == 'budget':
-            category = request.POST.get('category', '').strip()
-            raw = request.POST.get('monthly_limit', '').strip()
-            if not category:
-                messages.error(request, 'カテゴリを選んでください。')
-                return redirect(back)
-            if raw == '':
-                # 空で保存＝予算の削除
-                Budget.objects.filter(category=category).delete()
-                messages.success(request, f'{category} の予算を削除しました。')
-                return redirect(back)
-            try:
-                limit = max(0, int(float(raw)))
-            except ValueError:
-                messages.error(request, '予算は数値で入力してください。')
-                return redirect(back)
-            Budget.objects.update_or_create(
-                category=category,
-                defaults={'monthly_limit': limit, 'note': request.POST.get('note', '').strip()})
-            messages.success(request, f'{category} の予算を月 ¥{limit:,} に設定しました。')
-            return redirect(back)
 
         if form_id == 'template_item':
             # 理想の支出テンプレートの項目（名前＋理想の月額）。すべて手入力・台帳とは無関係
@@ -252,19 +230,6 @@ def month(request):
                 ym=ym, item=item,
                 defaults={'amount': amount, 'note': request.POST.get('note', '').strip()[:100]})
             messages.success(request, f'{ym} の {item} を ¥{amount:,} で登録しました。')
-            return redirect(back)
-
-        if form_id == 'budget_seed':
-            # 平常月（中央値）を初期値として一括で入れる。まず基準を作るための機能
-            data = monthly.build(ym or None)
-            created = 0
-            for c in data.get('cat_rows', []):
-                base = c.get('baseline') or 0
-                if base > 0 and not Budget.objects.filter(category=c['name']).exists():
-                    Budget.objects.create(category=c['name'], monthly_limit=base,
-                                          note='平常月から自動設定')
-                    created += 1
-            messages.success(request, f'{created}件の予算を平常月の水準で設定しました。必要に応じて調整してください。')
             return redirect(back)
 
     return render(request, 'spending/month.html', monthly.build(request.GET.get('ym')))
