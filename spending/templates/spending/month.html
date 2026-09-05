@@ -41,6 +41,35 @@
     </form>
   </div>
 
+  <!-- サマリー（当月の支出額。ユーザー要望でテンプレートより上に置く） -->
+  <div class="pf-card">
+    <div class="pf-hero">
+      <div>
+        <div class="k">{{ ym }} の支出（{{ count }}件）</div>
+        <div class="total num">¥{{ total|intcomma }}</div>
+      </div>
+      <div class="pf-chips">
+        <div class="pf-chip"><div class="k">前月比</div>
+          <div class="v num {% if vs_prev.value > 0 %}pf-neg{% elif vs_prev.value < 0 %}pf-pos{% endif %}">
+            {% if vs_prev.value > 0 %}+{% endif %}¥{{ vs_prev.value|intcomma }}
+            {% if vs_prev.pct is not None %}<span class="sp-unit">{% if vs_prev.pct > 0 %}+{% endif %}{{ vs_prev.pct }}%</span>{% endif %}
+          </div></div>
+        <div class="pf-chip"><div class="k">平常月との差</div>
+          <div class="v num {% if vs_median.value > 0 %}pf-neg{% elif vs_median.value < 0 %}pf-pos{% endif %}">
+            {% if vs_median.value > 0 %}+{% endif %}¥{{ vs_median.value|intcomma }}
+          </div></div>
+        <div class="pf-chip"><div class="k">平常月（中央値）</div>
+          <div class="v num pf-muted">¥{{ median|intcomma }}</div></div>
+        <div class="pf-chip"><div class="k">固定費</div>
+          <div class="v num">¥{{ fixed|intcomma }}<span class="sp-unit">{{ fixed_pct }}%</span></div></div>
+      </div>
+    </div>
+    <div class="pf-note">
+      「平常月」は直近12か月の<b>中央値</b>です。平均だと年払いや大型出費のある月に引っ張られて
+      「いつも」を表さないため、中央値を基準にしています。
+    </div>
+  </div>
+
   {% comment %}
     理想の支出テンプレートと実際（ユーザー要望 2026-09-06・大幅修正後）。
     - 積み上げ横棒2本: 上＝理想、下＝この月の実際。同じ項目は同じ色。
@@ -242,35 +271,6 @@
       <button class="pf-btn sp-btn-sub" type="submit">基準日と目標を保存</button>
     </form>
     </details>
-  </div>
-
-  <!-- サマリー -->
-  <div class="pf-card">
-    <div class="pf-hero">
-      <div>
-        <div class="k">{{ ym }} の支出（{{ count }}件）</div>
-        <div class="total num">¥{{ total|intcomma }}</div>
-      </div>
-      <div class="pf-chips">
-        <div class="pf-chip"><div class="k">前月比</div>
-          <div class="v num {% if vs_prev.value > 0 %}pf-neg{% elif vs_prev.value < 0 %}pf-pos{% endif %}">
-            {% if vs_prev.value > 0 %}+{% endif %}¥{{ vs_prev.value|intcomma }}
-            {% if vs_prev.pct is not None %}<span class="sp-unit">{% if vs_prev.pct > 0 %}+{% endif %}{{ vs_prev.pct }}%</span>{% endif %}
-          </div></div>
-        <div class="pf-chip"><div class="k">平常月との差</div>
-          <div class="v num {% if vs_median.value > 0 %}pf-neg{% elif vs_median.value < 0 %}pf-pos{% endif %}">
-            {% if vs_median.value > 0 %}+{% endif %}¥{{ vs_median.value|intcomma }}
-          </div></div>
-        <div class="pf-chip"><div class="k">平常月（中央値）</div>
-          <div class="v num pf-muted">¥{{ median|intcomma }}</div></div>
-        <div class="pf-chip"><div class="k">固定費</div>
-          <div class="v num">¥{{ fixed|intcomma }}<span class="sp-unit">{{ fixed_pct }}%</span></div></div>
-      </div>
-    </div>
-    <div class="pf-note">
-      「平常月」は直近12か月の<b>中央値</b>です。平均だと年払いや大型出費のある月に引っ張られて
-      「いつも」を表さないため、中央値を基準にしています。
-    </div>
   </div>
 
   <!-- いつもと違う点 -->
