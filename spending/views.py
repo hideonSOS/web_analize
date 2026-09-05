@@ -190,9 +190,10 @@ def month(request):
             # ⚠️ 既存の手入力項目は削除する。最初は「既にある項目は触らない」にしたところ、
             # 手入力の「家賃」と銀行由来の「家賃（SMBC 口座振替）」が並んで家賃が二重に
             # なった（実際に指摘を受けた）。銀行の実績を採用する時点で手入力は要らない。
-            # ⚠️ 支出（expense）だけ入れる。カード引落・ATM・証券振込は口座の動きであって
-            # 節約の目標項目ではない（カレンダーには出る）
-            rows = [r for r in monthly.bank_recurring() if r['treat'] == 'expense']
+            # 支出（expense）と**カード引き落とし**を入れる（ユーザー要望 2026-09-06:
+            # カードの月平均も理想テンプレートに）。ATM・証券振込は口座の動きであって
+            # 節約の目標項目ではないので入れない（カレンダーには出る）
+            rows = [r for r in monthly.bank_recurring() if r['treat'] in ('expense', 'card_settlement')]
             if not rows:
                 messages.error(request, '銀行明細に毎月の引き落としが見つかりませんでした（銀行 CSV は取り込み済みですか）。')
                 return redirect(back)
