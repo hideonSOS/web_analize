@@ -29,7 +29,7 @@ def _frame() -> pd.DataFrame:
     手動で直した分類・必要度はここで反映する（再取込では上書きされない値）。
     """
     rows = list(Transaction.objects.values(
-        'date', 'ym', 'amount', 'source_kind', 'source_name', 'merchant', 'shop_norm', 'label',
+        'date', 'ym', 'amount', 'source_kind', 'source_name', 'merchant', 'shop', 'shop_norm', 'label',
         'category', 'subcategory', 'category_source', 'kind', 'necessity',
         'in_total', 'exclude_reason', 'row_type', 'match_status', 'dup_flag',
         'manual_category', 'manual_subcategory', 'manual_necessity', 'exclude_override',
@@ -56,7 +56,6 @@ def _frame() -> pd.DataFrame:
     # analyze 側が参照する列を補う。DB には持たない（ルール由来の付随情報）ので
     # 空で用意する。無いと groupby(...).agg で KeyError になる
     df['rule_note'] = ''
-    df['shop'] = df['shop_norm']
     return df
 
 
@@ -90,6 +89,57 @@ def _monthly_profile(recent: pd.DataFrame) -> dict:
             'typical': int(pd.Series(vals).median()) if vals else 0,
         }
     return out
+
+
+def _record_quality(total: pd.DataFrame, months: int) -> tuple[list, dict]:
+    """記録の質（支払元がどれだけ埋まっているか）を月ごとに出す。
+
+    なぜ見るか: Zaim のレシート撮影で取り込んだ行には**支払元も店名も付かない**。
+    実測で支出の62%・112万円が「どの財布から出たか分からない」状態だった。
+    金額の合計は正しい（レシートとカード請求の二重計上は0件と確認済み）ので
+    これは完全性の問題ではないが、店名まで無い行は後から見直しようがない。
+
+    レシート撮影をやめて「1回の買い物＝1行」で記録すれば消える問題なので、
+    続けられているかを月次で追えるようにする。**下がっていくのが見えること**が目的。
+    """
+    if total.empty:
+        return [], {}
+    g = total.groupby('ym').apply(
+        lambda d: pd.Series({
+            'total': int(d['amount'].sum()),
+            'unset': int(d.loc[d['source_kind'] == 'unset', 'amount'].sum()),
+            'noshop': int(d.loc[d['shop'].fillna('').str.strip() == '', 'amount'].sum()),
+        }), include_groups=False).sort_index().tail(months)
+
+    # ⚠️ 当月は締まっていない。5日時点の数字をそのまま並べると「0%に改善した」と
+    # 読めてしまう（実際そう出た）。行としては出すが、判定からは必ず外す
+    this_month = pd.Timestamp.today().strftime('%Y-%m')
+    rows = []
+    for ym, r in g.iterrows():
+        tot = int(r['total']) or 1
+        rows.append({
+            'ym': ym, 'total': int(r['total']), 'unset': int(r['unset']),
+            'noshop': int(r['noshop']),
+            'pct': round(int(r['unset']) / tot * 100, 1),
+            'noshop_pct': round(int(r['noshop']) / tot * 100, 1),
+            'partial': ym >= this_month,
+        })
+
+    closed = [r for r in rows if not r['partial']]
+    if not closed:
+        return rows, {}
+    latest = closed[-1]
+    # 直近月だけだと偶然の上下に振り回されるので、それ以前の中央値と比べる
+    before = [r['pct'] for r in closed[:-1]]
+    base = float(pd.Series(before).median()) if before else latest['pct']
+    delta = round(latest['pct'] - base, 1)
+    summary = {
+        'latest': latest, 'base': round(base, 1), 'delta': delta,
+        'improving': delta < -3, 'worsening': delta > 3,
+        'unset_total': sum(r['unset'] for r in rows),
+        'noshop_total': sum(r['noshop'] for r in rows),
+    }
+    return rows, summary
 
 
 def build(months: int = RECENT_MONTHS) -> dict:
@@ -267,9 +317,13 @@ def build(months: int = RECENT_MONTHS) -> dict:
         for k, g in ex.groupby('exclude_reason') if k
     ]
 
+    quality_rows, quality = _record_quality(total, months)
+
     return {
         'has_data': True,
         'kpi': kpi,
+        'quality_rows': quality_rows,
+        'quality': quality,
         'monthly_spec': monthly_spec,
         'category_rows': category_rows,
         'merchant_rows': merchant_rows,

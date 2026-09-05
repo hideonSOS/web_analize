@@ -257,6 +257,60 @@
   </div>
   {% endif %}
 
+  {% comment %}
+    記録の質。Zaimのレシート撮影で取り込んだ行には支払元も店名も付かず、
+    実測で支出の62%が「どの財布から出たか分からない」状態だった。
+    金額の合計は正しい（レシートとカード請求の二重計上は0件と確認済み）ので
+    集計の誤りではないが、店名まで無い行は後から見直しようがない。
+    「1回の買い物＝1行」で記録すれば消える問題なので、続いているかを月次で追う。
+  {% endcomment %}
+  {% if quality_rows %}
+  <div class="pf-card">
+    <h2>記録の質 <span class="pf-hint">支払元が埋まっているか・下がるほど良い</span></h2>
+    <div class="pf-hero">
+      <div>
+        <div class="k">{{ quality.latest.ym }}（締まった最後の月）の支払元 未設定</div>
+        <div class="total num {% if quality.improving %}pf-pos{% elif quality.worsening %}pf-neg{% endif %}">
+          {{ quality.latest.pct }}<span class="sp-unit">%</span></div>
+      </div>
+      <div class="pf-chips">
+        <div class="pf-chip"><div class="k">それ以前の中央値</div>
+          <div class="v num pf-muted">{{ quality.base }}%</div></div>
+        <div class="pf-chip"><div class="k">前月までとの差</div>
+          <div class="v num {% if quality.improving %}pf-pos{% elif quality.worsening %}pf-neg{% endif %}">
+            {% if quality.delta > 0 %}+{% endif %}{{ quality.delta }}pt</div></div>
+        <div class="pf-chip"><div class="k">直近{{ kpi.months }}か月の未設定額</div>
+          <div class="v num">¥{{ quality.unset_total|intcomma }}</div></div>
+        <div class="pf-chip"><div class="k">うち店名も無い</div>
+          <div class="v num">¥{{ quality.noshop_total|intcomma }}</div></div>
+      </div>
+    </div>
+
+    <div class="sp-bars num sp-quality">
+      {% for r in quality_rows %}
+      <div class="sp-bar-row{% if r.partial %} sp-q-partial{% endif %}">
+        <div class="sp-bar-name">{{ r.ym }}{% if r.partial %} <span>集計中</span>{% endif %}</div>
+        <div class="sp-bar-track">
+          <div class="sp-bar-fill" style="width:{{ r.pct }}%; background:#fbbf24"></div>
+          {% comment %} 濃い部分は店名も無い＝後から見直しようがない金額 {% endcomment %}
+          <div class="sp-bar-fill sp-q-noshop" style="width:{{ r.noshop_pct }}%"></div>
+        </div>
+        <div class="sp-bar-amt">{{ r.pct }}%<span class="sp-sub">¥{{ r.unset|intcomma }}</span></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="pf-note">
+      <b>金額の合計は正しく、二重計上もありません</b>（レシート束とカード請求を突き合わせて一致0件を確認済み）。
+      分からないのは「どの財布から出たか」だけです。<br>
+      濃い部分は<b>店名も無い行</b>で、これは後から見直しようがありません。<br>
+      原因はZaimのレシート撮影です。1回の買い物が10〜20行の商品明細に分解され、支払元も店名も付きません。
+      <b>「1回の買い物＝1行」で支払元を選んで記録すれば消えます</b>（入力の手間はむしろ減ります）。
+      現金払いを楽天カードに寄せれば、連携で自動的に埋まります。
+    </div>
+  </div>
+  {% endif %}
+
   <!-- データの取り込み -->
   <div class="pf-card">
     <h2>CSVの取り込み <span class="pf-hint">手動ダウンロード → アップロード</span></h2>

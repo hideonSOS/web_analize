@@ -145,3 +145,10 @@
 .sp-items ul{ margin:4px 0 0; padding-left:14px; }
 .sp-items li{ font-size:10px; color:#9ca3af; line-height:1.5; }
 .sp-items li span{ color:#6b7280; margin-left:4px; }
+
+/* 記録の質: 未設定率の月次バー。濃い重ね部分は「店名も無い＝追跡不能」な金額 */
+.sp-quality .sp-bar-track{ position:relative; }
+.sp-quality .sp-q-noshop{ position:absolute; left:0; top:0; height:100%;
+  background:#b45309; }
+.sp-q-partial{ opacity:.5; }
+.sp-q-partial .sp-bar-name span{ font-size:9px; color:#6b7280; }
