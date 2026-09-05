@@ -15,6 +15,10 @@ from .models import MonthlyIncome, SavingsPlan, Transaction
 
 RECENT_MONTHS = 12
 
+# 月次推移の積み上げに出すカテゴリ数。残りは「その他」に畳む。
+# 12色を全部積むと凡例が読めず、スマホでは判別不能になる
+MONTHLY_STACK_TOP = 7
+
 # 「毎月引き落とし」と見なす連続月数。⚠️ 出現月数の合計で判定しないこと。
 # 12か月中8か月でも、途中で一度解約して再契約したものは毎月払いに見えず弾かれる
 # （実際 Claude は 2025-11〜2026-01 に空白があり「不定期」に落ちた）。
@@ -234,31 +238,41 @@ def build(months: int = RECENT_MONTHS) -> dict:
         'decided_annual': decided_monthly * 12,
     }
 
-    # --- 月次推移（支払元別の積み上げ） -------------------------------------
-    piv = (total.pivot_table(index='ym', columns='source_kind', values='amount',
-                             aggfunc='sum', fill_value=0).sort_index())
-    labels = {'card': '楽天カード', 'cash': '現金', 'bank': '銀行', 'unset': '支払元未設定'}
-    colors = {'card': '#1e90ff', 'cash': '#fbbf24', 'bank': '#8b5cf6', 'unset': '#34d399'}
-    monthly_spec = {
-        'months': list(piv.index),
-        'series': [
-            {'name': labels.get(k, k), 'color': colors.get(k, '#63b3ff'),
-             'data': [int(v) for v in piv[k]]}
-            for k in ('card', 'cash', 'bank', 'unset') if k in piv.columns
-        ],
-        'totals': [int(v) for v in piv.sum(axis=1)],
-    }
-
-    # --- カテゴリ内訳（直近） ---------------------------------------------
+    # --- カテゴリの順位と色（月次推移と内訳で共用） ---------------------------
+    # ⚠️ 2つのカードで同じカテゴリは同じ色にすること。別々に採番すると
+    # 「推移の青」と「内訳の青」が違うカテゴリを指して読み違える
     cat = (recent.groupby('category_final')['amount'].sum()
            .sort_values(ascending=False).head(12))
     palette = ['#1e90ff', '#8b5cf6', '#34d399', '#fbbf24', '#f87171', '#63b3ff',
                '#c4b5fd', '#f9a8d4', '#5eead4', '#fdba74', '#94a3b8', '#a3e635']
+    cat_color = {(n or '未分類'): palette[i % len(palette)] for i, (n, _) in enumerate(cat.items())}
+
+    # --- 月次推移（カテゴリ別の積み上げ） -----------------------------------
+    # 以前は支払元（カード/現金/未設定）で積んでいたが、支払元未設定が62%を占めるため
+    # ほぼ単色になり「何のグラフか分からない」とユーザー指摘。支払元の内訳は
+    # 「記録の質」カードが担うので、ここは**何に使ったか**を見せる
+    piv = (total.pivot_table(index='ym', columns='category_final', values='amount',
+                             aggfunc='sum', fill_value=0).sort_index())
+    piv.columns = [(c or '未分類') for c in piv.columns]
+    # 積み上げは上位だけにし、残りは「その他」に畳む（12色を全部積むと凡例が読めない）
+    top = [c for c in cat_color if c in piv.columns][:MONTHLY_STACK_TOP]
+    rest = [c for c in piv.columns if c not in top]
+    series = [{'name': c, 'color': cat_color[c], 'data': [int(v) for v in piv[c]]} for c in top]
+    if rest:
+        series.append({'name': 'その他', 'color': '#4b5563',
+                       'data': [int(v) for v in piv[rest].sum(axis=1)]})
+    monthly_spec = {
+        'months': list(piv.index),
+        'series': series,
+        'totals': [int(v) for v in piv.sum(axis=1)],
+    }
+
+    # --- カテゴリ内訳（直近） ---------------------------------------------
     cat_total = int(cat.sum()) or 1
     category_rows = [
         {'name': n or '未分類', 'value': int(v), 'pct': round(int(v) / cat_total * 100, 1),
-         'color': palette[i % len(palette)]}
-        for i, (n, v) in enumerate(cat.items())
+         'color': cat_color[n or '未分類']}
+        for n, v in cat.items()
     ]
 
     # --- 加盟店ランキング（直近） -------------------------------------------
@@ -385,6 +399,7 @@ def build(months: int = RECENT_MONTHS) -> dict:
         'income_rows': income_rows,
         'income': income,
         'monthly_spec': monthly_spec,
+        'monthly_stack_top': MONTHLY_STACK_TOP,
         'category_rows': category_rows,
         'merchant_rows': merchant_rows,
         'sub_rows': sub_rows,

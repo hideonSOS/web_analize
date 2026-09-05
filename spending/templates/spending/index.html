@@ -54,7 +54,12 @@
 
   <!-- ② 月次推移（棒をクリックでその月の詳細へ） -->
   <div class="pf-card">
-    <h2>支出の推移 <span class="pf-hint">支払元別・{{ period.from }}〜{{ period.to }}</span></h2>
+    {% comment %}
+      以前は支払元（カード/現金/未設定）で積んでいたが、支払元未設定が62%を占めて
+      ほぼ単色になり「何のグラフか分からない」と指摘を受けた。支払元の内訳は
+      「記録の質」カードが担うので、ここは何に使ったか（カテゴリ）を見せる
+    {% endcomment %}
+    <h2>支出の推移 <span class="pf-hint">カテゴリ別・上位{{ monthly_stack_top }}＋その他・{{ period.from }}〜{{ period.to }}</span></h2>
     <div id="sp-monthly-chart" class="sp-chart"></div>
     <div class="pf-note">
       グラフの月をクリックすると、その月の詳細（前月・平常月との比較）が開きます。
