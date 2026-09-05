@@ -24,8 +24,17 @@
 ```bash
 python scripts/zaim_authorize.py
 ```
+venv の Python で実行する（システムの Python には requests が無い）:
+```powershell
+& "<プロジェクト>\venv\Scripts\python.exe" "<プロジェクト>\scripts\zaim_authorize.py"
+```
 Consumer Key / Secret を入力 → 表示された URL をブラウザで開いて Zaim にログイン →「許可」
-→ 画面の認証コード（PIN）を入力 → 最後に JSON が出る。
+→ 画面の認証コード（oauth_verifier）を入力するか、`http://127.0.0.1:5000/callback?...` へ飛んで
+「アクセスできません」と出た場合はその URL を丸ごと貼る → 最後に JSON が出る。
+
+⚠️ `oauth_callback='oob'` は Zaim が受け付けず **401** になる（実際に踏んだ）。コールバックは
+URL の形が必須で、既定は `http://127.0.0.1:5000/callback`（ローカルにサーバーは不要）。
+アプリ登録画面にコールバック URL 欄があれば同じ値を入れる。
 
 ## 3. サーバーの config.json に貼る
 ```json

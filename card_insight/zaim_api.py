@@ -39,6 +39,10 @@ API_BASE = 'https://api.zaim.net/v2'
 AUTH_REQUEST_URL = 'https://api.zaim.net/v2/auth/request'
 AUTH_ACCESS_URL = 'https://api.zaim.net/v2/auth/access'
 AUTHORIZE_URL = 'https://auth.zaim.net/users/auth'
+# ⚠️ Zaim は oauth_callback='oob' を受け付けず 401 を返す（実際に踏んだ）。URL の形が必須。
+# 承認後はこの URL へ oauth_verifier 付きで飛ぶ（ローカルにサーバーは要らない。アドレス欄か
+# 画面のコピーボタンから verifier を取る）。pyzaim も同じ既定値
+DEFAULT_CALLBACK = 'http://127.0.0.1:5000/callback'
 PAGE_LIMIT = 100            # API の上限
 PAGE_SLEEP = 0.3            # ページ間の待ち（レート制限の明記は無いが礼儀として）
 RETRY = 3
@@ -97,7 +101,7 @@ class ZaimClient:
         return 'OAuth ' + ', '.join(f'{_pct(k)}="{_pct(v)}"' for k, v in sorted(oauth.items()))
 
     # --- 認可（初回にローカルで1度だけ） ------------------------------------
-    def request_token(self, callback: str = 'oob') -> dict:
+    def request_token(self, callback: str = DEFAULT_CALLBACK) -> dict:
         h = self.auth_header('GET', AUTH_REQUEST_URL, extra={'oauth_callback': callback})
         r = self.session.get(AUTH_REQUEST_URL, headers={'Authorization': h}, timeout=30)
         r.raise_for_status()

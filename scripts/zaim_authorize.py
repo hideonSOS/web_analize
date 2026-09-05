@@ -6,7 +6,11 @@
        （サービス種別は「クライアント型」、コールバックは不要。権限は 読み込み＋書き込み でよい。
        ⚠️ 書き込み権限があっても出金・口座操作はできない。家計簿の記録の読み書きまで）
     2. このスクリプトを実行し、Consumer Key / Secret を入力
-    3. 表示された URL をブラウザで開いて Zaim にログインし「許可」→ 画面の認証コード（PIN）を入力
+    3. 表示された URL をブラウザで開いて Zaim にログインし「許可」。
+       → 画面に認証コード（oauth_verifier）が出ればそれを入力。
+       → 代わりに http://127.0.0.1:5000/callback?...&oauth_verifier=XXXX へ飛んで
+         「このサイトにアクセスできません」と出たら、アドレス欄の URL を丸ごと貼ればよい
+         （oauth_verifier を自動で取り出す）
     4. 最後に表示される JSON を、**サーバーの config.json** に "zaim" キーとして貼る
        （config.json は .gitignore 済み。リポジトリには絶対に入れないこと）
 
@@ -31,10 +35,16 @@ def main():
     if not ck or not cs:
         print('鍵が空です'); return 1
     c = ZaimClient(ck, cs)
-    c.request_token('oob')
+    c.request_token()
     print('\n次の URL をブラウザで開き、Zaim にログインして「許可」してください:\n')
     print('  ' + c.authorize_url() + '\n')
-    verifier = input('画面に出た認証コード（PIN）: ').strip()
+    print('許可後、画面に出た認証コードか、飛んだ先の URL（127.0.0.1:5000/callback?...）を丸ごと貼ってください。')
+    verifier = input('認証コード または URL: ').strip()
+    if 'oauth_verifier=' in verifier:
+        from urllib.parse import parse_qs, urlparse
+        verifier = parse_qs(urlparse(verifier).query).get('oauth_verifier', [''])[0]
+    if not verifier:
+        print('認証コードが空です'); return 1
     c.access_token(verifier)
     me = c.verify()
     print(f'\n認証OK: user_id={me.get("id")} login={me.get("login", "")}\n')
