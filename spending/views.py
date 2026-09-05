@@ -185,25 +185,31 @@ def month(request):
             return redirect(back)
 
         if form_id == 'template_seed_bank':
-            # 理想テンプレートの雛形を銀行明細の実績から作る（ユーザー要望 2026-09-06）。
+            # 理想テンプレートを銀行明細の実績で**作り直す**（ユーザー要望 2026-09-06）。
             # 各引き落としの 月平均額 → 理想、典型的な日（各回の中央値）→ 引き落とし日。
+            # ⚠️ 既存の手入力項目は削除する。最初は「既にある項目は触らない」にしたところ、
+            # 手入力の「家賃」と銀行由来の「家賃（SMBC 口座振替）」が並んで家賃が二重に
+            # なった（実際に指摘を受けた）。銀行の実績を採用する時点で手入力は要らない。
             # ⚠️ 支出（expense）だけ入れる。カード引落・ATM・証券振込は口座の動きであって
-            # 節約の目標項目ではない（カレンダーには出る）。既にある項目は触らない
-            # （人が直した理想額を実績で上書きしないため）
-            created, skipped = 0, []
-            for r in monthly.bank_recurring():
-                if r['treat'] != 'expense':
-                    continue
-                if TemplateItem.objects.filter(name=r['name']).exists():
-                    skipped.append(r['name'])
-                    continue
-                TemplateItem.objects.create(name=r['name'], ideal=r['amount'], debit_day=r['day'])
-                created += 1
-            msg = f'銀行明細の実績から {created}件の項目を作りました（月平均額・典型的な引き落とし日）。'
-            if skipped:
-                msg += f' 既にあった {len(skipped)}件（{"・".join(skipped)}）はそのままです。'
-            if not created and not skipped:
-                msg = '銀行明細に毎月の引き落としが見つかりませんでした（銀行 CSV は取り込み済みですか）。'
+            # 節約の目標項目ではない（カレンダーには出る）
+            rows = [r for r in monthly.bank_recurring() if r['treat'] == 'expense']
+            if not rows:
+                messages.error(request, '銀行明細に毎月の引き落としが見つかりませんでした（銀行 CSV は取り込み済みですか）。')
+                return redirect(back)
+            removed = list(TemplateItem.objects.values_list('name', flat=True))
+            TemplateItem.objects.all().delete()
+            new_names = {r['name'] for r in rows}
+            # 消えた項目の月ごとの実績も消す（項目が無いのに実績だけ残ると表示されず追えない）
+            orphans = FixedCostEntry.objects.exclude(item__in=new_names).delete()[0]
+            TemplateItem.objects.bulk_create([
+                TemplateItem(name=r['name'], ideal=r['amount'], debit_day=r['day'], order=i)
+                for i, r in enumerate(rows)
+            ])
+            msg = f'銀行明細の実績から {len(rows)}件の項目で作り直しました（月平均額・典型的な引き落とし日）。'
+            if removed:
+                msg += f' それまでの {len(removed)}件（{"・".join(removed)}）は削除しました。'
+            if orphans:
+                msg += f' 項目が無くなった月別の実績 {orphans}件も削除しました。'
             messages.success(request, msg)
             return redirect(back)
 
