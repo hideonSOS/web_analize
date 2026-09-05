@@ -213,23 +213,54 @@ def import_income(zaim_path: Path) -> dict:
     }
 
 
-def seed_label_rules_if_empty() -> int:
-    """label_rules.csv を LabelRule へ初回シードする。以後は DB が正（sync_label_rules で反映）。"""
-    if LabelRule.objects.exists():
-        return 0
+def sync_label_rules_from_csv(prune: bool = False) -> dict:
+    """label_rules.csv → LabelRule を upsert する。**取り込みのたびに自動で呼ぶ**。
+
+    ⚠️ 品目辞書は CSV が正。MerchantRule（DB が正・画面で育てる）とは逆の設計。
+    理由: ユーザーは辞書を CSV で育てる運用を選んだ。CSV を直して git pull しただけで
+    次の取り込みに効かないと「直したのに変わらない」事故になる（以前は sync コマンドを
+    別に打つ必要があり、それを忘れると黙って旧ルールのままだった）。
+    削除は既定でしない（prune=True のときだけ）。CSV から消した行が DB に残っても
+    害は小さく、消えた行を勝手に消す方が事故が大きいため。
+    """
     import pandas as pd
     csv = Path(settings.BASE_DIR) / 'card_insight' / 'label_rules.csv'
     if not csv.exists():
-        return 0
-    df = pd.read_csv(csv, encoding='utf-8-sig').fillna('')
-    objs = [
-        LabelRule(priority=int(r.get('priority') or 100), pattern=str(r['pattern']),
-                  category=str(r.get('category') or ''), subcategory=str(r.get('subcategory') or ''),
-                  note=str(r.get('note') or ''))
-        for _, r in df.iterrows() if str(r.get('pattern') or '').strip()
-    ]
-    LabelRule.objects.bulk_create(objs)
-    return len(objs)
+        return {'added': 0, 'changed': 0, 'removed': 0}
+    try:
+        df = pd.read_csv(csv, encoding='utf-8-sig').fillna('')
+    except Exception:  # noqa: BLE001  辞書が壊れていても取り込みは止めない（旧ルールで続行）
+        return {'added': 0, 'changed': 0, 'removed': 0}
+    existing = {r.pattern: r for r in LabelRule.objects.all()}
+    seen, added, changed = set(), 0, 0
+    for _, row in df.iterrows():
+        pattern = str(row.get('pattern') or '').strip()
+        if not pattern:
+            continue
+        seen.add(pattern)
+        values = {
+            'priority': int(row.get('priority') or 100),
+            'category': str(row.get('category') or ''),
+            'subcategory': str(row.get('subcategory') or ''),
+            'note': str(row.get('note') or ''),
+        }
+        obj = existing.get(pattern)
+        if obj is None:
+            LabelRule.objects.create(pattern=pattern, **values)
+            added += 1
+            continue
+        diff = [k for k, v in values.items() if getattr(obj, k) != v]
+        if diff:
+            for k in diff:
+                setattr(obj, k, values[k])
+            obj.save(update_fields=diff)
+            changed += 1
+    removed = 0
+    if prune:
+        orphans = set(existing) - seen
+        if orphans:
+            removed = LabelRule.objects.filter(pattern__in=orphans).delete()[0]
+    return {'added': added, 'changed': changed, 'removed': removed}
 
 
 def apply_label_rules(led):
@@ -244,7 +275,7 @@ def apply_label_rules(led):
     品目名だけでは決まらないため（label_kind が item の行だけを対象にする）。
     """
     import re
-    seed_label_rules_if_empty()
+    sync_label_rules_from_csv()          # CSV を直して取り込めば効く（sync コマンド不要）
     rules = list(LabelRule.objects.all())
     if not rules or 'label' not in led.columns:
         return led
