@@ -90,6 +90,52 @@
       上が理想、下がこの月の実際。長い方の合計を100%にしているので、棒の長さで比べられます。
       実際が理想を超えた項目は赤、抑えられた項目は緑。
     </div>
+
+    {% comment %}
+      引き落としカレンダー（2026-09-06）。理想額を引き落とし日順に並べ、累計で
+      「その日までにいくら口座から出るか」を出す。カード払いの項目は各サービスの日では
+      なくカードの引き落とし日に1本でまとめる（実際の口座の動きに合わせる）。
+      当月なら今日の位置に印を付け、「今日以降にまだ出ていく額」を見出しに出す。
+    {% endcomment %}
+    {% if schedule %}
+    <h3 class="sp-subsec">引き落としカレンダー
+      <span>月の概算ランニングコスト ¥{{ schedule.total|intcomma }}
+        {% if schedule.is_current and schedule.remaining is not None %}／ 今日（{{ schedule.today }}日）以降にあと <b>¥{{ schedule.remaining|intcomma }}</b>{% endif %}</span></h3>
+    {% if schedule.rows %}
+    <div class="pf-scroll">
+      <table class="pf-table num sp-sched">
+        <tr><th>日</th><th style="text-align:left">項目</th><th>額</th><th>累計</th></tr>
+        {% comment %} 給与日の目印はビュー側で kind='salary' の行として挿入済み {% endcomment %}
+        {% for r in schedule.rows %}
+        {% if r.kind == 'salary' %}
+        <tr class="sp-sched-salary {% if r.passed %}sp-sched-passed{% endif %}">
+          <td>{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
+          <td colspan="3" style="text-align:left">💴 給与日（ここで残高が戻る）</td>
+        </tr>
+        {% else %}
+        <tr class="{% if r.passed %}sp-sched-passed{% elif r.today %}sp-sched-today{% endif %}{% if r.kind == 'card' %} sp-sched-card{% endif %}">
+          <td>{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
+          <td style="text-align:left">
+            <span class="sp-tpl-swatch" style="background:{{ r.color }}"></span> {{ r.name }}
+            {% if r.kind == 'card' %}<span class="sp-sub">{{ r.members|join:"・" }}</span>{% endif %}</td>
+          <td>¥{{ r.amount|intcomma }}</td>
+          <td>¥{{ r.cum|intcomma }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+    {% if schedule.undated %}
+    <p class="pf-note sp-subnote">日付未設定:
+      {% for u in schedule.undated %}<b>{{ u.name }}</b> ¥{{ u.amount|intcomma }}{% if not forloop.last %} ／ {% endif %}{% endfor %}
+      （項目の欄で引き落とし日を入れると表に並びます）</p>
+    {% endif %}
+    <p class="pf-note sp-subnote">
+      金額は理想額です。カード払いの項目は各サービスの日ではなく<b>カードの引き落とし日（{{ schedule.card_day }}日）に1本</b>で出します。
+      累計が「その日までに口座から出る額」＝それまでに置いておく残高の目安です。
+    </p>
+    {% endif %}
     {% else %}
     <div class="pf-note" style="margin-top:0">
       項目がまだありません。下の欄で「家賃 65000」「電気 8000」のように、項目と理想の月額を
@@ -113,6 +159,12 @@
           <label class="pf-fld">理想の月額（円・空で項目を削除）
             <input type="text" name="ideal" inputmode="numeric" placeholder="例: 65000"></label>
         </div>
+        <div class="pf-row2">
+          <label class="pf-fld">引き落とし日（1〜31・月末は31・空で未設定）
+            <input type="number" name="debit_day" min="1" max="31" placeholder="例: 27"></label>
+          <label class="pf-fld sp-check"><input type="checkbox" name="via_card" value="1">
+            カード払い（{{ spending_setting.card_debit_day }}日にまとめる）</label>
+        </div>
         <button class="pf-btn sp-btn-sub" type="submit">理想を保存</button>
       </form>
 
@@ -135,6 +187,20 @@
       どちらも手入力です。理想は一度置けば全ての月に共通、実際は月ごとに入れます（月は上の選択で切り替え）。
       支出分析の自動集計（CSV）とは独立しています。
     </div>
+
+    {% comment %} 引き落としカレンダーの基準日。カードの引き落とし日と給与日 {% endcomment %}
+    <form method="post" class="pf-frm sp-budget-form sp-setting-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="spending_setting">
+      <input type="hidden" name="ym" value="{{ ym }}">
+      <div class="pf-row2">
+        <label class="pf-fld">カードの引き落とし日
+          <input type="number" name="card_debit_day" min="1" max="31" value="{{ spending_setting.card_debit_day }}"></label>
+        <label class="pf-fld">給与日（カレンダーの目印）
+          <input type="number" name="salary_day" min="1" max="31" value="{{ spending_setting.salary_day }}"></label>
+      </div>
+      <button class="pf-btn sp-btn-sub" type="submit">基準日を保存</button>
+    </form>
   </div>
 
   <!-- サマリー -->

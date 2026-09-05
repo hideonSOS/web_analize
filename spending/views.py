@@ -15,7 +15,8 @@ from django.urls import reverse
 
 from . import monthly, services, summary
 from .models import (
-    Budget, FixedCostEntry, ImportLog, MonthlyIncome, SavingsPlan, TemplateItem, Transaction,
+    Budget, FixedCostEntry, ImportLog, MonthlyIncome, SavingsPlan, SpendingSetting,
+    TemplateItem, Transaction,
 )
 
 
@@ -163,8 +164,41 @@ def month(request):
             except ValueError:
                 messages.error(request, '理想の額は数字で入力してください。')
                 return redirect(back)
-            TemplateItem.objects.update_or_create(name=name, defaults={'ideal': ideal})
-            messages.success(request, f'{name} の理想を月 ¥{ideal:,} にしました。')
+            # 引き落とし日（1〜31・空なら未設定）とカード払い。カード払いは
+            # その項目の日ではなくカードの引き落とし日にまとめて出る
+            day_raw = request.POST.get('debit_day', '').strip()
+            debit_day = None
+            if day_raw:
+                try:
+                    debit_day = int(day_raw)
+                except ValueError:
+                    messages.error(request, '引き落とし日は 1〜31 の数字で入力してください。')
+                    return redirect(back)
+                if not 1 <= debit_day <= 31:
+                    messages.error(request, '引き落とし日は 1〜31 の範囲で入力してください（月末は 31）。')
+                    return redirect(back)
+            via_card = request.POST.get('via_card') == '1'
+            TemplateItem.objects.update_or_create(
+                name=name, defaults={'ideal': ideal, 'debit_day': debit_day, 'via_card': via_card})
+            when = 'カード引き落とし日にまとめ' if via_card else (f'{debit_day}日' if debit_day else '日付未設定')
+            messages.success(request, f'{name} の理想を月 ¥{ideal:,}（{when}）にしました。')
+            return redirect(back)
+
+        if form_id == 'spending_setting':
+            # 引き落としカレンダーの基準日（カードの引き落とし日・給与日）
+            s = SpendingSetting.get()
+            try:
+                card = int(request.POST.get('card_debit_day', s.card_debit_day))
+                salary = int(request.POST.get('salary_day', s.salary_day))
+            except ValueError:
+                messages.error(request, '日付は 1〜31 の数字で入力してください。')
+                return redirect(back)
+            if not (1 <= card <= 31 and 1 <= salary <= 31):
+                messages.error(request, '日付は 1〜31 の範囲で入力してください。')
+                return redirect(back)
+            s.card_debit_day, s.salary_day = card, salary
+            s.save(update_fields=['card_debit_day', 'salary_day'])
+            messages.success(request, f'カード引き落とし日 {card}日・給与日 {salary}日 に設定しました。')
             return redirect(back)
 
         if form_id == 'fixed_cost':

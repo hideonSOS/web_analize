@@ -343,6 +343,11 @@ class TemplateItem(models.Model):
     name = models.CharField(max_length=50, unique=True)
     ideal = models.IntegerField(help_text='理想の月額（円）')
     order = models.IntegerField(default=100, help_text='並び順（小さいほど先）')
+    # 引き落としカレンダー用（2026-09-06）。日付は 1〜31（月末は 31）、未設定は None。
+    # ⚠️ カード払いの項目は「その項目の日」ではなく**カードの引き落とし日**に1本で出る
+    # （楽天は27日）。各サービスの日で並べると実際の口座の動きと合わない
+    debit_day = models.IntegerField(null=True, blank=True, help_text='引き落とし日 1〜31（月末=31）')
+    via_card = models.BooleanField(default=False, help_text='カード払い（カードの引き落とし日にまとめる）')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -350,3 +355,18 @@ class TemplateItem(models.Model):
 
     def __str__(self):
         return f'{self.name} 理想 {self.ideal:,}円/月'
+
+
+class SpendingSetting(models.Model):
+    """支出分析の設定（1行だけ使うシングルトン）。引き落としカレンダーの基準日。"""
+    card_debit_day = models.IntegerField(default=27, help_text='カードの引き落とし日（楽天=27）')
+    salary_day = models.IntegerField(default=25, help_text='給与日（累計を切る目印）')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return '支出分析設定'
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

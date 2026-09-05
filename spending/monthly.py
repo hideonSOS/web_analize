@@ -17,7 +17,7 @@ from datetime import date
 
 from django.db.models import Count, Sum
 
-from .models import Budget, FixedCostEntry, TemplateItem, Transaction
+from .models import Budget, FixedCostEntry, SpendingSetting, TemplateItem, Transaction
 
 # 理想テンプレートの積み上げ横棒の色。テンプレートの並び順に割り当て、
 # 「理想」「実際」の2本で同じ項目は同じ色
@@ -210,6 +210,53 @@ def build(ym: str | None = None) -> dict:
         'ideal': ideal_total, 'actual': actual_total, 'diff': actual_total - ideal_total,
         'entered': sum(1 for r in template_items if r['entered']), 'n': len(items),
     } if items else None
+
+    # --- 引き落としカレンダー（理想額を日付順に並べ、累計で「その日までにいくら出るか」） ---
+    # ⚠️ カード払いの項目は各サービスの日ではなく**カードの引き落とし日に1本**にまとめる
+    # （実際の口座の動きに合わせる）。金額は理想額を使う（実際は月ごとに揃わないため）。
+    setting = SpendingSetting.get()
+    dated, undated, card_items = [], [], []
+    for t in items:
+        if t.via_card:
+            card_items.append(t)
+        elif t.debit_day:
+            dated.append({'day': t.debit_day, 'name': t.name, 'amount': t.ideal, 'color': color_of[t.name],
+                          'kind': 'item'})
+        else:
+            undated.append({'name': t.name, 'amount': t.ideal, 'color': color_of[t.name]})
+    if card_items:
+        dated.append({'day': setting.card_debit_day, 'name': 'カード引き落とし',
+                      'amount': sum(t.ideal for t in card_items), 'color': '#94a3b8', 'kind': 'card',
+                      'members': [t.name for t in card_items]})
+    dated.sort(key=lambda r: (r['day'], -r['amount']))
+    today = date.today()
+    is_current = ym == today.strftime('%Y-%m')
+    acc = 0
+    for r in dated:
+        acc += r['amount']
+        r['cum'] = acc
+        r['passed'] = is_current and r['day'] < today.day
+        r['today'] = is_current and r['day'] == today.day
+    # 給与日の目印。同じ日の引き落としより後ろに置く（給与が入ってから引かれる想定は
+    # 銀行次第なので断定しない。目印として「その日の最後」に表示するだけ）
+    if items and setting.salary_day:
+        pos = next((i for i, r in enumerate(dated) if r['day'] > setting.salary_day), len(dated))
+        dated.insert(pos, {'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
+                           'color': '#34d399', 'kind': 'salary',
+                           'passed': is_current and setting.salary_day < today.day,
+                           'today': is_current and setting.salary_day == today.day})
+    schedule = {
+        'rows': dated,
+        'undated': undated,
+        'total': acc + sum(u['amount'] for u in undated),
+        'dated_total': acc,
+        'card_day': setting.card_debit_day,
+        'salary_day': setting.salary_day,
+        'is_current': is_current,
+        'today': today.day if is_current else None,
+        # 当月なら「今日以降にまだ出ていく額」。給料日前に足りるかを見るための数字
+        'remaining': sum(r['amount'] for r in dated if r['day'] >= today.day) if is_current else None,
+    } if items else None
     budget_limit_total = sum(r['limit'] for r in budget_rows)
     budget_actual_total = sum(r['actual'] for r in budget_rows)
     budget_summary = {
@@ -253,4 +300,6 @@ def build(ym: str | None = None) -> dict:
         'template_bars': template_bars,
         'template_items': template_items,
         'template_summary': template_summary,
+        'schedule': schedule,
+        'spending_setting': setting,
     }

@@ -194,3 +194,15 @@
   .sp-tpl-row{ grid-template-columns:64px 1fr 76px; }
   .sp-tpl-label{ font-size:11px; }
 }
+
+/* 引き落としカレンダー。過ぎた日は薄く、今日は強調、給与日は緑の目印、カード合算は薄い枠 */
+.sp-sched td{ white-space:nowrap; }
+.sp-sched-passed td{ color:#4b5563; }
+.sp-sched-passed .sp-tpl-swatch{ opacity:.35; }
+.sp-sched-today td{ background:#0f172a; color:#e5e7eb; font-weight:600; }
+.sp-sched-mark{ font-size:9px; color:#0b1220; background:#fbbf24; border-radius:4px; padding:0 4px; margin-left:4px; }
+.sp-sched-salary td{ color:#34d399; font-size:11px; border-top:1px dashed #1f2937; }
+.sp-sched-card td:nth-child(2) .sp-sub{ display:block; font-size:10px; color:#6b7280; }
+.sp-check{ flex-direction:row; align-items:center; gap:8px; font-size:12px; color:#cbd5e1; padding-top:20px; }
+.sp-check input{ width:auto; margin:0; }
+.sp-setting-form{ margin-top:10px; padding-top:10px; border-top:1px solid #1f2937; }
