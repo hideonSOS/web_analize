@@ -40,6 +40,7 @@ ASSET_CLASSES = [
     ('stock_us', '米国株'),
     ('fund', '投資信託'),
     ('metal', '貴金属'),
+    ('crypto', '暗号資産'),
     ('cash', '現金'),
 ]
 
@@ -245,7 +246,7 @@ def build_portfolio(setting=None):
             cost = qty * avg
         items.append({
             'kind': prod.category,
-            'code': '投信' if prod.category == 'fund' else prod.get_metal_display(),
+            'code': prod.kind_label,     # 投信 / 金・銀 / ビットコイン 等（category ごとに分岐）
             'name': prod.display_name,
             'quantity': qty,
             'unit': prod.unit_label,

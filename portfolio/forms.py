@@ -79,6 +79,24 @@ class MetalHoldingForm(forms.Form):
         return product
 
 
+class CryptoHoldingForm(forms.Form):
+    """暗号資産の期首登録。商品マスタは銘柄ごとに自動で1件作って使い回す（貴金属と同方式）
+
+    数量は「枚」（BTC なら 0.0123 のような小数）。取得単価は円/枚。
+    口座区分は不要（NISA 対象外）。
+    """
+    crypto = forms.ChoiceField(label='銘柄', choices=Product.CRYPTO_CHOICES)
+    quantity = forms.FloatField(label='数量（枚）', min_value=0.00000001)
+    avg_cost = forms.FloatField(label='平均取得単価（円/枚）', min_value=0)
+
+    def get_or_create_product(self):
+        crypto = self.cleaned_data['crypto']
+        label = dict(Product.CRYPTO_CHOICES)[crypto]
+        product, _ = Product.objects.get_or_create(
+            category='crypto', crypto=crypto, defaults={'name': label})
+        return product
+
+
 class ProductEditForm(forms.ModelForm):
     """商品情報の編集（ISIN・協会コードを追記して自動取得へ乗せる）"""
     class Meta:

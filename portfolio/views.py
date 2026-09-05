@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 
 from .forms import (
-    CashBaselineForm, CashFlowForm, FundHoldingForm, MetalHoldingForm,
+    CashBaselineForm, CashFlowForm, CryptoHoldingForm, FundHoldingForm, MetalHoldingForm,
     ProductEditForm, StockHoldingForm,
 )
 from .models import (
@@ -19,6 +19,7 @@ CLASS_COLORS = {
     'stock_us': '#63b3ff',
     'fund': '#8b5cf6',
     'metal': '#fbbf24',
+    'crypto': '#f97316',   # 橙。貴金属の黄と隣り合うので彩度で分ける
     'cash': '#94a3b8',
 }
 
@@ -107,6 +108,7 @@ def index(request):
             'stock': data['by_class']['stock_jp']['pct'] + data['by_class']['stock_us']['pct'],
             'fund': data['by_class']['fund']['pct'],
             'metal': data['by_class']['metal']['pct'],
+            'crypto': data['by_class']['crypto']['pct'],
             'cash': data['by_class']['cash']['pct'],
         }
         for t in targets:
@@ -631,6 +633,7 @@ def register(request):
         'stock': StockHoldingForm(),
         'fund': FundHoldingForm(),
         'metal': MetalHoldingForm(),
+        'crypto': CryptoHoldingForm(),
         'cash': CashBaselineForm(initial={
             # 100000.0 のような小数表示を避ける（整数なら整数で見せる）
             'amount': (int(setting.baseline_cash)
@@ -692,6 +695,22 @@ def register(request):
                 messages.success(request, f'{product.display_name} を登録しました。')
                 return redirect('portfolio:register')
             forms_map['metal'] = form
+
+        elif form_id == 'crypto':
+            form = CryptoHoldingForm(request.POST)
+            if form.is_valid():
+                product = form.get_or_create_product()
+                Holding.objects.update_or_create(
+                    product=product,
+                    account='',                      # 暗号資産に口座区分は無い（NISA対象外）
+                    defaults={
+                        'quantity': form.cleaned_data['quantity'],
+                        'avg_cost': form.cleaned_data['avg_cost'],
+                        'baseline_date': today,
+                    })
+                messages.success(request, f'{product.display_name} を登録しました。')
+                return redirect('portfolio:register')
+            forms_map['crypto'] = form
 
         elif form_id == 'cash':
             form = CashBaselineForm(request.POST)

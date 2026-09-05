@@ -40,7 +40,12 @@ sudo systemctl restart web_analize.service
 
 ## cron について（追加登録は不要）
 
-`update_product_prices`（投信・金銀・ドル円の日次取得）は既存の
+**2026-09-05 追加: 暗号資産**。`portfolio` のマイグレーション `0010` を適用すること
+（`Product.crypto` / `AssetSnapshot.crypto` / 大分類の選択肢）。`update_product_prices` は
+暗号資産（BTC/ETH/XRP/SOL）も yfinance「銘柄-USD」×ドル円で円/枚を取得する。追加作業は
+migrate と restart だけで、cron は既存のまま（同じコマンドに同梱）。
+
+`update_product_prices`（投信・金銀・暗号資産・ドル円の日次取得）は既存の
 `scripts/daily_update.sh` に同梱済み。既に cron 登録されている環境なら
 追加作業は無い。米国株の株価はポートフォリオ保有銘柄も
 `update_us_prices`（同スクリプト内）が拾うよう対象を拡張済み。

@@ -99,6 +99,27 @@
       </form>
     </div>
 
+    <!-- 暗号資産（2026-09-05 追加。貴金属と同じ「銘柄を選んで数量・取得単価」方式） -->
+    <div class="pf-card">
+      <h2>暗号資産を追加</h2>
+      <form method="post" class="pf-frm">
+        {% csrf_token %}
+        <input type="hidden" name="form_id" value="crypto">
+        {% with f=forms.crypto %}
+          {% if f.non_field_errors %}<div class="pf-errors">{{ f.non_field_errors }}</div>{% endif %}
+          <label class="pf-fld">銘柄 {{ f.crypto }}{{ f.crypto.errors }}</label>
+          <div class="pf-row2">
+            <label class="pf-fld">数量（枚） {{ f.quantity }}{{ f.quantity.errors }}</label>
+            <label class="pf-fld">平均取得単価（円/枚） {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
+          </div>
+        {% endwith %}
+        <div class="pf-note" style="margin-top:0">
+          評価額は夜間バッチが「銘柄-USD × ドル円」で円換算します（BTC は 0.0123 のような小数で入力）。
+        </div>
+        <button class="pf-btn" type="submit">登録する</button>
+      </form>
+    </div>
+
     <!-- 現金 -->
     <div class="pf-card">
       <h2>現金の期首残高</h2>
@@ -135,7 +156,7 @@
         {% endfor %}
       </div>
       <div class="pf-note" style="margin-top:0">
-        4つの合計が100%になるように入力してください（100%でなくても保存はできます）。
+        5つ（個別株・投資信託・貴金属・暗号資産・現金）の合計が100%になるように入力してください（100%でなくても保存はできます）。
         保存するとダッシュボードに「現在→目標」の差分と金額換算が表示されます。
       </div>
       <button class="pf-btn" type="submit">保存する</button>
@@ -159,7 +180,7 @@
         <tr>
           <td>{% if h.stock %}<span class="pf-code">{{ h.stock.display_code }}</span>{{ h.stock.name }}
               {% else %}<span class="pf-code">{{ h.product.get_category_display }}</span>{{ h.product.display_name }}{% endif %}</td>
-          <td>{% if h.product and h.product.category == 'metal' %}―{% else %}
+          <td>{% if h.product and h.product.category != 'fund' %}―{% else %}
             <select name="account" form="he{{ h.id }}"
                     style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
               {% for val, label in h.ACCOUNT_CHOICES %}

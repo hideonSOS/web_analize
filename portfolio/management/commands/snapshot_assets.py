@@ -36,6 +36,7 @@ class Command(BaseCommand):
                 'stock_us': by['stock_us']['value'],
                 'fund': by['fund']['value'],
                 'metal': by['metal']['value'],
+                'crypto': by['crypto']['value'],
                 'cash': by['cash']['value'],
                 'total': data['total'],
                 'principal': principal,

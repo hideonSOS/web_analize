@@ -768,7 +768,7 @@ ETagで確実に検知できる。
 | `japan_kabu` | 時価総額ランキング(`/japan_kabu/`)・出来高急増(`/japan_kabu/volume/`)・銘柄別指標(`/japan_kabu/stock/<code>/`)。ランキング2ページは`?country=JP/US`の国別タブで日米切替 |
 | `diary` | 売買日記(`/diary/`)。判断記録は編集不可・振り返りのみ追記の設計 |
 | `karte` | 銘柄カルテ(`/karte/`)。IR資料を読みながら手入力する定性分析＋株価レンジ |
-| `portfolio` | 資産ダッシュボード(`/portfolio/`)と棚卸し登録(`/portfolio/register/`)。株・投信・金銀・現金を円換算で自動評価。**サーバー反映手順は `docs/DEPLOY_PORTFOLIO.md`**（migrate→collectstatic→`seed_fund_products`→`update_product_prices`→restart。投信のプルダウン候補はDBデータなのでseedコマンド実行が必須） |
+| `portfolio` | 資産ダッシュボード(`/portfolio/`)と棚卸し登録(`/portfolio/register/`)。株・投信・金銀・**暗号資産（2026-09-05追加）**・現金を円換算で自動評価。暗号資産は `Product.category='crypto'`（BTC/ETH/XRP/SOL・`CRYPTO_CHOICES`）で、価格は `update_product_prices` が yfinance「銘柄-USD」×ドル円で円/枚を毎晩取得（マイグレーション 0010）。銘柄を足すときは `CRYPTO_CHOICES` と `CRYPTO_TICKERS` の両方。大分類・目標・スナップショットは `ASSET_CLASSES`/`ASSET_CLASS_CHOICES`/`AssetSnapshot.crypto` で自動追従。**サーバー反映手順は `docs/DEPLOY_PORTFOLIO.md`**（migrate→collectstatic→`seed_fund_products`→`update_product_prices`→restart。投信のプルダウン候補はDBデータなのでseedコマンド実行が必須） |
 | `spending` | 支出分析(`/spending/`)・月次(`/spending/month/`)・明細(`/spending/transactions/`)。Zaim／楽天e-navi／Amazon注文履歴のCSVを**手動アップロード**して統合台帳を作り、サブスク・貯蓄率・入金力を出す。分析エンジンは `card_insight/`。**詳細は下の「支出分析」節を必ず読むこと**（罠が多い） |
 
 ### ⚠️ snapshot_assets は2026-08-31まで未実装だった（実装済み・cron必須）

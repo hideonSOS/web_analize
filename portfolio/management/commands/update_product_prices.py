@@ -26,6 +26,10 @@ FUND_CSV_URL = ('https://toushin-lib.fwg.ne.jp/FdsWeb/FDST030000/csv-file-downlo
                 '?isinCd={isin}&associFundCd={assoc}')
 TROY_OUNCE_GRAMS = 31.1034768
 METAL_TICKERS = {'gold': 'GC=F', 'silver': 'SI=F', 'platinum': 'PL=F'}
+# 暗号資産（2026-09-05）: yfinance の「銘柄-USD」× ドル円 → 円/枚。
+# 24時間取引なので先物と違い「未確定バー」の概念は薄いが、直近終値（UTC日足）を使う。
+# 銘柄を足すときは Product.CRYPTO_CHOICES にも足すこと
+CRYPTO_TICKERS = {'btc': 'BTC-USD', 'eth': 'ETH-USD', 'xrp': 'XRP-USD', 'sol': 'SOL-USD'}
 
 _DATE_RE = re.compile(r'(\d{4})年(\d{2})月(\d{2})日')
 
@@ -48,6 +52,8 @@ class Command(BaseCommand):
         if not self._update_funds():
             failed = True
         if not self._update_metals(fx):
+            failed = True
+        if not self._update_crypto(fx):
             failed = True
         if failed:
             raise SystemExit(1)
@@ -150,6 +156,43 @@ class Command(BaseCommand):
                     defaults={'price': yen_per_gram})
                 self.stdout.write(
                     f'{product.display_name}: {yen_per_gram:,.0f}円/g（{bar_date}・近似値）')
+            except Exception as e:
+                self.stderr.write(f'{product.display_name} の取得に失敗: {e}')
+                ok = False
+        return ok
+
+    # ── 暗号資産 ──────────────────────────────
+    def _update_crypto(self, fx):
+        """銘柄-USD × ドル円 → 円/枚。貴金属と同じ作り（トロイオンス換算が無いだけ）"""
+        cryptos = Product.objects.filter(category='crypto')
+        if not cryptos:
+            return True
+        if fx is None:
+            self.stderr.write('暗号資産: ドル円レートが無いため円換算できずスキップ')
+            return False
+        ok = True
+        try:
+            import yfinance as yf
+        except ImportError:
+            self.stderr.write('yfinanceが見つかりません')
+            return False
+        for product in cryptos:
+            ticker = CRYPTO_TICKERS.get(product.crypto)
+            if not ticker:
+                self.stderr.write(f'{product.display_name}: ティッカー未定義（CRYPTO_TICKERS に追加）')
+                ok = False
+                continue
+            try:
+                hist = yf.Ticker(ticker).history(period='10d', auto_adjust=True)
+                closes = hist['Close'].dropna()
+                if closes.empty:
+                    raise RuntimeError(f'{ticker}: データが空')
+                usd = float(closes.iloc[-1])
+                bar_date = closes.index[-1].date()
+                yen = usd * fx
+                ProductPrice.objects.update_or_create(
+                    product=product, date=bar_date, defaults={'price': yen})
+                self.stdout.write(f'{product.display_name}: {yen:,.0f}円/{product.unit_label}（{bar_date}）')
             except Exception as e:
                 self.stderr.write(f'{product.display_name} の取得に失敗: {e}')
                 ok = False

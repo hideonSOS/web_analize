@@ -8,7 +8,7 @@ from .models import (
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('display_name', 'category', 'isin', 'metal')
+    list_display = ('display_name', 'category', 'isin', 'metal', 'crypto')
     list_filter = ('category',)
 
 

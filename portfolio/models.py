@@ -14,11 +14,21 @@ class Product(models.Model):
     CATEGORY_CHOICES = [
         ('fund', '投資信託'),
         ('metal', '貴金属'),
+        ('crypto', '暗号資産'),
     ]
     METAL_CHOICES = [
         ('gold', '金'),
         ('silver', '銀'),
         ('platinum', 'プラチナ'),
+    ]
+    # 暗号資産（2026-09-05 追加）。価格は yfinance の「銘柄-USD」× ドル円 → 円/枚。
+    # 貴金属と同じ「商品マスタ1件を使い回す」方式。銘柄を足すときはここと
+    # update_product_prices の CRYPTO_TICKERS の両方に足すこと
+    CRYPTO_CHOICES = [
+        ('btc', 'ビットコイン'),
+        ('eth', 'イーサリアム'),
+        ('xrp', 'XRP'),
+        ('sol', 'ソラナ'),
     ]
 
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
@@ -34,6 +44,9 @@ class Product(models.Model):
     # ── 貴金属のみ: 金/銀の別（円/gの自動計算は先物×ドル円で行う） ──
     metal = models.CharField(max_length=10, blank=True, choices=METAL_CHOICES)
 
+    # ── 暗号資産のみ: 銘柄（円/枚の自動計算は 銘柄-USD × ドル円 で行う） ──
+    crypto = models.CharField(max_length=10, blank=True, choices=CRYPTO_CHOICES)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,8 +55,21 @@ class Product(models.Model):
 
     @property
     def unit_label(self):
-        """数量の単位。投信=口 / 貴金属=g"""
-        return '口' if self.category == 'fund' else 'g'
+        """数量の単位。投信=口 / 貴金属=g / 暗号資産=銘柄記号（BTC 等）"""
+        if self.category == 'fund':
+            return '口'
+        if self.category == 'crypto':
+            return self.crypto.upper() or '枚'
+        return 'g'
+
+    @property
+    def kind_label(self):
+        """商品の種別表示（貴金属なら金/銀、暗号資産なら銘柄名、投信なら「投信」）"""
+        if self.category == 'metal':
+            return self.get_metal_display()
+        if self.category == 'crypto':
+            return self.get_crypto_display()
+        return '投信'
 
     @property
     def display_name(self):
@@ -253,6 +279,7 @@ class TargetAllocation(models.Model):
         ('stock', '個別株'),
         ('fund', '投資信託'),
         ('metal', '貴金属'),
+        ('crypto', '暗号資産'),
         ('cash', '現金'),
     ]
     asset_class = models.CharField(max_length=10, choices=ASSET_CLASS_CHOICES, unique=True)
@@ -302,6 +329,7 @@ class AssetSnapshot(models.Model):
     stock_us = models.FloatField(default=0)   # 米国株 評価額（円換算）
     fund = models.FloatField(default=0)       # 投資信託 評価額（円）
     metal = models.FloatField(default=0)      # 貴金属 評価額（円）
+    crypto = models.FloatField(default=0)     # 暗号資産 評価額（円）2026-09-05 追加
     cash = models.FloatField(default=0)       # 現金残高（円）
     total = models.FloatField(default=0)      # 総資産（円）
 
