@@ -37,17 +37,32 @@ COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
     # 請求はふつう出荷時に立つので、あるなら注文日より出荷日の方が請求日に近い
     'ship_date': ('shipdate', '出荷日', 'shippeddate'),
     'product_name': ('productname', 'title', '商品名', 'name'),
-    'quantity': ('quantity', '数量', '個数'),
-    'item_total': ('shipmentitemsubtotal', 'itemtotal', 'itemsubtotal', '商品小計', '価格',
+    'quantity': ('quantity', 'originalquantity', '数量', '個数'),
+    # ⚠️ 実物の列の意味（2026-09に実データで確認）:
+    #   Total Amount           … その商品1行の負担額（単価＋税＋送料−割引）。これが品目の金額
+    #   Shipment Item Subtotal … **出荷単位の小計が全行に繰り返し入る**。行の金額ではない
+    # 以前は item_total に Shipment Item Subtotal を当てていたため、
+    # 5商品の出荷では同じ913円が5行に入り、合計が実額の5倍になっていた
+    # Total Owed は Total Amount の旧称でどちらも行単位。注文合計ではないので注意
+    'item_total': ('totalamount', 'totalowed', 'itemtotal', 'itemsubtotal', '商品小計', '価格',
                    'ourpricetax', 'purchasepriceperunit', 'unitprice'),
-    'order_total': ('totalowed', 'ordertotal', '注文合計', '請求額'),
+    'shipment_subtotal': ('shipmentitemsubtotal',),
+    # 出荷を一意に特定できる唯一の列。これがあれば出荷単位でまとめられる
+    'tracking': ('carriernametrackingnumber', 'carriername&trackingnumber'),
+    # ⚠️ 実物(2026-09取得)の列は Total Amount。Total Owed は別形式の名前なので両方要る
+    'order_total': ('ordertotal', '注文合計', '請求額'),
     'charge_date': ('クレカ請求日', 'creditcarddate'),
     'charge_amount': ('クレカ請求額', 'creditcardamount'),
     'status': ('orderstatus', '状態', '注文状態'),
+    # 支払いに使ったカード。「MasterCard - 9213」のように下4桁が入る。
+    # ギフト券払いや別カードの注文はそもそもこのカードの明細に出ないので、
+    # 突合できなくて当然だと分かるようにするために持っておく
+    'pay_method': ('paymentmethodtype', 'paymentinstrumenttype', '支払方法', 'クレカ種類'),
 }
 
 OUT_COLUMNS = ['order_id', 'order_date', 'ship_date', 'product_name', 'quantity',
-               'item_total', 'order_total', 'charge_date', 'charge_amount', 'status']
+               'item_total', 'order_total', 'shipment_subtotal', 'tracking',
+               'charge_date', 'charge_amount', 'status', 'pay_method']
 
 # 注文が成立していない行は請求も発生しないので落とす
 CANCELLED = re.compile(r'cancel|キャンセル', re.IGNORECASE)
@@ -126,15 +141,15 @@ def load_amazon(pattern: str | Path | list) -> pd.DataFrame:
     for c in ('order_date', 'ship_date', 'charge_date'):
         # 「2026-08-26T09:12:00Z」のような形式も混ざるので UTC 解釈してから日付にする
         df[c] = pd.to_datetime(df[c], errors='coerce', utc=True).dt.tz_localize(None)
-    for c in ('item_total', 'order_total', 'charge_amount'):
+    for c in ('item_total', 'order_total', 'shipment_subtotal', 'charge_amount'):
         df[c] = _to_int(df[c])
     df['quantity'] = pd.to_numeric(df['quantity'], errors='coerce').fillna(1).astype(int)
-    for c in ('order_id', 'product_name', 'status'):
+    for c in ('order_id', 'product_name', 'status', 'pay_method', 'tracking'):
         df[c] = df[c].fillna('').astype(str).str.strip()
 
     df = df[df['product_name'] != '']
     df = df[~df['status'].str.contains(CANCELLED, na=False)]
     # 注文合計しか無い形式では、商品小計に注文合計を按分せずそのまま入れない
     # （按分すると金額が実在しない値になり、突合で余計に外す）
-    df = df.drop_duplicates(['order_id', 'product_name', 'item_total'])
+    df = df.drop_duplicates(['order_id', 'product_name', 'item_total', 'ship_date'])
     return df.sort_values('order_date').reset_index(drop=True)

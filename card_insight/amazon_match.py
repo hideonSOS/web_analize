@@ -5,8 +5,14 @@
 成り立つとは限らない。次の順に、確実なものから割り当てる:
 
   1. クレカ請求日・請求額を持つ形式（注文履歴フィルタ）→ その値で直接突合
-  2. 注文単位の合計で突合
-  3. 商品 1 行の小計で突合（1 商品だけの注文が請求 1 本になっている場合）
+  2. **出荷単位**の合計で突合 ← 請求が立つ単位そのものなので本命
+  3. 注文単位の合計で突合（1 注文 = 1 出荷だった場合）
+  4. 商品 1 行の金額で突合（1 商品だけの出荷）
+  5. 1 注文が複数の請求に割れた分（実データで確認: 3,986 円の注文が 1,993 円 ×2 で
+     請求されていた）。**合計が完全一致する組み合わせがある場合のみ**結ぶ
+
+出荷は追跡番号（Carrier Name & Tracking Number）で特定する。無い形式では
+(注文番号, 出荷日, 出荷小計) を代わりの鍵にする。
 
 いずれも**金額完全一致 + 日付が許容内**で、1 請求に 1 グループのグリーディ割当。
 金額が合わないものを近い順に無理やり結び付けない（間違った品目を表示するくらいなら
@@ -37,6 +43,26 @@ def _groups(items: pd.DataFrame) -> list[dict]:
         for (d, amt, _oid), g in items[has_charge].groupby(['charge_date', 'charge_amount', 'order_id']):
             out.append({'date': d, 'amount': int(amt), 'idx': list(g.index), 'how': 'charge'})
     rest = items[~has_charge]
+
+    # 出荷単位。請求が立つ単位そのものなので、注文単位より先に試す
+    if len(rest):
+        key = rest['tracking'].fillna('').astype(str).str.strip() if 'tracking' in rest.columns else pd.Series('', index=rest.index)
+        # 追跡番号が無い行は (注文番号, 出荷日, 出荷小計) で代用する
+        fallback = (rest['order_id'].astype(str) + '|'
+                    + rest['ship_date'].astype(str) + '|'
+                    + rest.get('shipment_subtotal', pd.Series(0, index=rest.index)).astype(str))
+        key = key.where(key != '', fallback)
+        for _k, g in rest.groupby(key):
+            # 行ごとの金額の合計。これが基本
+            cands = {int(g['item_total'].sum())}
+            # 行ごとの金額を持たない形式のために、出荷小計そのものも候補に入れる
+            # （出荷単位で全行に同じ値が入る列なので合計せず代表値を取る）
+            if 'shipment_subtotal' in g.columns:
+                cands.add(int(g['shipment_subtotal'].max()))
+            for total in cands:
+                if total > 0 and len(g) < len(rest):
+                    out.append({'date': _base_date(g), 'amount': total,
+                                'idx': list(g.index), 'how': 'shipment'})
 
     for oid, g in rest.groupby('order_id'):
         if not oid:
@@ -77,7 +103,7 @@ def match(items: pd.DataFrame, charges: pd.DataFrame,
     ch['date'] = pd.to_datetime(ch['date'])
     used: set = set()
     # 確度の高い順（charge → order → item）に処理し、既に埋まった商品は飛ばす
-    order = {'charge': 0, 'order': 1, 'item': 2}
+    order = {'charge': 0, 'shipment': 1, 'order': 2, 'item': 3}
     for g in sorted(_groups(res), key=lambda g: order[g['how']]):
         idx = [i for i in g['idx'] if pd.isna(res.at[i, 'charge_id'])]
         if not idx or pd.isna(g['date']):
@@ -93,4 +119,48 @@ def match(items: pd.DataFrame, charges: pd.DataFrame,
         used.add(pick['id'])
         res.loc[idx, 'charge_id'] = pick['id']
         res.loc[idx, 'match_how'] = g['how']
+
+    _match_split_orders(res, ch, used, tolerance)
     return res
+
+
+MAX_SPLIT = 3        # 1 注文がいくつの請求に割れるところまで見るか
+MAX_CANDIDATES = 12  # 組み合わせ探索に渡す請求の上限（総当たりが膨らむのを防ぐ）
+
+
+def _match_split_orders(res: pd.DataFrame, ch: pd.DataFrame, used: set, tolerance: int) -> None:
+    """1 注文が複数の請求に割れた分を、合計が完全一致する組み合わせでだけ結ぶ。
+
+    Amazon は出荷ごとに請求を立てるので、まとめ買い 1 注文が同額の請求 2 本に
+    割れることが実際にある（実データ: 烏龍茶 2L×9 本 3,986 円 → 1,993 円 ×2）。
+    ⚠️ 近い金額に寄せない。合計がぴったり合う組み合わせが見つかったときだけ結ぶ。
+    合わないものを無理に埋めると、間違った品目を表示することになる。
+    """
+    from itertools import combinations
+
+    still = res[res['charge_id'].isna()]
+    for oid, g in still.groupby('order_id'):
+        if not oid:
+            continue
+        total = int(g['item_total'].sum())
+        base = _base_date(g)
+        if total <= 0 or pd.isna(base):
+            continue
+        cand = ch[(~ch['id'].isin(used))
+                  & ((ch['date'] - base).abs().dt.days <= tolerance)
+                  & (ch['amount'] <= total)]
+        if len(cand) < 2:
+            continue
+        cand = cand.nlargest(MAX_CANDIDATES, 'amount')
+        rows = list(cand.itertuples(index=False))
+        for n in range(2, MAX_SPLIT + 1):
+            hit = next((c for c in combinations(rows, n)
+                        if sum(x.amount for x in c) == total), None)
+            if hit is None:
+                continue
+            # 商品行は最初の請求に寄せる（1 品目を複数請求に按分しても意味がないため）
+            for x in hit:
+                used.add(x.id)
+            res.loc[g.index, 'charge_id'] = hit[0].id
+            res.loc[g.index, 'match_how'] = 'split'
+            break
