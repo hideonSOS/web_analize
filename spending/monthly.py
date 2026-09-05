@@ -250,51 +250,58 @@ def build(ym: str | None = None) -> dict:
     setting = SpendingSetting.get()
     today = date.today()
     is_current = ym == today.strftime('%Y-%m')
-    # 目安線: 平常月の「1日あたり平均支出額」の累積（avg_daily×日）。棒（今月の支出の累積）と
-    # **同じ累積スケール**で重ねる。棒が線を越えた日＝平均ペースより使っている。
-    # 直近12か月の合計 ÷ その12か月の日数。月の目標額があれば 目標額 ÷ その月の日数。
-    # ⚠️ 累計を同じグラフに混ぜないこと（スケールが2桁違い読めない、と指摘された）。
-    # ⚠️ 日ごとに違う目安（日別平均の曲線）にもしないこと（「日別の線の意味が分からない、
-    #     平均支出額でいい」と指摘された）。単純な水平線が正
-    base_days = 0
-    for bym in baseline_months:
-        by, bm = int(bym[:4]), int(bym[5:7])
-        base_days += (date(by + (bm == 12), (bm % 12) + 1, 1) - date.resolution).day
-    avg_daily = sum(hist_vals) / base_days if base_days else 0
-    if setting.monthly_target:
-        avg_daily = setting.monthly_target / last_day
-    avg_daily = round(avg_daily)
-    target = setting.monthly_target or avg_daily * last_day
-    # ユーザー指示（2026-09-06・明示）: 線＝平均支出額の累積（avg_daily×日。下がらない）、
-    # 棒＝今月の支出の累積。両方とも累積で同じスケール。当月の未来日は棒を描かない
+    # 目安線（ユーザー指示 2026-09-06・確定）: 直近12か月それぞれの「日別累計」を日ごとに
+    # 平均した曲線。家賃・カード引き落としの日で段が付く右肩上がりで、下がらない。
+    # 棒＝今月の支出の累積。両方とも累積で同じスケール1つ。
+    # ⚠️ 直線（1日平均×日数）にしないこと（「引き落としのある日は増加するやろ」）。
+    # 月の目標額があれば、形はそのまま月末を目標額に縮尺する
+    per_month = defaultdict(lambda: defaultdict(int))
+    for r in (Transaction.objects.filter(in_total=True, ym__in=baseline_months)
+              .values('ym', 'date').annotate(t=Sum('amount'))):
+        per_month[r['ym']][r['date'].day] += int(r['t'] or 0)
+    curves = []
+    for days_of in per_month.values():
+        acc, curve = 0, []
+        for d in range(1, last_day + 1):
+            acc += days_of.get(d, 0)      # 30日の月の31日目は前日と同じ（増えない）
+            curve.append(acc)
+        curves.append(curve)
+    n_base = len(curves)
+    ref = [sum(c[i] for c in curves) / n_base for i in range(last_day)] if n_base else [0] * last_day
+    ref_end = ref[-1] if ref else 0
+    if setting.monthly_target and ref_end:
+        ref = [v * setting.monthly_target / ref_end for v in ref]
+    ref = [round(v) for v in ref]
+    target = setting.monthly_target or round(ref_end)
+    avg_daily = round(target / last_day) if last_day else 0
     cum_values, acc = [], 0
     for d in range(1, last_day + 1):
         acc += daily.get(d, 0)
-        cum_values.append(None if is_current and d > today.day else acc)
+        cum_values.append(None if is_current and d > today.day else acc)   # 未来日は描かない
     daily_spec = {
         'days': list(range(1, last_day + 1)),
         'values': cum_values,
-        'reference': [avg_daily * d for d in range(1, last_day + 1)],
+        'reference': ref,
         'avg_daily': avg_daily,
         'target': target,
         'target_source': 'manual' if setting.monthly_target else 'average',
-        'base_months': len(hist_vals),
+        'base_months': n_base,
         'today': today.day if is_current else None,
     }
-    # 今日時点の目安との差（当月だけ）。今日までの合計を 平均×日数 と比べる
+    # 今日時点の目安との差（当月だけ）
     pace_status = None
-    if is_current and avg_daily:
-        ref_today = avg_daily * today.day
-        cum_today = sum(daily.get(d, 0) for d in range(1, today.day + 1))
-        over_days = [d for d in range(1, today.day + 1) if (cum_values[d - 1] or 0) > avg_daily * d]
+    if is_current and ref_end:
+        ref_today = ref[today.day - 1]
+        cum_today = cum_values[today.day - 1] or 0
+        over_days = [d for d in range(1, today.day + 1) if (cum_values[d - 1] or 0) > ref[d - 1]]
         pace_status = {
-            'target': target, 'source': daily_spec['target_source'], 'base_months': len(hist_vals),
+            'target': target, 'source': daily_spec['target_source'], 'base_months': n_base,
             'avg_daily': avg_daily,
             'today': today.day, 'ref_today': ref_today, 'cum_today': cum_today,
             'margin': abs(ref_today - cum_today),
             'over': cum_today > ref_today,
             'over_days': over_days,
-            'projected': cum_today + avg_daily * (last_day - today.day),
+            'projected': cum_today + (target - ref_today),   # 残りを平常月の形で使った場合
         }
 
     # --- サブスク・固定費の比率 ---------------------------------------------

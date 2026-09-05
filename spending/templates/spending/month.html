@@ -286,20 +286,21 @@
   <div class="pf-card">
     <h2>月内の使い方
       <span class="pf-hint">縦軸は金額（累積）・横軸は日。棒＝今月の支出の累積、線＝
-        {% if daily_spec.target_source == 'manual' %}目標の累積（¥{{ daily_spec.avg_daily|intcomma }}/日 × 日数・月末 ¥{{ daily_spec.target|intcomma }}）{% else %}平常月の平均支出額の累積（¥{{ daily_spec.avg_daily|intcomma }}/日 × 日数・直近{{ daily_spec.base_months }}か月）{% endif %}。
-        棒が線を越えた日は赤</span></h2>
+        {% if daily_spec.target_source == 'manual' %}目標の累積（平常月の形で月末 ¥{{ daily_spec.target|intcomma }}）{% else %}平常月の累積（直近{{ daily_spec.base_months }}か月の日別累計の平均・月末 ¥{{ daily_spec.target|intcomma }}）{% endif %}。
+        引き落とし日で段が付きます。棒が線を越えた日は赤</span></h2>
     {% comment %}
-      ユーザー指示（2026-09-06・明示）: 線は平均支出額の累積（下がらない）、棒は今月の支出の累積。
-      両方とも累積で同じスケール。日別の棒・水平線・日別平均の曲線・右軸はすべて却下済み
+      ユーザー指示（2026-09-06・確定）: 線は各月の日別累計を日ごとに平均した曲線（引き落とし日で
+      増える・下がらない）、棒は今月の支出の累積。両方とも累積で同じスケール。
+      直線（1日平均×日数）・日別の棒・水平線・右軸はすべて却下済み
     {% endcomment %}
     {% if pace_status %}
     <p class="sp-pace num {% if pace_status.over %}over{% endif %}">
       {{ pace_status.today }}日までの累積 <b>¥{{ pace_status.cum_today|intcomma }}</b>
-      ／ 線（平均の累積） <b>¥{{ pace_status.ref_today|intcomma }}</b>（¥{{ pace_status.avg_daily|intcomma }}×{{ pace_status.today }}日）
+      ／ 線（平常月の{{ pace_status.today }}日時点） <b>¥{{ pace_status.ref_today|intcomma }}</b>
       ／ {% if pace_status.over %}超過 <b>¥{{ pace_status.margin|intcomma }}</b>{% else %}余裕 <b>¥{{ pace_status.margin|intcomma }}</b>{% endif %}
       {% if pace_status.over_days %}／ 線を越えていた日: {{ pace_status.over_days|join:"日, " }}日{% endif %}
-      <span class="pf-hint">残りを平均どおりに使うと月末 ¥{{ pace_status.projected|intcomma }}（線の月末 ¥{{ pace_status.target|intcomma }}）。
-        {% if pace_status.source == 'average' %}月の目標額を「基準日と目標」に入れると、線は 目標額÷日数 の累積になります{% endif %}</span>
+      <span class="pf-hint">残りを平常月と同じ形で使うと月末 ¥{{ pace_status.projected|intcomma }}（線の月末 ¥{{ pace_status.target|intcomma }}）。
+        {% if pace_status.source == 'average' %}月の目標額を「基準日と目標」に入れると、線の形はそのまま月末を目標額に合わせます{% endif %}</span>
     </p>
     {% endif %}
     <div id="sp-daily-chart" class="sp-chart"></div>

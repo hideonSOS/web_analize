@@ -1,8 +1,9 @@
-/* 月内の使い方（今月の支出の累積の棒＋平均支出額の累積の線）
+/* 月内の使い方（今月の支出の累積の棒＋平常月の累積の線）
  *
- * ユーザー指示（2026-09-06・明示）: 線＝毎月の平均支出額の累積（avg_daily×日。下がらない）、
- * 棒＝今月の支出の累積。両方とも累積で同じスケール。線を越えた日の棒は赤。
- * ⚠️ 日別の棒・水平線・日ごとの目安曲線・右軸はすべて却下済み。戻さないこと
+ * ユーザー指示（2026-09-06・確定）: 線＝直近12か月それぞれの日別累計を日ごとに平均した
+ * 曲線（引き落とし日で段が付く・下がらない。サーバー側で算出）、棒＝今月の支出の累積。
+ * 両方とも累積で同じスケール。線を越えた日の棒は赤。
+ * ⚠️ 直線（1日平均×日数）・日別の棒・水平線・右軸はすべて却下済み。戻さないこと
  */
 (function () {
   var el = document.getElementById('sp-daily');
@@ -13,7 +14,7 @@
   var chart = echarts.init(dom);
 
   function yen(v) { return '¥' + Math.round(v).toLocaleString('ja-JP'); }
-  var refName = (spec.target_source === 'manual' ? '目標の累積' : '平均支出額の累積');
+  var refName = (spec.target_source === 'manual' ? '目標の累積' : '平常月の累積');
 
   var bars = spec.values.map(function (v, i) {
     if (v === null || v === undefined) return null;         // 当月の未来日
