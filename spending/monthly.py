@@ -250,39 +250,58 @@ def build(ym: str | None = None) -> dict:
     setting = SpendingSetting.get()
     today = date.today()
     is_current = ym == today.strftime('%Y-%m')
-    # 目標ペース（点線）は「予めこの線を越えない」ための上限。手入力の月目標があれば
-    # それ、無ければ平常月（直近12か月の中央値）を代用する。日割りは 30 ではなく
-    # **その月の日数**で割り、月末で目標額にぴたり届く線にする
-    target = setting.monthly_target or median
-    target_daily = target / last_day if target else 0
+    # 平常月の推移（点線）: 直近12か月の「日別の累計」を日ごとに平均した曲線。
+    # ⚠️ 直線（月合計÷日数）にしないこと。家賃・カード引き落とし・給料日後の買い物で
+    # 月内の使い方は毎月同じ形に波打つので、直線では「今日時点で速いか遅いか」の
+    # 指標にならない（ユーザー指摘「オレンジ色の直線では指標にならない」）。
+    # 月の目標支出額が手入力されていれば、形はそのまま月末を目標額に合わせて縮尺する
+    per_month = defaultdict(lambda: defaultdict(int))
+    for r in (Transaction.objects.filter(in_total=True, ym__in=baseline_months)
+              .values('ym', 'date').annotate(t=Sum('amount'))):
+        per_month[r['ym']][r['date'].day] += int(r['t'] or 0)
+    curves = []
+    for bym, days_of in per_month.items():
+        acc, curve = 0, []
+        for d in range(1, last_day + 1):
+            acc += days_of.get(d, 0)      # 30日の月の31日目は前日と同じ（増えない）
+            curve.append(acc)
+        curves.append(curve)
+    n_base = len(curves)
+    avg_curve = [round(sum(c[i] for c in curves) / n_base) for i in range(last_day)] if n_base else []
+    avg_end = avg_curve[-1] if avg_curve else 0
+    target = setting.monthly_target or avg_end
+    if setting.monthly_target and avg_end:
+        ref_curve = [round(v * setting.monthly_target / avg_end) for v in avg_curve]
+    else:
+        ref_curve = avg_curve
     daily_spec = {
         'days': list(range(1, last_day + 1)),
         'values': [daily.get(d, 0) for d in range(1, last_day + 1)],
         'cumulative': [],
         'target': target,
-        'target_source': 'manual' if setting.monthly_target else 'median',
-        'target_daily': round(target_daily),
-        'pace': [round(target_daily * d) for d in range(1, last_day + 1)],
+        'target_source': 'manual' if setting.monthly_target else 'average',
+        'base_months': n_base,
+        'reference': ref_curve,        # 全日ぶん。予め引いておく線
         'today': today.day if is_current else None,
     }
     acc = 0
     for d in range(1, last_day + 1):
         acc += daily.get(d, 0)
-        # ⚠️ 当月は今日より先を描かない。描くと累計が今日の値のまま月末まで
-        # 横一線に伸び、「ペース線が機能していない」ように見える（実際に指摘された）
+        # ⚠️ 当月の実績（緑）は今日より先を描かない。まだ使っていない日を今日の値で
+        # 伸ばすと横一線になり、目安線と見分けがつかなくなる。先の目安は点線が担う
         daily_spec['cumulative'].append(None if is_current and d > today.day else acc)
-    # 今日時点の目標との差（当月だけ）。線の読み方を文章でも出す
+    # 今日時点の目安との差（当月だけ）。線の読み方を文章でも出す
     pace_status = None
-    if is_current and target:
-        pace_today = round(target_daily * today.day)
+    if is_current and ref_curve:
+        ref_today = ref_curve[today.day - 1]
         cum_today = daily_spec['cumulative'][today.day - 1] or 0
         pace_status = {
-            'target': target, 'target_daily': round(target_daily),
-            'source': daily_spec['target_source'],
-            'today': today.day, 'pace_today': pace_today, 'cum_today': cum_today,
-            'margin': abs(pace_today - cum_today),
-            'over': cum_today > pace_today,
-            'projected': round(cum_today / today.day * last_day) if cum_today else 0,
+            'target': target, 'source': daily_spec['target_source'], 'base_months': n_base,
+            'today': today.day, 'ref_today': ref_today, 'cum_today': cum_today,
+            'margin': abs(ref_today - cum_today),
+            'over': cum_today > ref_today,
+            # 平常月の形で残りを使ったら月末いくらか（今日までの差をそのまま持ち越す）
+            'projected': cum_today + (target - ref_today),
         }
 
     # --- サブスク・固定費の比率 ---------------------------------------------

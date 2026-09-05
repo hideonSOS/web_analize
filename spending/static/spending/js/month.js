@@ -1,7 +1,7 @@
 /* 月内の使い方（日別の棒＋累計の線）
  *
  * 「月末に向けてどう積み上がったか」を見るため、日別だけでなく累計も重ねる。
- * 目標ペース（点線）は「予めこの線を越えない」ための上限。累計が下なら余裕、上なら使いすぎ。
+ * 目安線（点線）は直近月の日別累計の平均で、月末まで予め引く。累計が下なら余裕、上なら使いすぎ。
  * 当月は今日までしか累計を描かない（先を描くと今日の値のまま横一線になり、線が
  * 機能していないように見える。実際に指摘された）。
  */
@@ -15,15 +15,17 @@
 
   function yen(v) { return '¥' + Math.round(v).toLocaleString('ja-JP'); }
 
-  // 目標ペース（サーバー側で日割り済み）。「予めこの線を越えない」上限線
-  var pace = spec.pace;
-  var paceName = (spec.target_source === 'manual' ? '目標ペース' : '平常月のペース');
+  // 目安線: 直近月の日別累計の平均（サーバー側で算出）。月初から月末まで予め引く。
+  // ⚠️ 直線（月合計÷日数）に戻さないこと。月内の使い方は毎月同じ形に波打つので、
+  // 直線では「今日時点で速いか遅いか」が読めない（ユーザー指摘済み）
+  var pace = spec.reference;
+  var paceName = (spec.target_source === 'manual' ? '目標の推移' : '平常月の推移');
 
   chart.setOption({
     grid: { left: 58, right: 58, top: 34, bottom: 32 },
     legend: {
       top: 0, textStyle: { color: '#9ca3af', fontSize: 11 }, inactiveColor: '#374151',
-      data: ['日別', '累計', paceName],
+      data: ['日別', '今月の累計', paceName],
     },
     tooltip: {
       trigger: 'axis', confine: true,
@@ -61,14 +63,14 @@
     series: [
       { name: '日別', type: 'bar', itemStyle: { color: '#1e90ff' }, data: spec.values },
       {
-        name: '累計', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none',
+        name: '今月の累計', type: 'line', yAxisIndex: 1, smooth: false, symbol: 'none',
         lineStyle: { color: '#34d399', width: 2 },
         areaStyle: { color: 'rgba(52,211,153,.08)' },
         data: spec.cumulative,
       },
       {
         name: paceName, type: 'line', yAxisIndex: 1, symbol: 'none',
-        lineStyle: { color: '#f59e0b', width: 1.5, type: 'dashed' },
+        lineStyle: { color: '#a78bfa', width: 1.5, type: 'dashed' },
         data: pace,
       },
     ],

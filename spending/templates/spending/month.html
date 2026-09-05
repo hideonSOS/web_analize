@@ -285,19 +285,21 @@
   <!-- 日別の推移 -->
   <div class="pf-card">
     <h2>月内の使い方
-      <span class="pf-hint">日別（棒）・累計（線）・目標ペース（点線＝
-        {% if daily_spec.target_source == 'manual' %}月の目標{% else %}平常月{% endif %} ¥{{ daily_spec.target|intcomma }} を日割り）</span></h2>
+      <span class="pf-hint">日別（棒）・今月の累計（緑の実線・今日まで）・
+        {% if daily_spec.target_source == 'manual' %}目標の推移（点線＝平常月の形で月末 ¥{{ daily_spec.target|intcomma }}）{% else %}平常月の推移（点線＝直近{{ daily_spec.base_months }}か月の累計の平均）{% endif %}</span></h2>
     {% comment %}
-      点線は「予めこの線を越えない」ための上限。累計（緑）が点線の下にあれば余裕、
-      上に出たら使いすぎ。当月は今日までしか累計を描かない（先を描くと横一線になる）
+      点線は先月までの月の「日別累計の平均」を月初から月末まで予め引いた目安線。
+      緑（今月の実績）が点線の下にあれば余裕、上に出たら使いすぎ。
+      緑は今日で止まる（まだ使っていない日は描かない）。先の見通しは点線が担う
     {% endcomment %}
     {% if pace_status %}
     <p class="sp-pace num {% if pace_status.over %}over{% endif %}">
-      {{ pace_status.today }}日時点の目標 <b>¥{{ pace_status.pace_today|intcomma }}</b>
-      ／ 実績 <b>¥{{ pace_status.cum_today|intcomma }}</b>
+      {{ pace_status.today }}日時点の{% if pace_status.source == 'manual' %}目標{% else %}平常月{% endif %} <b>¥{{ pace_status.ref_today|intcomma }}</b>
+      ／ 今月の実績 <b>¥{{ pace_status.cum_today|intcomma }}</b>
       ／ {% if pace_status.over %}超過 <b>¥{{ pace_status.margin|intcomma }}</b>{% else %}余裕 <b>¥{{ pace_status.margin|intcomma }}</b>{% endif %}
-      <span class="pf-hint">このペースなら月末 ¥{{ pace_status.projected|intcomma }}（目標 ¥{{ pace_status.target|intcomma }}・1日 ¥{{ pace_status.target_daily|intcomma }}）
-        {% if pace_status.source == 'median' %}／ 目標は上の「基準日と目標」で手入力できます{% endif %}</span>
+      <span class="pf-hint">残りを平常月と同じ形で使うと月末 ¥{{ pace_status.projected|intcomma }}（点線の月末 ¥{{ pace_status.target|intcomma }}）。
+        緑の線は今日までの実績なので、先は描きません。
+        {% if pace_status.source == 'average' %}月の目標額を「基準日と目標」に入れると、点線を平常月の形のまま目標額に合わせます{% endif %}</span>
     </p>
     {% endif %}
     <div id="sp-daily-chart" class="sp-chart"></div>
