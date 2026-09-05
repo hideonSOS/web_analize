@@ -37,7 +37,7 @@ def index(request):
                     continue
                 kind = services.detect_csv_kind(services.read_head(f))
                 if not kind:
-                    skipped.append(f'{f.name}（Zaim・e-navi・Amazon注文履歴のいずれでもない形式）')
+                    skipped.append(f'{f.name}（Zaim・e-navi・Amazon注文履歴・銀行明細のいずれでもない形式）')
                     continue
                 services.save_upload(f, kind)
                 saved.append(f'{f.name}→{kind}')
@@ -259,12 +259,14 @@ CATEGORY_SOURCE_FILTERS = {
     'rule': Q(category_source='rule', manual_category=''),
     # 品目ルール（LabelRule）で Zaim の誤学習を取り込み時に打ち消した行
     'fix': Q(category_source='fix', manual_category=''),
+    # 銀行明細の摘要辞書で確定した行（家賃・電気・水道・電話）
+    'bank': Q(category_source='bank', manual_category=''),
     'none': Q(category_source='none', manual_category=''),
     'manual': ~Q(manual_category=''),
 }
 CATEGORY_SOURCE_LABELS = [
     ('zaim', 'Zaim由来'), ('rule', '自動推定'), ('fix', '品目ルールで訂正'),
-    ('none', '手がかりなし'), ('manual', '手動で修正済み'),
+    ('bank', '銀行明細'), ('none', '手がかりなし'), ('manual', '手動で修正済み'),
 ]
 
 

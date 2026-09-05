@@ -20,6 +20,7 @@ from .models import AmazonOrderItem, ImportLog, LabelRule, MerchantRule, Monthly
 DATA_DIR = Path(settings.BASE_DIR) / 'data' / 'spending'
 ENAVI_DIR = DATA_DIR / 'enavi'
 AMAZON_DIR = DATA_DIR / 'amazon'
+BANK_DIR = DATA_DIR / 'bank'       # 銀行明細（三菱UFJ）。家賃・光熱費・給料はここでしか取れない
 
 MAX_UPLOAD_SIZE = 20 * 1024 * 1024   # 1ファイル20MB（Zaim全期間で約1.5MB）
 
@@ -27,6 +28,7 @@ MAX_UPLOAD_SIZE = 20 * 1024 * 1024   # 1ファイル20MB（Zaim全期間で約1.
 def _ensure_dirs():
     ENAVI_DIR.mkdir(parents=True, exist_ok=True)
     AMAZON_DIR.mkdir(parents=True, exist_ok=True)
+    BANK_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def detect_csv_kind(head: str) -> str:
@@ -38,6 +40,11 @@ def detect_csv_kind(head: str) -> str:
     h = head.replace('"', '').replace('﻿', '')
     if '利用日' in h and ('利用店名' in h or '利用者' in h):
         return 'enavi'
+    # ⚠️ 銀行明細は Zaim より先に判定すること。銀行の見出しにも「日付」があり、
+    # Zaim の条件（日付＋支出/収入/方法）に誤って当たりうる
+    from card_insight.bank_loader import looks_like_bank
+    if looks_like_bank(h):
+        return 'bank'
     if '日付' in h and ('支出' in h or '収入' in h or '方法' in h):
         return 'zaim'
     # Amazon は書き出し元によって列名が和英・形式ともばらばらなので、
@@ -55,12 +62,19 @@ def decode_head(raw: bytes) -> str:
     デコードに失敗しうる。最後は errors='ignore' で必ず文字列を返すこと。
     ここで空文字を返すと形式判別が丸ごと不発になる（実際に踏んだ）。
     """
+    # ⚠️ 固定長で切ると cp932 の2バイト文字の途中で切れ、cp932 の厳密デコードまで失敗して
+    # 最後の utf-8/ignore に落ち、日本語が全部消えた見出し（t,Ev,Eve…）になる。
+    # 実際に銀行明細（cp932）がこれで判別不能になった。判別に要るのは先頭行だけなので、
+    # 最後の改行までに切り詰めてからデコードする（改行の位置で文字が割れることは無い）
+    nl = raw.rfind(b'\n')
+    if nl > 0:
+        raw = raw[:nl + 1]
     for enc in ('utf-8-sig', 'cp932', 'utf-8'):
         try:
             return raw.decode(enc)
         except UnicodeDecodeError:
             continue
-    return raw.decode('utf-8', errors='ignore')
+    return raw.decode('cp932', errors='ignore')
 
 
 def read_head(django_file, size=2048) -> str:
@@ -79,7 +93,7 @@ def save_upload(django_file, kind: str) -> Path:
     """
     _ensure_dirs()
     name = Path(django_file.name).name.replace('/', '_').replace('\\', '_')
-    dest = {'enavi': ENAVI_DIR, 'amazon': AMAZON_DIR}.get(kind, DATA_DIR) / name
+    dest = {'enavi': ENAVI_DIR, 'amazon': AMAZON_DIR, 'bank': BANK_DIR}.get(kind, DATA_DIR) / name
     with open(dest, 'wb') as f:
         for chunk in django_file.chunks():
             f.write(chunk)
@@ -173,6 +187,95 @@ def import_amazon() -> dict:
                     f'{res.loc[linked, "charge_id"].nunique():,}/{len(charges):,}件に紐付け'
                     f'（{explained:,}円 / {total:,}円）'),
     }
+
+
+def bank_glob() -> str | None:
+    return str(BANK_DIR / '*.csv') if any(BANK_DIR.glob('*.csv')) else None
+
+
+def load_bank_frame():
+    """保管中の銀行 CSV を読む（無ければ None）。仕分け済みの DataFrame を返す。"""
+    pattern = bank_glob()
+    if not pattern:
+        return None
+    from card_insight.bank_loader import load_bank
+    rules = Path(settings.BASE_DIR) / 'card_insight' / 'bank_rules.csv'
+    df = load_bank(pattern, rules)
+    return df if len(df) else None
+
+
+def bank_ledger_rows(bank):
+    """銀行明細 → 台帳（Transaction）の行。支払い側だけ。
+
+    仕分け（bank_rules.csv の treat）:
+      expense               … 集計対象の支出（家賃・電気・水道・電話…）
+      card_settlement       … 除外。中身は e-navi の明細で1件ずつ持っている
+      cash_withdrawal       … 除外。使った先は Zaim のレシートで持っている
+      investment_transfer   … 除外。支出ではない（証券口座への入金）
+      income / ignore       … 台帳には入れない
+    除外行も「除外の理由付き」で台帳に残す（消すと後から検算できない）。
+    ledger_id は内容のハッシュなので、同じ CSV からは必ず同じ行ができて重複しない。
+    """
+    import hashlib
+    import pandas as pd
+    from card_insight.labels import classify_label, clean_label
+    from card_insight.normalize import normalize_shop_name
+
+    keep = {'expense', 'card_settlement', 'cash_withdrawal', 'investment_transfer'}
+    df = bank[(bank['amount'] > 0) & bank['treat'].isin(keep)].copy()
+    if df.empty:
+        return pd.DataFrame(columns=_FIELDS)
+    rows = []
+    for r in df.to_dict('records'):
+        d = pd.Timestamp(r['date']).strftime('%Y-%m-%d')
+        shop = r['shop'] or r['label']
+        key = f"{d}|bank|{int(r['amount'])}|{shop}|{r['summary']}|{r['detail']}|{int(r['balance'])}"
+        excluded = r['treat'] != 'expense'
+        label = r['label']
+        rows.append({
+            # ⚠️ 台帳の ledger_id は SHA1 の先頭16文字（列が varchar(16)）。
+            # 40文字のまま入れると bulk_create が落ちる（実際に落ちた）
+            'ledger_id': hashlib.sha1(key.encode('utf-8')).hexdigest()[:16],
+            'date': pd.Timestamp(r['date']), 'ym': r['ym'], 'amount': int(r['amount']),
+            'source_kind': 'bank', 'source_name': BANK_NAME_LABEL,
+            'shop': shop, 'shop_norm': normalize_shop_name(shop), 'merchant': r['merchant'] or shop,
+            'label': label, 'item': r['detail'], 'memo': '',
+            'category': r['category'] if not excluded else '',
+            'subcategory': r['subcategory'] if not excluded else '',
+            # 銀行の仕分けは辞書で確定させたもの。Zaim 由来でも推定でもないので 'bank'
+            'category_source': 'bank' if not excluded else 'none',
+            'kind': '変動', 'necessity': '必須' if not excluded else '要確認',
+            'match_status': '', 'enavi_pay_method': '', 'enavi_is_installment': False,
+            'row_type': 'normal',
+            'exclude_reason': '' if not excluded else r['treat'],
+            'in_total': not excluded, 'dup_flag': '',
+            'label_kind': classify_label(label), 'label_clean': clean_label(label),
+        })
+    return pd.DataFrame(rows)
+
+
+BANK_NAME_LABEL = '三菱UFJ銀行'
+
+
+def import_bank_income(bank) -> dict:
+    """銀行明細の 給料・賞与 → MonthlyIncome（source='bank'）を作り直す。
+
+    Zaim の収入は 2025-04 で止まっていた。銀行の入金は実際に振り込まれた額なので
+    Zaim より確か（effective() の優先順位は 手入力 > 銀行 > Zaim）。
+    手入力（source='manual'）には触らない。
+    """
+    if bank is None:
+        return {'months': 0, 'total': 0, 'message': ''}
+    inc = bank[(bank['treat'] == 'income') & (bank['deposit'] > 0)]
+    if inc.empty:
+        return {'months': 0, 'total': 0, 'message': ''}
+    g = inc.groupby('ym')['deposit'].sum()
+    MonthlyIncome.objects.filter(source='bank').delete()
+    MonthlyIncome.objects.bulk_create([
+        MonthlyIncome(ym=ym, amount=int(v), source='bank') for ym, v in g.items()
+    ])
+    return {'months': int(len(g)), 'total': int(g.sum()), 'last': max(g.index),
+            'message': f'銀行の給料・賞与 {len(g)}か月分（最終 {max(g.index)}）'}
 
 
 def import_income(zaim_path: Path) -> dict:
@@ -400,7 +503,7 @@ def rules_dataframe():
     return df
 
 
-def _trim_to_enavi_period(led, enavi):
+def _trim_to_enavi_period(led, enavi, bank_start=None):
     """台帳を「Zaimとe-naviの両方が揃った期間」に絞る（ユーザー方針）
 
     なぜ絞るか: e-navi は過去16か月しか取得できないため、それ以前は Zaim 単独に
@@ -420,6 +523,10 @@ def _trim_to_enavi_period(led, enavi):
     if pd.isna(first):
         return led, None
     start = first if first.day == 1 else (first + pd.offsets.MonthBegin(1))
+    # 銀行明細があるときは、その開始月とも揃える（家賃・光熱費が無い月が混ざると
+    # 月次比較が崩れるため。ユーザー合意 2026-09-06）。開始側だけ切る方針は同じ
+    if bank_start is not None and bank_start > start:
+        start = bank_start
     start_ym = start.strftime('%Y-%m')
     return led[led['ym'] >= start_ym].copy(), start_ym
 
@@ -457,8 +564,22 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
         zaim = load_zaim(zaim_path)
         enavi = load_enavi(enavi_pattern) if enavi_pattern else pd.DataFrame()
         led = build_ledger(zaim, enavi, rules_dataframe())['ledger']
+        # 銀行明細（家賃・光熱費・電話）。除外行も理由付きで台帳に載せる。
+        # ⚠️ 期間で絞る**前**に足すこと。絞りは銀行の開始月にも揃えるため
+        bank = load_bank_frame()
+        bank_start = None
+        if bank is not None:
+            brows = bank_ledger_rows(bank)
+            if len(brows):
+                led = pd.concat([led, brows], ignore_index=True)
+            first = pd.to_datetime(bank['date']).min()
+            # ⚠️ e-navi と違い、途中から始まる月でも**その月から**採用する。
+            # 家賃・光熱費の引き落としは月の後半（18〜27日）に集中しているので、
+            # 11日始まりの月でも主要な引き落としは揃っている。翌月に丸めると
+            # 1か月分（1,001行・Amazon紐付き28件）を無駄に捨てた（実際にそうなった）
+            bank_start = first.replace(day=1)
         before = len(led)
-        led, start_ym = _trim_to_enavi_period(led, enavi)
+        led, start_ym = _trim_to_enavi_period(led, enavi, bank_start)
         trimmed = before - len(led)
         # レシート付随行（外税・割引・袋代など）に印を付ける。集計からは外さない
         led['label_kind'] = led['label'].map(classify_label)
@@ -514,6 +635,7 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
 
     amazon = import_amazon()
     income = import_income(zaim_path)
+    bank_income = import_bank_income(bank)
 
     return ImportLog.objects.create(
         ok=True,
@@ -527,6 +649,7 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
                if start_ym else '')
             + (f' ／ {amazon["message"]}' if amazon['message'] else '')
             + (f' ／ {income["message"]}' if income['message'] else '')
+            + (f' ／ {bank_income["message"]}' if bank_income['message'] else '')
         ),
     )
 

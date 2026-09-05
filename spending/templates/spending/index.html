@@ -458,7 +458,7 @@
     <form method="post" enctype="multipart/form-data" class="pf-frm">
       {% csrf_token %}
       <input type="hidden" name="form_id" value="upload">
-      <label class="pf-fld">CSVファイル（複数選択可・Zaim / e-navi / Amazon注文履歴 を自動判別）
+      <label class="pf-fld">CSVファイル（複数選択可・Zaim / e-navi / Amazon注文履歴 / 銀行明細 を自動判別）
         <input type="file" name="csv_files" accept=".csv" multiple>
       </label>
       <button class="pf-btn" type="submit">アップロードして取り込む</button>
@@ -476,6 +476,11 @@
       これを上げると請求1件ごとに品目が並びます。<br>
       ⚠️ Amazonの案内は「通常1か月程度」ですが、実際は数時間〜2日で届くことが多いようです。
       注文履歴レポートやブラウザ拡張で出したCSVも、列名で自動判別して取り込めます。<br>
+      銀行明細（三菱UFJ）: 三菱UFJダイレクト → 入出金明細 → CSVダウンロード。
+      <b>家賃・電気・水道・電話（口座振替）と給料・賞与はここでしか取れません</b>。
+      楽天カードの引き落とし・ATMの引き出し・証券口座への振込は、それぞれ e-navi・Zaimのレシート・
+      投資として別に持っているので<b>自動で除外</b>します（二重計上を防ぐため。除外一覧に理由付きで残ります）。
+      銀行明細を入れると集計期間はその開始月（家賃・光熱費が揃う月）から始まります。<br>
       ⚠️ このシステムは楽天やZaimのIDとパスワードを一切保持しません。ログインはあなたがブラウザで行い、
       ダウンロードしたCSVだけをここに上げます。
     </div>

@@ -53,7 +53,8 @@ class Transaction(models.Model):
         ('card', '楽天カード'), ('cash', '現金'), ('bank', '銀行'), ('unset', '支払元未設定'),
     ]
     CATEGORY_SOURCE = [
-        ('manual', '手動'), ('zaim', 'Zaim'), ('rule', 'ルール'), ('none', '未分類'),
+        ('manual', '手動'), ('zaim', 'Zaim'), ('rule', 'ルール'), ('fix', '品目ルール'),
+        ('bank', '銀行明細'), ('none', '未分類'),
     ]
     MATCH = [('matched', '両方'), ('zaim_only', 'Zaimのみ'), ('enavi_only', 'e-naviのみ'), ('', '—')]
 
@@ -74,6 +75,7 @@ class Transaction(models.Model):
 
     category = models.CharField(max_length=50, blank=True)
     subcategory = models.CharField(max_length=50, blank=True)
+    # 'bank' は銀行明細の摘要辞書で確定した分類（2026-09-06）。Zaim 由来でも推定でもない
     category_source = models.CharField(max_length=8, choices=CATEGORY_SOURCE, default='none')
     kind = models.CharField(max_length=10, blank=True)
     necessity = models.CharField(max_length=10, blank=True)
@@ -250,7 +252,7 @@ class MonthlyIncome(models.Model):
     ⚠️ 同じ月に両方あるときは**手入力を優先**する（手で入れたのは自動が間違って
     いるか記録が無いときなので、自動で上書きしてはいけない）。
     """
-    SOURCE = [('zaim', 'Zaimから取込'), ('manual', '手入力')]
+    SOURCE = [('zaim', 'Zaimから取込'), ('bank', '銀行明細から取込'), ('manual', '手入力')]
 
     ym = models.CharField(max_length=7, db_index=True, help_text='YYYY-MM')
     amount = models.IntegerField(help_text='その月の手取り合計（円）')
@@ -269,8 +271,13 @@ class MonthlyIncome(models.Model):
 
     @classmethod
     def effective(cls) -> dict:
-        """月 → 採用する収入額。手入力があればそちらを使う。"""
+        """月 → 採用する収入額。優先順位: 手入力 > 銀行明細 > Zaim
+
+        銀行明細は実際に振り込まれた額なので Zaim の手記録より確か。
+        手入力は「自動が間違っているか無いとき」に人が入れたものなので常に最上位。
+        """
         out = {i.ym: i.amount for i in cls.objects.filter(source='zaim')}
+        out.update({i.ym: i.amount for i in cls.objects.filter(source='bank')})
         out.update({i.ym: i.amount for i in cls.objects.filter(source='manual')})
         return out
 

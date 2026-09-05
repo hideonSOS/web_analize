@@ -470,6 +470,9 @@ def build(months: int = RECENT_MONTHS) -> dict:
     ex_labels = {
         'zaim_exclude': 'Zaimで集計対象外', 'card_settlement': 'カード引落（二重）',
         'investment_deposit': '証券への入金', 'dup_cross_card': '二重計上の疑い',
+        # 銀行明細由来（2026-09-06）。別経路で持っている／支出ではないので除外
+        'cash_withdrawal': 'ATM引き出し（使途はZaimのレシート）',
+        'investment_transfer': '証券口座との入出金（投資）',
     }
     exclusion_rows = [
         {'reason': k, 'label': ex_labels.get(k, k), 'n': int(len(g)), 'total': int(g['amount'].sum())}

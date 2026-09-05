@@ -47,6 +47,73 @@ def _sum_by(ym: str, field: str) -> dict[str, int]:
     return {(r[field] or '未分類'): int(r['t'] or 0) for r in rows}
 
 
+BANK_SCHEDULE_MIN_MONTHS = 2   # 1回きりの振込は「毎月の引き落とし」ではないので出さない
+
+
+def _bank_schedule(setting, today, is_current):
+    """銀行明細から引き落としカレンダーを作る（平均額・典型的な日・引き落とし日順）。
+
+    ユーザー要望: 手入力ではなく UFJ_bank.csv の実績から。金額順ではなく**引き落とし日順**に
+    並べ、次に何が引かれるかが分かるように。
+
+    - 1件＝摘要辞書で付いた表示名（家賃・関西電力・楽天カード引き落とし・ATM引き出し…）
+    - 平均額は「月あたり」（合計÷出現月数）。ATM のように月に複数回あるものも月額で揃える
+    - 日は各回の日の**中央値**（月末や休日で前後にずれるので平均より安定する）
+    - 収入・利息は出さない。除外扱い（カード引落・ATM・証券振込）も口座からは実際に出て
+      いくので**出す**（このカレンダーの目的は口座残高の動き）。行に種別を添える
+    """
+    from .services import load_bank_frame
+    bank = load_bank_frame()
+    if bank is None:
+        return None
+    import pandas as pd
+    pay = bank[(bank['amount'] > 0) & ~bank['treat'].isin(['income', 'ignore'])].copy()
+    if pay.empty:
+        return None
+    pay['day'] = pay['date'].dt.day
+    pay['name'] = pay['merchant'].where(pay['merchant'] != '', pay['summary'])
+    g = (pay.groupby('name')
+            .agg(months=('ym', 'nunique'), total=('amount', 'sum'), n=('amount', 'size'),
+                 day=('day', 'median'), last=('date', 'max'), treat=('treat', 'first'))
+            .reset_index())
+    g = g[g['months'] >= BANK_SCHEDULE_MIN_MONTHS]
+    if g.empty:
+        return None
+    treat_label = {'expense': '', 'card_settlement': 'カード', 'cash_withdrawal': 'ATM',
+                   'investment_transfer': '投資'}
+    palette = TEMPLATE_PALETTE
+    rows = []
+    for i, r in enumerate(g.sort_values(['day', 'total'], ascending=[True, False]).to_dict('records')):
+        rows.append({
+            'day': int(round(r['day'])), 'name': r['name'],
+            'amount': int(round(r['total'] / r['months'])),          # 月あたり平均
+            'months': int(r['months']), 'n': int(r['n']),
+            'last': pd.Timestamp(r['last']).strftime('%Y-%m-%d'),
+            'kind': r['treat'], 'kind_label': treat_label.get(r['treat'], ''),
+            'color': palette[i % len(palette)],
+        })
+    acc = 0
+    for r in rows:
+        acc += r['amount']
+        r['cum'] = acc
+        r['passed'] = is_current and r['day'] < today.day
+        r['today'] = is_current and r['day'] == today.day
+    if setting.salary_day:
+        pos = next((i for i, r in enumerate(rows) if r['day'] > setting.salary_day), len(rows))
+        rows.insert(pos, {'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
+                          'color': '#34d399', 'kind': 'salary', 'kind_label': '',
+                          'passed': is_current and setting.salary_day < today.day,
+                          'today': is_current and setting.salary_day == today.day})
+    return {
+        'rows': rows, 'undated': [], 'total': acc, 'dated_total': acc,
+        'card_day': setting.card_debit_day, 'salary_day': setting.salary_day,
+        'is_current': is_current, 'today': today.day if is_current else None,
+        'remaining': sum(r['amount'] for r in rows if r['day'] >= today.day) if is_current else None,
+        'source': 'bank',
+        'period': (pay['ym'].min(), pay['ym'].max(), int(pay['ym'].nunique())),
+    }
+
+
 def build(ym: str | None = None) -> dict:
     """指定月（省略時は最新月）の分析データ"""
     months = available_months()
@@ -256,7 +323,14 @@ def build(ym: str | None = None) -> dict:
         'today': today.day if is_current else None,
         # 当月なら「今日以降にまだ出ていく額」。給料日前に足りるかを見るための数字
         'remaining': sum(r['amount'] for r in dated if r['day'] >= today.day) if is_current else None,
+        'source': 'template',
     } if items else None
+
+    # 銀行明細があるときは、手入力の理想ではなく**実際の引き落とし実績**からカレンダーを作る
+    # （ユーザー要望 2026-09-06: 平均引き落とし額を引き落とし日順に。次に何が引かれるかを見る）
+    bank_schedule = _bank_schedule(setting, today, is_current)
+    if bank_schedule:
+        schedule = bank_schedule
     budget_limit_total = sum(r['limit'] for r in budget_rows)
     budget_actual_total = sum(r['actual'] for r in budget_rows)
     budget_summary = {
