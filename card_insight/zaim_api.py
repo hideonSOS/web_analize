@@ -100,7 +100,10 @@ class ZaimClient:
     def sign(self, method: str, url: str, params: dict, oauth: dict) -> str:
         """署名ベース文字列 = METHOD & URL & 正規化パラメータ を HMAC-SHA1"""
         allp = {**params, **oauth}
-        norm = '&'.join(f'{_pct(k)}={_pct(v)}' for k, v in sorted((_pct(k), _pct(v)) for k, v in allp.items()))
+        # ⚠️ エンコードは1回だけ。並べ替え用に一度エンコードした k,v をそのまま連結する。
+        # ここで再エンコードすると oauth_callback の "://" が二重になり、Consumer は見つかるのに
+        # "401 Unauthorized" になる（実際に踏んだ。日付だけの GET では露見しなかった）
+        norm = '&'.join(f'{k}={v}' for k, v in sorted((_pct(k), _pct(v)) for k, v in allp.items()))
         base = '&'.join([method.upper(), _pct(url), _pct(norm)])
         key = f'{_pct(self.consumer_secret)}&{_pct(self.token_secret)}'
         digest = hmac.new(key.encode(), base.encode(), hashlib.sha1).digest()
