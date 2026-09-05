@@ -64,7 +64,9 @@ CREATE DATABASE web_kabuanalize ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C
 ### ⚠️ migrations/ を .gitignore に入れないこと
 migrations を除外すると、サーバーで `migrate` してもテーブルが作られず
 「テーブル/カラムが無い」という DB不整合エラーになる。`.gitignore` にも警告を明記済み。
-現在のマイグレーションは全35ファイル（japan_kabu 10・diary 3・karte 13・portfolio 9）。
+現在のマイグレーションは全43ファイル（japan_kabu 10・diary 3・karte 13・portfolio 9・
+spending 5・website 3）。**spending と website を数え漏らしていた時期がある**ので、
+デプロイ時は `manage.py showmigrations | grep -c "\[ \]"` で未適用ゼロを確認すること。
 デプロイ後は `python manage.py migrate` を必ず実行する。
 
 ### 開発環境のデータ規模（2026-07-21 時点・移行量の目安）
@@ -97,17 +99,34 @@ japan_kabu_* はバッチで再生成できるが、**銘柄カルテ(karte_*)�
   セッションを生かさないため、移行時は全端末で再ログインになる
 - パスワード変更は `manage.py changepassword <メールアドレス>` か管理画面から
 
-### 2段階認証（TOTP・`/security/` で設定）
-- **認証アプリ方式（TOTP）。SMS は採用しない**（SIMスワップに弱い／業者APIキーを
-  サーバーに置くことになり「サーバーに秘密を置かない」方針と矛盾／月額費用）
-- ライブラリ: `pyotp`（検証）+ `segno`（QR生成・**依存の軽さで qrcode より優先**）
-- 有効化するとログインが2段階になる: `/login/` でパスワード → `/login/verify/` で6桁
-- **⚠️ `/login/verify/` はミドルウェアの除外パスに入れること。** 保護対象にすると
-  「パスワードは通ったが未ログイン」の状態でログイン画面へ戻され、**永久に入れなくなる**
-  （実際に踏んだ）。この画面はセッションの `totp_pending_user_id` が無いと何も出さない
-- リカバリコード8個を発行（1回限り・端末紛失時の最後の鍵）。再発行・解除には
-  **現在のコードが必要**（乗っ取られた状態で外させないため）
-- 残る課題: **HTTPS 未対応**（パスワードも6桁コードも平文で流れる）
+### HTTPS（2026-09-05 対応済み・Let's Encrypt の IP アドレス証明書）
+- ドメインが無いため **Let's Encrypt の `shortlived` プロファイル（IPアドレス証明書・
+  有効6日）** を lego で取得し、`lego-renew.timer` で自動更新している。手順と
+  nginx 設定は `docs/SERVER_TASK_HTTPS_PASSKEY.md`
+- Django 側は `settings.py` の `if not DEBUG:` ブロックで `SECURE_PROXY_SSL_HEADER` /
+  `SESSION_COOKIE_SECURE` / `CSRF_COOKIE_SECURE` / `SECURE_SSL_REDIRECT` /
+  `SECURE_HSTS_SECONDS=86400` を有効化。`CSRF_TRUSTED_ORIGINS` に `https://<IP>` が必要
+- ⚠️ `SECURE_SSL_REDIRECT` があるため、**サーバー内の動作確認で http://localhost を
+  叩くと 301 になる**。Django の test Client で確認するときは `c.get(url, secure=True)`
+  を付けること（付けずに「全ページ301＝壊れた」と誤診しかけた）
+
+### 2段階認証（TOTP・`/security/` で設定可能。**現在は未使用**）
+- ユーザー方針で **ログインはメール＋パスワードのみ**（TOTP を試したが「6桁を毎回
+  どこから取るのか分からない」で断念。UIは `/security/` に残っているが有効化していない）
+- 実装は残置: `pyotp`（検証）+ `segno`（QR生成）。有効化すると `/login/` →
+  `/login/verify/` の2段階になる
+- **⚠️ `/login/verify/` はミドルウェアの除外パスに入れたままにすること。** 外すと
+  「パスワードは通ったが未ログイン」でログイン画面へ戻され**永久に入れなくなる**
+  （実際に踏んだ）。同様に `/passkey/auth/options/` と `/passkey/auth/verify/` も除外
+- SMS は採用しない（SIMスワップ／業者APIキーをサーバーに置く／月額費用）
+
+### パスキー（実装済み・**IPアドレス運用では使えない**）
+- WebAuthn の RP ID は「valid domain string」が必須で **IPアドレスは仕様上不可**。
+  ブラウザが "The effective domain of the document is not a valid domain" で拒否する
+  （HTTPS化まで終えてから判明した。私の計画ミス）
+- `website/passkeys.py` の `is_available(request)` が IP／非HTTPS で False を返し、
+  ログイン画面・`/security/` の UI を出さない。**ドメインを取得すればコード変更なしで
+  有効になる**ので実装は消さないこと。ライブラリは `webauthn` 3.0.0
 
 以下は移行前の合言葉方式の記録（config.json の `site_password` は現在未使用）。
 
@@ -750,6 +769,7 @@ ETagで確実に検知できる。
 | `diary` | 売買日記(`/diary/`)。判断記録は編集不可・振り返りのみ追記の設計 |
 | `karte` | 銘柄カルテ(`/karte/`)。IR資料を読みながら手入力する定性分析＋株価レンジ |
 | `portfolio` | 資産ダッシュボード(`/portfolio/`)と棚卸し登録(`/portfolio/register/`)。株・投信・金銀・現金を円換算で自動評価。**サーバー反映手順は `docs/DEPLOY_PORTFOLIO.md`**（migrate→collectstatic→`seed_fund_products`→`update_product_prices`→restart。投信のプルダウン候補はDBデータなのでseedコマンド実行が必須） |
+| `spending` | 支出分析(`/spending/`)・月次(`/spending/month/`)・明細(`/spending/transactions/`)。Zaim／楽天e-navi／Amazon注文履歴のCSVを**手動アップロード**して統合台帳を作り、サブスク・貯蓄率・入金力を出す。分析エンジンは `card_insight/`。**詳細は下の「支出分析」節を必ず読むこと**（罠が多い） |
 
 ### ⚠️ snapshot_assets は2026-08-31まで未実装だった（実装済み・cron必須）
 `AssetSnapshot`（日次の資産スナップショット）はモデルとadminだけ存在し、
@@ -774,6 +794,137 @@ principal（投資元本）は「総資産 − 含み損益」で導出してい
   これはユーザーの明示要件（切替時にバックエンド通信ゼロ）。**API化・都度取得に変えないこと**。
   本番では gzip 圧縮（nginx等）を有効にする。
 - グラフは Chart.js（CDN読み込み）。
+
+## 💴 支出分析（`/spending/`）— 2026-09-05 追加。触る前に必ず読むこと
+
+**目的は入金力の向上、可視化はその手段**（ユーザーの明言）。画面の出口は必ず
+「節約候補 → 決定（`SavingsPlan`）→ 月あたり入金力 → 下落上等の弾薬（現金）ゲージ」に
+つながる設計。分析エンジンは `card_insight/`（pandas）、Django 側は `spending/`。
+
+### セキュリティ方針（変えないこと）
+- 「資産額や出金履歴が公開されても構わないが、**出金する権限が流出するのは困る**」が
+  ユーザーの線引き。よって **楽天・Zaim・Amazon の ID/パスワードをサーバーに一切
+  持たない**。ログインはユーザーがブラウザで行い、**ダウンロードした CSV だけ**を
+  アップロードする。「自動のようなシステムは極力控えたい」＝スクレイピング・自動ログインは不採用
+- CSV の置き場は **`data/spending/`（`MEDIA_ROOT` ではない）**。本番は nginx が
+  `/media/` を直接配信して Django の認証を通らない（実測で確認済み）。`data/` は
+  `.gitignore` 済み・nginx から見えない
+
+### 3つのソースと台帳の作り方
+| ソース | 取得 | 置き場 | 役割 |
+|---|---|---|---|
+| Zaim | 設定→ファイル入出力→記録データ（全期間・cp932） | `data/spending/Zaim*.csv`（名前順で最新を採用） | 支出の本体＋カテゴリ＋**収入** |
+| 楽天e-navi | ご利用明細→明細CSV（月ごと・utf-8-sig） | `data/spending/enavi/` | カード明細の答え合わせ・最新分の先行取得 |
+| Amazon | アカウントサービス→**データをリクエストする**→注文履歴（数時間〜2日でメール） | `data/spending/amazon/` | 「Amazon.co.jp」としか出ない請求の**品目**を解明 |
+
+- **台帳（`Transaction`）は毎回ゼロから作り直す**。`ledger_id` = SHA1(date|source|amount|
+  shop|item|pay_method) で upsert するので同じ CSV からは必ず同じ台帳になり重複しない。
+  台帳から消えた行は削除する（Zaim 側の修正に追随）
+- **手動修正（`manual_category` / `manual_necessity` / `exclude_override`）は再取込で保持**。
+  一括修正（明細画面のチェック→まとめて変更）もこの列に書く。**元の `category` は
+  触らない**（何が自動で何が手修正か追えなくなる／戻せなくなる）
+- **集計期間は「Zaim と e-navi の両方が揃った期間」に絞る**（`_trim_to_enavi_period`）。
+  e-navi は過去16か月しか取れないため。⚠️ 絞るのは**開始側だけ**。終端を切ると
+  e-navi 反映待ちの直近支出が消える。Zaim 単独でアップすると絞られず全期間15,264行が入る
+- 形式判別は**ファイル名ではなく列名**（`detect_csv_kind`）。⚠️ 実ファイルの見出しは
+  `"Product Name"` のように**引用符付き**なので、判別前に必ず外すこと（外さず常に False
+  になっていた事故あり）。先頭2048バイトは日本語の途中で切れるので `decode_head` は
+  最後に `errors='ignore'` で必ず文字列を返す
+
+### ⚠️ 保存先の振り分け事故（本番で実際に発生）
+`save_upload` が `'enavi'` 以外を全部 `data/spending/` 直下に落としており、Amazon の CSV が
+**エラーも出さず黙って無視**されていた。振り分けは dict で直したが、既に直下に置かれた
+ファイルを拾う `adopt_stray_amazon_csvs()` も残してある（Zaim は名前で除外、中身が
+Amazon のものだけ移す）。**保存先の検証は必ず `save_upload` を実際に通すこと**。
+ファイルを手でコピーして「動いた」と判断したのが見逃しの原因。
+
+### Amazon 注文履歴の突合（`card_insight/amazon_loader.py` / `amazon_match.py`）
+実物（2026-09取得の `Your Orders.zip`）で判明した事実。**合成データでは分からなかった**:
+- 取り込むのは `Order History.csv`（通販）と `Digital Content Orders.csv`（Kindle・**Prime年会費もここ**）
+  の2本だけ。zip 内の他8本（返品・返金・借りた本・カート等）は列名に return/refund を
+  含むもので弾く（`_is_return_file`。完全一致だと `Return Reason Code` を取りこぼす）
+- **`Total Amount` が行の金額**（単価＋税＋送料−割引）。**`Shipment Item Subtotal` は
+  出荷単位の小計が全行に繰り返し入る列**で行の金額ではない（これを行金額にして5倍に
+  膨らんだ）。`Total Owed` は旧称でどちらも行単位＝**注文合計ではない**
+- **`Ship Date` は 2025-04-15 以降すべて空**。出荷の特定は `Carrier Name & Tracking Number`
+  を第一の鍵にする。デジタル注文は 1商品が Price Amount/Tax の複数行なので
+  `Digital Order Item ID` で畳む（`_collapse_components`）
+- 突合は **charge → shipment → order → item → split** の順。**金額完全一致＋日付±7日**
+  のグリーディ割当で、**近い金額に寄せない**（間違った品目を出すより不明のままの方が
+  よい。目的は使途の解明であって穴埋めではない）。`split` は1注文が同額の請求2本に
+  割れたケース（実データ: 烏龍茶3,986円→1,993円×2）で、合計完全一致の組み合わせのみ結ぶ
+- 同日・同額の請求が2本あるのは**本物**（e-navi 明細に2行ある）。グループ鍵に注文番号を
+  含めないと片方が永久に未突合になる
+- 注文履歴の `Payment Method Type` にはカードが複数（0433/2769/**9213**/ギフト券）。
+  e-navi のファイル名 `enavi*(9213).csv` のとおり突合対象は 9213 のみで、他は合わなくて当然
+- 実測の解明率 **76%（63/86件・170,762/224,089円）**。残りはポイント・ギフト券併用と
+  履歴の範囲外（データリクエストは最終注文が約2.5か月遅れる）
+
+### 分類（`MerchantRule` / `card_insight/normalize.py`）
+- 優先順位は **Zaim の分類 > 加盟店ルール > 未分類**。e-navi には**カテゴリ列が無い**ので、
+  カード行の分類は「突合した Zaim 行」か「ルールの推定」。実測でカード215行のうち159行が
+  推定。画面では `category_source` を「推定」バッジで出し、「分類の出どころ」で絞れる
+- ルールは `card_insight/merchant_rules.csv` から**初回シードされるだけで以後は DB が正**。
+  CSV を直しても取り込み済み環境には何も起きない → **`manage.py sync_merchant_rules`**
+  で反映し、そのあと**取り込みをやり直す**（ルール変更だけでは台帳は分類し直されない）
+- ⚠️ `rules_dataframe` の `sort_values` は **`kind='stable'` 必須**。`classify_name` は先勝ち
+  なのに既定の quicksort は不安定で、全ルール priority=100 のため当たるルールが黙って変わりうる
+- Zaim のレシート取込がスーパーの食料品を「遊び/風俗」に分類していた（豆腐118円等）。
+  これは**Zaim 側の誤り**で、こちらは写しているだけ。ルールを足しても直らない（Zaim優先）
+  ので、明細画面の一括修正で `manual_category` に書く（21件実施済み）
+
+### レシート付随行（`card_insight/labels.py` / `Transaction.label_kind`）
+- Zaim のレシート撮影は 外税・割引・袋代・レジ袋・不明 の行を作る。実測 **964件・全行の24%**
+  で、明細の雑音の本体はこれ（文字化けは24件しかなく辞書を作る量ではない）
+- 品目名から item/tax/discount/bag/unknown を判定し、明細は既定で商品行のみ表示。
+  **⚠️ 集計からは絶対に外さないこと**。外税55,913円は実際に払った消費税で、落とすと
+  支出の総額が実態より小さくなる。隠すだけで、見出しに「合計には含まれています」と明記
+- **レシート撮影はユーザーが継続する方針**（品目が残る利点）。「やめれば支払元未設定が
+  消える」と案内しないこと。支払元を埋めたいなら現金→楽天カードへ寄せるのが最小手間
+- `label_clean` は表示用（記号の連続と改行を畳む）。元の `label` は必ず残す
+
+### 収入と貯蓄率（`MonthlyIncome`）
+- Zaim CSV の収入行から自動取込（`source='zaim'`）＋画面の手入力（`source='manual'`）。
+  **同じ月にあれば手入力を優先**（手で入れたのは自動が間違っているか無いとき）
+- ⚠️ 収入は台帳と違い**期間で絞らない**（e-navi と突合しないので揃える理由が無い）
+- ⚠️ **収入が無い月を0円として混ぜないこと**。貯蓄率が大きくマイナスに出て実態と逆の
+  結論になる。判定不能として除外し、目安に「記録が残る直近12か月の平均」を出す
+- 実データは収入が **2025-04 で止まっており分析期間に1件も無い**（Zaim への記録が途絶）。
+  再開するか手入力するかはユーザー判断（「推奨＝併用」で合意済み）
+
+### サブスク・記録の質・弾薬接続（`spending/summary.py`）
+- サブスクは **毎月／年払い・不定期／要確認（止まっている）** の3分割。判定は
+  **直近から何か月連続で出ているか**（`MONTHLY_MIN_STREAK=3`）。出現月数の合計で
+  判定すると一度解約して再契約したものが弾かれる（Claude が該当）。当月未請求は1か月猶予
+- 平常月の金額は**連続区間の中央値**。平均だと年額プラン切替（Claude 8月17,580円）や
+  入会金（chocoZAP 初月9,008円）が1回混ざるだけで固定費が2倍近くになる。
+  年払い・要確認は月額に均さず実際に払った合計で出す
+- 記録の質（支払元未設定率）は**当月を判定から外す**。5日時点の290円で「0%に改善」と出た。
+  比較は前月ではなく**それ以前の中央値**（月により24〜79%と振れるため）
+- `SavingsPlan.monthly_capacity()`（実行中＋完了の年間効果÷12）を **下落上等の弾薬ゲージ**に
+  「補給」として接続し、目標現金まで何か月かを出す。`portfolio/views.py` は spending を
+  **遅延 import＋例外握り**で参照（未導入環境でも下落上等が落ちないため）
+
+### サーバー反映手順
+```bash
+cd /srv/web_analize && git pull
+./venv/bin/python manage.py migrate spending
+./venv/bin/python manage.py collectstatic --noinput
+sudo systemctl restart web_analize.service
+# ルール(merchant_rules.csv)を変えたときだけ:
+./venv/bin/python manage.py sync_merchant_rules
+./venv/bin/python manage.py shell -c "from spending import services; print(services.import_from_files().message)"
+```
+取り込み結果の1行に「Amazon注文 N商品 → カード請求 X/Y件（円）」「収入 Nか月分」が
+出る。出ていなければそのソースが読まれていない（置き場所を疑う）。
+
+### 開発時の教訓（今回実際に踏んだ）
+- **`sed`/heredoc の Python 文字列でバックスラッシュを含む行を置換すると、エスケープの
+  取り違えで編集が当たらないことがある**（`\\t` 等）。エラーも出ない。この事故で
+  `save_upload` の振り分けと `looks_like_amazon` の引用符処理が2度すり抜けた。
+  **既存行の置換は Edit ツールを使い、直後に grep で実際に変わったか確認すること**
+- 検証は**実際の経路**で行う（アップロードなら `save_upload` を通す、突合なら本物の
+  CSV）。合成データで100%でも実物では66%だった。合成は形式の網羅に使い、判断は実物で
 
 ## 🚀 初回デプロイ手順（サーバー側で実施・この順番で行う）
 
