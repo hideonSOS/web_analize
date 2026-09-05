@@ -102,9 +102,13 @@ def _merge_config(path: Path, conf: dict):
 
 def _push_server(host: str, remote_path: str, conf: dict):
     """ssh でサーバーの config.json に "zaim" を差し込む。値は標準入力で渡す（引数・画面に出ない）"""
+    import base64
     import subprocess
-    r = subprocess.run(['ssh', host, 'python3', '-c', _REMOTE_MERGE, remote_path],
-                       input=json.dumps(conf), text=True, capture_output=True)
+    # ssh は引数を空白で連結して遠隔シェルに渡すので、複数行のコードはそのままでは壊れる。
+    # base64 で1トークンにして exec する（値は標準入力で渡す）
+    code = base64.b64encode(_REMOTE_MERGE.encode()).decode()
+    remote = f"python3 -c \"import base64,sys;exec(base64.b64decode('{code}'))\" '{remote_path}'"
+    r = subprocess.run(['ssh', host, remote], input=json.dumps(conf), text=True, capture_output=True)
     if r.returncode == 0:
         print(f'サーバー {host} の {remote_path} に "zaim" を書きました')
     else:
