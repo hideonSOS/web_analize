@@ -813,7 +813,7 @@ principal（投資元本）は「総資産 − 含み損益」で導出してい
 ### 3つのソースと台帳の作り方
 | ソース | 取得 | 置き場 | 役割 |
 |---|---|---|---|
-| Zaim | 設定→ファイル入出力→記録データ（全期間・cp932） | `data/spending/zaim/Zaim*.csv`（名前順で最新を採用） | 支出の本体＋カテゴリ＋**収入** |
+| Zaim | **公式APIで毎晩自動取得**（`fetch_zaim`・2026-09-06〜）。手動は 設定→ファイル入出力→記録データ（全期間・cp932） | `data/spending/zaim/Zaim*.csv`（名前順で最新を採用。API生成は `Zaim.<日時>.api.csv`） | 支出の本体＋カテゴリ＋**収入** |
 | 楽天e-navi | ご利用明細→明細CSV（月ごと・utf-8-sig） | `data/spending/e_navi/` | カード明細の答え合わせ・最新分の先行取得 |
 | 三菱UFJ銀行 | 入出金明細→CSV（cp932） | `data/spending/ufj_bank/` | 家賃・光熱費・給料（引き落としカレンダー・収入の第一候補） |
 | Amazon | アカウントサービス→**データをリクエストする**→注文履歴（数時間〜2日でメール） | `data/spending/amazon/` | 「Amazon.co.jp」としか出ない請求の**品目**を解明 |
@@ -837,6 +837,21 @@ principal（投資元本）は「総資産 − 含み損益」で導出してい
   `"Product Name"` のように**引用符付き**なので、判別前に必ず外すこと（外さず常に False
   になっていた事故あり）。先頭2048バイトは日本語の途中で切れるので `decode_head` は
   最後に `errors='ignore'` で必ず文字列を返す
+
+### Zaim は公式APIで自動取得する（2026-09-06 導入・手順は `docs/ZAIM_API_SETUP.md`）
+- Zaim には出金の権限が無いので自動化してよい、がユーザー判断（楽天・銀行・Amazon は手動のまま）。
+  **自動ログイン＋CSVダウンロードは採らない**。OAuth 1.0a の公式API（`card_insight/zaim_api.py`・
+  署名は標準ライブラリで自前実装・依存追加なし）で記録を取り、**エクスポート CSV と同じ16列・cp932**
+  で `zaim/Zaim.<日時>.api.csv` に保存 → `import_from_files()`。下流は無変更
+- 鍵は `config.json` の `"zaim"`（consumer_key/secret・access_token/secret）。`scripts/zaim_authorize.py`
+  をローカルで一度実行して発行する（ブラウザ承認）。**未設定なら fetch_zaim は何もせず正常終了**
+  （cron に入れたまま）。`daily_update.sh` の最後に `run fetch_zaim` 済み
+- ⚠️ **API は手入力の記録しか返さない**（口座連携の自動取込は返らない、と公式注記）。実物 CSV には
+  楽天カード連携 1,138 行・三菱UFJ連携 391 行があり欠ける可能性がある。**初回は必ず
+  `fetch_zaim --check`** で最新の手動 CSV と方法×支払元で突き合わせる。カード分は e-navi、
+  家賃・給料は `ufj_bank/` が持つので実害は限定的だが、Zaim 側の分類は失われ「推定」になる
+- 集計の設定・残高調整は API に無い（payment/income は「常に集計」、transfer は「含めない」に倒す）
+- 手動アップロードは併存。名前順で新しい方が採用されるので混在しても壊れない
 
 ### ⚠️ 保存先の振り分け事故（本番で実際に発生）
 `save_upload` が `'enavi'` 以外を全部 `data/spending/` 直下に落としており、Amazon の CSV が
