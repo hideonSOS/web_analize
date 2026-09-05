@@ -50,6 +50,39 @@ def _sum_by(ym: str, field: str) -> dict[str, int]:
 BANK_SCHEDULE_MIN_MONTHS = 2   # 1回きりの振込は「毎月の引き落とし」ではないので出さない
 
 
+def _cycle_order(rows, salary_day, today_day, is_current):
+    """引き落としの行を**給与日起点**に並べ直し、累計と今日の印を付け直す（ユーザー要望 2026-09-06）。
+
+    月初起点だと「25日に給料が入って、翌月の24日までにいくら出るか」が読めない。
+    並び順は (日 − 給与日) mod 31 で、給与日の行が先頭、給与日より前の日は翌月扱い
+    （next_month=True・表示で「翌月」）。累計は給与日でゼロに戻る。
+    今日の印も同じ座標で付ける（今日が給与日より前なら「翌月側」にいる）。
+    給与日が未設定なら日付順のまま。
+    """
+    if not salary_day:
+        for r in rows:
+            r['next_month'] = False
+        return rows
+    pos = lambda d: (d - salary_day) % 31
+    rows = sorted(rows, key=lambda r: (pos(r['day']), 0 if r.get('kind') == 'salary' else 1, -r.get('amount', 0)))
+    acc = 0
+    today_pos = pos(today_day) if is_current else None
+    for r in rows:
+        r['next_month'] = r['day'] < salary_day
+        if r.get('kind') == 'salary':
+            r['cum'] = None
+            acc = 0
+        else:
+            acc += r['amount']
+            r['cum'] = acc
+        if is_current:
+            r['passed'] = pos(r['day']) < today_pos
+            r['today'] = r['day'] == today_day
+        else:
+            r['passed'] = r['today'] = False
+    return rows
+
+
 def bank_recurring(min_months: int = BANK_SCHEDULE_MIN_MONTHS) -> list[dict]:
     """銀行明細の「毎月の引き落とし」一覧。カレンダーと理想テンプレートの雛形の共通材料。
 
@@ -108,23 +141,18 @@ def _bank_schedule(setting, today, is_current):
         'color': palette[i % len(palette)],
     } for i, r in enumerate(recurring)]
     period = recurring[0]['period']
-    acc = 0
-    for r in rows:
-        acc += r['amount']
-        r['cum'] = acc
-        r['passed'] = is_current and r['day'] < today.day
-        r['today'] = is_current and r['day'] == today.day
     if setting.salary_day:
-        pos = next((i for i, r in enumerate(rows) if r['day'] > setting.salary_day), len(rows))
-        rows.insert(pos, {'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
-                          'color': '#34d399', 'kind': 'salary', 'kind_label': '',
-                          'passed': is_current and setting.salary_day < today.day,
-                          'today': is_current and setting.salary_day == today.day})
+        rows.append({'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
+                     'color': '#34d399', 'kind': 'salary', 'kind_label': ''})
+    # 給与日起点で並べ直す（給与日が先頭・それより前の日は翌月扱い・累計は給与日でゼロ）
+    rows = _cycle_order(rows, setting.salary_day, today.day, is_current)
+    total = sum(r['amount'] for r in rows)
     return {
-        'rows': rows, 'undated': [], 'total': acc, 'dated_total': acc,
+        'rows': rows, 'undated': [], 'total': total, 'dated_total': total,
         'card_day': setting.card_debit_day, 'salary_day': setting.salary_day,
         'is_current': is_current, 'today': today.day if is_current else None,
-        'remaining': sum(r['amount'] for r in rows if r['day'] >= today.day) if is_current else None,
+        # 今日以降（給与サイクル上で今日より後）にまだ出ていく額
+        'remaining': sum(r['amount'] for r in rows if not r['passed']) if is_current else None,
         'source': 'bank',
         'period': period,
     }
@@ -311,34 +339,25 @@ def build(ym: str | None = None) -> dict:
         dated.append({'day': setting.card_debit_day, 'name': 'カード引き落とし',
                       'amount': sum(t.ideal for t in card_items), 'color': '#94a3b8', 'kind': 'card',
                       'members': [t.name for t in card_items]})
-    dated.sort(key=lambda r: (r['day'], -r['amount']))
     today = date.today()
     is_current = ym == today.strftime('%Y-%m')
-    acc = 0
-    for r in dated:
-        acc += r['amount']
-        r['cum'] = acc
-        r['passed'] = is_current and r['day'] < today.day
-        r['today'] = is_current and r['day'] == today.day
-    # 給与日の目印。同じ日の引き落としより後ろに置く（給与が入ってから引かれる想定は
-    # 銀行次第なので断定しない。目印として「その日の最後」に表示するだけ）
     if items and setting.salary_day:
-        pos = next((i for i, r in enumerate(dated) if r['day'] > setting.salary_day), len(dated))
-        dated.insert(pos, {'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
-                           'color': '#34d399', 'kind': 'salary',
-                           'passed': is_current and setting.salary_day < today.day,
-                           'today': is_current and setting.salary_day == today.day})
+        dated.append({'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
+                      'color': '#34d399', 'kind': 'salary'})
+    # 給与日起点で並べ直す（給与日が先頭・それより前の日は翌月扱い・累計は給与日でゼロ）
+    dated = _cycle_order(dated, setting.salary_day, today.day, is_current) if items else dated
+    dated_total = sum(r['amount'] for r in dated)
     schedule = {
         'rows': dated,
         'undated': undated,
-        'total': acc + sum(u['amount'] for u in undated),
-        'dated_total': acc,
+        'total': dated_total + sum(u['amount'] for u in undated),
+        'dated_total': dated_total,
         'card_day': setting.card_debit_day,
         'salary_day': setting.salary_day,
         'is_current': is_current,
         'today': today.day if is_current else None,
-        # 当月なら「今日以降にまだ出ていく額」。給料日前に足りるかを見るための数字
-        'remaining': sum(r['amount'] for r in dated if r['day'] >= today.day) if is_current else None,
+        # 当月なら「今日以降（給与サイクル上で今日より後）にまだ出ていく額」
+        'remaining': sum(r['amount'] for r in dated if not r['passed']) if is_current else None,
         'source': 'template',
     } if items else None
 

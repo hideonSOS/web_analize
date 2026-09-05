@@ -206,3 +206,6 @@
 .sp-check{ flex-direction:row; align-items:center; gap:8px; font-size:12px; color:#cbd5e1; padding-top:20px; }
 .sp-check input{ width:auto; margin:0; }
 .sp-setting-form{ margin-top:10px; padding-top:10px; border-top:1px solid #1f2937; }
+
+/* 引き落としカレンダー: 給与日より前の日は翌月扱い */
+.sp-sched-next{ font-size:9px; color:#9ca3af; border:1px solid #374151; border-radius:4px; padding:0 3px; margin-right:4px; }

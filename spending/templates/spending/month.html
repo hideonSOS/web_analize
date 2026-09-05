@@ -124,11 +124,11 @@
         {% if r.kind == 'salary' %}
         <tr class="sp-sched-salary {% if r.passed %}sp-sched-passed{% endif %}">
           <td>{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
-          <td colspan="{% if schedule.source == 'bank' %}5{% else %}3{% endif %}" style="text-align:left">💴 給与日（ここで残高が戻る）</td>
+          <td colspan="{% if schedule.source == 'bank' %}5{% else %}3{% endif %}" style="text-align:left">💴 給与日（ここが起点。累計はここからの合計）</td>
         </tr>
         {% else %}
         <tr class="{% if r.passed %}sp-sched-passed{% elif r.today %}sp-sched-today{% endif %}{% if r.kind == 'card' or r.kind == 'card_settlement' %} sp-sched-card{% endif %}">
-          <td>{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
+          <td>{% if r.next_month %}<span class="sp-sched-next">翌月</span>{% endif %}{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
           <td style="text-align:left">
             <span class="sp-tpl-swatch" style="background:{{ r.color }}"></span> {{ r.name }}
             {% if r.kind_label %}<span class="sp-kind">{{ r.kind_label }}</span>{% endif %}
@@ -155,7 +155,8 @@
       {% else %}
       金額は理想額です。カード払いの項目は各サービスの日ではなく<b>カードの引き落とし日（{{ schedule.card_day }}日）に1本</b>で出します。
       {% endif %}
-      累計が「その日までに口座から出る額」＝それまでに置いておく残高の目安です。
+      <b>起点は給与日（{{ schedule.salary_day }}日）</b>で、給与日より前の日は「翌月」として後ろに並びます。
+      累計は給与日でゼロに戻り、「給料が入ってから次の給料日までにいくら出るか」＝置いておく残高の目安です。
     </p>
     {% endif %}
 
