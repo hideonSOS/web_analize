@@ -50,6 +50,39 @@ def _sum_by(ym: str, field: str) -> dict[str, int]:
 BANK_SCHEDULE_MIN_MONTHS = 2   # 1回きりの振込は「毎月の引き落とし」ではないので出さない
 
 
+def bank_recurring(min_months: int = BANK_SCHEDULE_MIN_MONTHS) -> list[dict]:
+    """銀行明細の「毎月の引き落とし」一覧。カレンダーと理想テンプレートの雛形の共通材料。
+
+    1件＝摘要辞書で付いた表示名。月あたり平均額（合計÷出現月数）、典型的な日（各回の
+    日の中央値）、出現月数、最終日、種別（expense / card_settlement / cash_withdrawal /
+    investment_transfer）。収入・利息は含めない。min_months 未満のものは除く。
+    """
+    from .services import load_bank_frame
+    bank = load_bank_frame()
+    if bank is None:
+        return []
+    import pandas as pd
+    pay = bank[(bank['amount'] > 0) & ~bank['treat'].isin(['income', 'ignore'])].copy()
+    if pay.empty:
+        return []
+    pay['day'] = pay['date'].dt.day
+    pay['name'] = pay['merchant'].where(pay['merchant'] != '', pay['summary'])
+    g = (pay.groupby('name')
+            .agg(months=('ym', 'nunique'), total=('amount', 'sum'), n=('amount', 'size'),
+                 day=('day', 'median'), last=('date', 'max'), treat=('treat', 'first'),
+                 category=('category', 'first'))
+            .reset_index())
+    g = g[g['months'] >= min_months]
+    return [{
+        'name': r['name'], 'day': int(round(r['day'])),
+        'amount': int(round(r['total'] / r['months'])),
+        'months': int(r['months']), 'n': int(r['n']),
+        'last': pd.Timestamp(r['last']).strftime('%Y-%m-%d'),
+        'treat': r['treat'], 'category': r['category'],
+        'period': (pay['ym'].min(), pay['ym'].max(), int(pay['ym'].nunique())),
+    } for r in g.sort_values(['day', 'total'], ascending=[True, False]).to_dict('records')]
+
+
 def _bank_schedule(setting, today, is_current):
     """銀行明細から引き落としカレンダーを作る（平均額・典型的な日・引き落とし日順）。
 
@@ -62,36 +95,19 @@ def _bank_schedule(setting, today, is_current):
     - 収入・利息は出さない。除外扱い（カード引落・ATM・証券振込）も口座からは実際に出て
       いくので**出す**（このカレンダーの目的は口座残高の動き）。行に種別を添える
     """
-    from .services import load_bank_frame
-    bank = load_bank_frame()
-    if bank is None:
-        return None
-    import pandas as pd
-    pay = bank[(bank['amount'] > 0) & ~bank['treat'].isin(['income', 'ignore'])].copy()
-    if pay.empty:
-        return None
-    pay['day'] = pay['date'].dt.day
-    pay['name'] = pay['merchant'].where(pay['merchant'] != '', pay['summary'])
-    g = (pay.groupby('name')
-            .agg(months=('ym', 'nunique'), total=('amount', 'sum'), n=('amount', 'size'),
-                 day=('day', 'median'), last=('date', 'max'), treat=('treat', 'first'))
-            .reset_index())
-    g = g[g['months'] >= BANK_SCHEDULE_MIN_MONTHS]
-    if g.empty:
+    recurring = bank_recurring()
+    if not recurring:
         return None
     treat_label = {'expense': '', 'card_settlement': 'カード', 'cash_withdrawal': 'ATM',
                    'investment_transfer': '投資'}
     palette = TEMPLATE_PALETTE
-    rows = []
-    for i, r in enumerate(g.sort_values(['day', 'total'], ascending=[True, False]).to_dict('records')):
-        rows.append({
-            'day': int(round(r['day'])), 'name': r['name'],
-            'amount': int(round(r['total'] / r['months'])),          # 月あたり平均
-            'months': int(r['months']), 'n': int(r['n']),
-            'last': pd.Timestamp(r['last']).strftime('%Y-%m-%d'),
-            'kind': r['treat'], 'kind_label': treat_label.get(r['treat'], ''),
-            'color': palette[i % len(palette)],
-        })
+    rows = [{
+        'day': r['day'], 'name': r['name'], 'amount': r['amount'],
+        'months': r['months'], 'n': r['n'], 'last': r['last'],
+        'kind': r['treat'], 'kind_label': treat_label.get(r['treat'], ''),
+        'color': palette[i % len(palette)],
+    } for i, r in enumerate(recurring)]
+    period = recurring[0]['period']
     acc = 0
     for r in rows:
         acc += r['amount']
@@ -110,7 +126,7 @@ def _bank_schedule(setting, today, is_current):
         'is_current': is_current, 'today': today.day if is_current else None,
         'remaining': sum(r['amount'] for r in rows if r['day'] >= today.day) if is_current else None,
         'source': 'bank',
-        'period': (pay['ym'].min(), pay['ym'].max(), int(pay['ym'].nunique())),
+        'period': period,
     }
 
 

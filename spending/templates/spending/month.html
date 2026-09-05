@@ -199,8 +199,22 @@
         <button class="pf-btn sp-btn-sub" type="submit" {% if not template_items %}disabled{% endif %}>{{ ym }} の実際を保存</button>
       </form>
     </div>
+    {% if schedule and schedule.source == 'bank' %}
+    {% comment %}
+      銀行明細の実績から理想テンプレートの雛形を作る（ユーザー要望 2026-09-06）。
+      各引き落としの月平均額→理想、典型的な日→引き落とし日。支出だけ（カード引落・ATM・
+      証券振込は入れない）。既にある項目は上書きしない
+    {% endcomment %}
+    <form method="post" class="sp-seed-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="template_seed_bank">
+      <input type="hidden" name="ym" value="{{ ym }}">
+      <button class="pf-btn" type="submit">銀行明細の実績から項目を作る（月平均額・引き落とし日）</button>
+      <span class="sp-sub">家賃・電気・水道・電話など毎月の引き落としを、月平均額と典型的な日で入れます。既にある項目はそのままです。</span>
+    </form>
+    {% endif %}
     <div class="pf-note">
-      どちらも手入力です。理想は一度置けば全ての月に共通、実際は月ごとに入れます（月は上の選択で切り替え）。
+      理想は一度置けば全ての月に共通、実際は月ごとに入れます（月は上の選択で切り替え）。
       支出分析の自動集計（CSV）とは独立しています。
     </div>
 

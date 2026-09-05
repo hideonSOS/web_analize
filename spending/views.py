@@ -184,6 +184,29 @@ def month(request):
             messages.success(request, f'{name} の理想を月 ¥{ideal:,}（{when}）にしました。')
             return redirect(back)
 
+        if form_id == 'template_seed_bank':
+            # 理想テンプレートの雛形を銀行明細の実績から作る（ユーザー要望 2026-09-06）。
+            # 各引き落としの 月平均額 → 理想、典型的な日（各回の中央値）→ 引き落とし日。
+            # ⚠️ 支出（expense）だけ入れる。カード引落・ATM・証券振込は口座の動きであって
+            # 節約の目標項目ではない（カレンダーには出る）。既にある項目は触らない
+            # （人が直した理想額を実績で上書きしないため）
+            created, skipped = 0, []
+            for r in monthly.bank_recurring():
+                if r['treat'] != 'expense':
+                    continue
+                if TemplateItem.objects.filter(name=r['name']).exists():
+                    skipped.append(r['name'])
+                    continue
+                TemplateItem.objects.create(name=r['name'], ideal=r['amount'], debit_day=r['day'])
+                created += 1
+            msg = f'銀行明細の実績から {created}件の項目を作りました（月平均額・典型的な引き落とし日）。'
+            if skipped:
+                msg += f' 既にあった {len(skipped)}件（{"・".join(skipped)}）はそのままです。'
+            if not created and not skipped:
+                msg = '銀行明細に毎月の引き落としが見つかりませんでした（銀行 CSV は取り込み済みですか）。'
+            messages.success(request, msg)
+            return redirect(back)
+
         if form_id == 'spending_setting':
             # 引き落としカレンダーの基準日（カードの引き落とし日・給与日）
             s = SpendingSetting.get()
