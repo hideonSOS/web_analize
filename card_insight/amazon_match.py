@@ -19,6 +19,13 @@ import pandas as pd
 DATE_TOLERANCE = 7   # 注文日と請求日のずれ。出荷時に請求が立つので e-navi 突合(4日)より広い
 
 
+def _base_date(g: pd.DataFrame):
+    """突合の基準日。請求は出荷時に立つので、出荷日があればそちらを使う。"""
+    if 'ship_date' in g.columns and g['ship_date'].notna().any():
+        return g['ship_date'].min()
+    return g['order_date'].min()
+
+
 def _groups(items: pd.DataFrame) -> list[dict]:
     """突合の単位（請求1本に対応しうるまとまり）を、確度の高い順に作る。"""
     out = []
@@ -34,15 +41,22 @@ def _groups(items: pd.DataFrame) -> list[dict]:
     for oid, g in rest.groupby('order_id'):
         if not oid:
             continue
-        total = int(g['order_total'].max()) or int(g['item_total'].sum())
-        if total > 0:
-            out.append({'date': g['order_date'].min(), 'amount': total,
-                        'idx': list(g.index), 'how': 'order'})
+        # ⚠️ order_total 列の意味は書き出し形式によって逆になる。
+        # データをリクエスト形式の Total Owed は**行単位**なので合計が注文額、
+        # 注文履歴フィルタの「注文合計」は**注文単位**で全行に同じ値が入るので最大値。
+        # どちらか決め打ちすると片方の形式で必ず外すので、候補を全部出して試す
+        # （金額完全一致でしか結ばないので、外れの候補は自然に落ちる）。
+        for total in {int(g['order_total'].sum()), int(g['order_total'].max()),
+                      int(g['item_total'].sum())}:
+            if total > 0:
+                out.append({'date': _base_date(g), 'amount': total,
+                            'idx': list(g.index), 'how': 'order'})
 
     for i, r in rest.iterrows():
-        if int(r['item_total']) > 0:
-            out.append({'date': r['order_date'], 'amount': int(r['item_total']),
-                        'idx': [i], 'how': 'item'})
+        base = r['ship_date'] if pd.notna(r.get('ship_date')) else r['order_date']
+        for amt in {int(r['item_total']), int(r['order_total'])}:
+            if amt > 0:
+                out.append({'date': base, 'amount': amt, 'idx': [i], 'how': 'item'})
     return out
 
 
