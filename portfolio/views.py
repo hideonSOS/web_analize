@@ -705,7 +705,8 @@ def register(request):
                     account='',                      # 暗号資産に口座区分は無い（NISA対象外）
                     defaults={
                         'quantity': form.cleaned_data['quantity'],
-                        'avg_cost': form.cleaned_data['avg_cost'],
+                        # 入力は「払った合計」。円/枚に直して保存する（貴金属と同じ列で扱うため）
+                        'avg_cost': form.avg_cost_per_unit(),
                         'baseline_date': today,
                     })
                 messages.success(request, f'{product.display_name} を登録しました。')

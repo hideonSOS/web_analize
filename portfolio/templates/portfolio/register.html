@@ -110,11 +110,12 @@
           <label class="pf-fld">銘柄 {{ f.crypto }}{{ f.crypto.errors }}</label>
           <div class="pf-row2">
             <label class="pf-fld">数量（枚） {{ f.quantity }}{{ f.quantity.errors }}</label>
-            <label class="pf-fld">平均取得単価（円/枚） {{ f.avg_cost }}{{ f.avg_cost.errors }}</label>
+            <label class="pf-fld">取得金額（合計・円） {{ f.total_cost }}{{ f.total_cost.errors }}</label>
           </div>
         {% endwith %}
         <div class="pf-note" style="margin-top:0">
-          評価額は夜間バッチが「銘柄-USD × ドル円」で円換算します（BTC は 0.0123 のような小数で入力）。
+          取得金額は<b>払った合計</b>です（円/枚ではありません。円/枚は合計÷数量で自動計算します）。
+          評価額は夜間バッチが「銘柄-USD × ドル円」で円換算します（BTC は 0.0096 のような小数で入力）。
         </div>
         <button class="pf-btn" type="submit">登録する</button>
       </form>

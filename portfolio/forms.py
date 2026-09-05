@@ -87,7 +87,14 @@ class CryptoHoldingForm(forms.Form):
     """
     crypto = forms.ChoiceField(label='銘柄', choices=Product.CRYPTO_CHOICES)
     quantity = forms.FloatField(label='数量（枚）', min_value=0.00000001)
-    avg_cost = forms.FloatField(label='平均取得単価（円/枚）', min_value=0)
+    # ⚠️ 円/枚ではなく「払った合計」を聞く。BTC の円/枚は1,200万円台で誰も覚えておらず、
+    # 実際に合計取得額 120,181円 を円/枚の欄に入れられて評価額が 1,157円 になった。
+    # 円/枚（Holding.avg_cost）は view 側で 合計÷数量 に直して保存する
+    total_cost = forms.FloatField(label='取得金額（合計・円）', min_value=0)
+
+    def avg_cost_per_unit(self):
+        """Holding.avg_cost に入れる円/枚。合計÷数量"""
+        return self.cleaned_data['total_cost'] / self.cleaned_data['quantity']
 
     def get_or_create_product(self):
         crypto = self.cleaned_data['crypto']
