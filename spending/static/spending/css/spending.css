@@ -167,3 +167,7 @@
 .sp-bulk .k{ font-size:11px; color:#9ca3af; }
 .sp-bulk .sub{ font-size:10px; color:#6b7280; flex-basis:100%; }
 .sp-bulk input, .sp-bulk select{ font-size:12px; }
+
+/* レシート付随行の印（外税・値引・レジ袋・不明） */
+.sp-kind{ font-size:9px; color:#9ca3af; border:1px solid #374151; border-radius:4px;
+  padding:0 4px; margin-left:4px; white-space:nowrap; }

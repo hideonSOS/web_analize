@@ -40,6 +40,10 @@
           <option value="">すべて</option>
           {% for v, l in source_choices %}<option value="{{ v }}" {% if v == source %}selected{% endif %}>{{ l }}</option>{% endfor %}
         </select></label>
+      <label class="pf-fld">行の種類
+        <select name="rows">
+          {% for v, l in rowview_choices %}<option value="{{ v }}" {% if v == rowview %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select></label>
       <label class="pf-fld">表示
         <select name="excluded">
           <option value="">集計対象</option>
@@ -50,9 +54,12 @@
   </div>
 
   <div class="pf-card">
-    <h2>{{ count|intcomma }}件 ¥{{ total|intcomma }}
+    <h2>{{ count|intcomma }}件 ¥{{ shown_total|intcomma }}
       <span class="pf-hint">
-        {% if cat %}{{ cat }}の合計{% if ym %}（{{ ym }}）{% endif %}・{% endif %}先頭300件を表示・分類を直すと再取込でも保持されます</span></h2>
+        {% if cat %}{{ cat }}の合計{% if ym %}（{{ ym }}）{% endif %}・{% endif %}先頭300件を表示・分類を直すと再取込でも保持されます
+        {% if rowview != 'all' and meta_n %}<br>
+        レシートの付随行（外税・割引・袋代など）{{ meta_n|intcomma }}件 ¥{{ meta_sum|intcomma }} は隠しています。
+        <b>合計 ¥{{ total|intcomma }}</b> には含まれています{% endif %}</span></h2>
     {% comment %}
       表全体を一括修正フォームで囲む。各行のチェックを付けて下のバーで一括変更する。
       行ごとの保存フォームは別（HTMLはフォームを入れ子にできないので、行の保存ボタンは
@@ -73,7 +80,14 @@
         <tr>
           <td class="sp-chk"><input type="checkbox" form="bulkform" name="ids" value="{{ t.id }}"></td>
           <td>{{ t.date|date:"n/j" }}<span class="sp-sub">{{ t.ym }}</span></td>
-          <td style="text-align:left">{{ t.label|default:t.shop|truncatechars:32 }}
+          <td style="text-align:left">{{ t.label_clean|default:t.label|default:t.shop|truncatechars:32 }}
+            {% comment %}
+              商品でない行（外税・値引・レジ袋・不明）はひと目で分かるようにする。
+              「レシートの付随行も含む」で表示したときに商品と混ざらないため
+            {% endcomment %}
+            {% if t.label_kind and t.label_kind != 'item' %}
+            <span class="sp-kind">{% if t.label_kind == 'tax' %}税{% elif t.label_kind == 'discount' %}値引{% elif t.label_kind == 'bag' %}レジ袋{% else %}不明{% endif %}</span>
+            {% endif %}
             {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}
             {% comment %}
               Amazon の請求は加盟店名が「Amazon.co.jp」としか出ないので、

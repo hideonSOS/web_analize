@@ -197,6 +197,12 @@ def _category_choices() -> list[str]:
     return sorted({c for c in cats if c})
 
 
+# レシート付随行（外税・割引・袋代など）の扱い。既定は商品行だけを見せる。
+# ⚠️ 「隠す」であって「除外する」ではない。合計は常に全行で計算する
+#（外税55,913円は実際に払った消費税で、落とすと支出が実態より小さくなる）
+ROW_VIEW_CHOICES = [('item', '商品行のみ'), ('all', 'レシートの付随行も含む')]
+
+
 def transactions(request):
     """明細一覧（絞り込みつき）。分類を直すのはここ。"""
     qs = Transaction.objects.annotate(cat=_EFFECTIVE_CATEGORY)
@@ -205,6 +211,7 @@ def transactions(request):
     src = request.GET.get('source', '').strip()
     cat = request.GET.get('cat', '').strip()
     csrc = request.GET.get('csrc', '').strip()
+    rowview = request.GET.get('rows', 'item').strip()
     only_excluded = request.GET.get('excluded') == '1'
 
     if q:
@@ -220,6 +227,12 @@ def transactions(request):
     if csrc in CATEGORY_SOURCE_FILTERS:
         qs = qs.filter(CATEGORY_SOURCE_FILTERS[csrc])
     qs = qs.filter(in_total=False) if only_excluded else qs.filter(in_total=True)
+    # 合計は付随行も含めた全部で出す（画面から隠すだけ）
+    total_all = qs.aggregate(s=Sum('amount'))['s'] or 0
+    meta = qs.exclude(label_kind__in=['item', ''])
+    meta_n, meta_sum = meta.count(), (meta.aggregate(s=Sum('amount'))['s'] or 0)
+    if rowview != 'all':
+        qs = qs.filter(Q(label_kind='item') | Q(label_kind=''))
 
     if request.method == 'POST' and request.POST.get('form_id') == 'bulk':
         # まとめて分類を直す。Zaim のレシート取込がスーパーの食料品を「遊び/風俗」に
@@ -261,7 +274,10 @@ def transactions(request):
         'rows': qs.prefetch_related('amazon_items')[:300],
         'count': qs.count(),
         # 絞り込んだ結果がいくらだったかは、カテゴリ単位で見直すときの主役になる数字
-        'total': qs.aggregate(s=Sum('amount'))['s'] or 0,
+        'total': total_all,
+        'shown_total': qs.aggregate(s=Sum('amount'))['s'] or 0,
+        'meta_n': meta_n, 'meta_sum': meta_sum,
+        'rowview': rowview, 'rowview_choices': ROW_VIEW_CHOICES,
         'months': months,
         'q': q, 'ym': ym, 'source': src, 'cat': cat, 'csrc': csrc, 'only_excluded': only_excluded,
         'source_choices': Transaction.SOURCE_KIND,

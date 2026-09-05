@@ -297,6 +297,7 @@ _FIELDS = [
     'merchant', 'label', 'item', 'memo', 'category', 'subcategory', 'category_source',
     'kind', 'necessity', 'match_status', 'enavi_pay_method', 'enavi_is_installment',
     'row_type', 'exclude_reason', 'in_total', 'dup_flag',
+    'label_kind', 'label_clean',
 ]
 
 
@@ -307,6 +308,7 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
     （Zaim 側で記録を消した場合に追随するため）。
     """
     import pandas as pd
+    from card_insight.labels import classify_label, clean_label
     from card_insight.ledger import build_ledger
     from card_insight.enavi_loader import load_enavi
     from card_insight.zaim_loader import load_zaim
@@ -323,6 +325,9 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
         before = len(led)
         led, start_ym = _trim_to_enavi_period(led, enavi)
         trimmed = before - len(led)
+        # レシート付随行（外税・割引・袋代など）に印を付ける。集計からは外さない
+        led['label_kind'] = led['label'].map(classify_label)
+        led['label_clean'] = led['label'].map(clean_label)
     except Exception as e:  # noqa: BLE001  取り込み失敗は画面に出して原因を追えるようにする
         return ImportLog.objects.create(
             ok=False, zaim_file=Path(zaim_path).name,

@@ -89,6 +89,12 @@ class Transaction(models.Model):
     dup_flag = models.CharField(max_length=16, blank=True)
 
     # 画面で分類を直した場合の保持用。再取込時に上書きしない
+    # レシート由来の行の種類（item/tax/discount/bag/unknown）と表示用に掃除した品目名。
+    # ⚠️ 商品でない行も集計には必ず含めること。外税55,913円は実際に払った消費税で、
+    # 除外すると支出の総額が実態より小さくなる。畳むのは画面側の仕事
+    label_kind = models.CharField(max_length=10, blank=True, db_index=True)
+    label_clean = models.CharField(max_length=200, blank=True)
+
     manual_category = models.CharField(max_length=50, blank=True)
     manual_subcategory = models.CharField(max_length=50, blank=True)
     manual_necessity = models.CharField(max_length=10, blank=True)
