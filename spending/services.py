@@ -465,6 +465,13 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
         led['label_clean'] = led['label'].map(clean_label)
         # 品目ルール（Zaim の誤学習を打ち消す）。⚠️ Zaim の分類より上で効く唯一の経路
         led = apply_label_rules(led)
+        # 支払元未設定はすべて現金（ユーザー確認 2026-09-05: レシート撮影で支払元を
+        # 付けていない行は全部現金払い）。分析は現金として扱う。
+        # ⚠️ source_name に「未設定」を残すこと。「記録の質」カードは Zaim 側で支払元が
+        # 空だった行をこれで数える（source_kind を cash にすると区別できなくなる）
+        unset = led['source_kind'].eq('unset')
+        led.loc[unset, 'source_kind'] = 'cash'
+        led.loc[unset, 'source_name'] = '現金（支払元未設定）'
     except Exception as e:  # noqa: BLE001  取り込み失敗は画面に出して原因を追えるようにする
         return ImportLog.objects.create(
             ok=False, zaim_file=Path(zaim_path).name,

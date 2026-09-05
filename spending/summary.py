@@ -114,7 +114,9 @@ def _record_quality(total: pd.DataFrame, months: int) -> tuple[list, dict]:
     g = total.groupby('ym').apply(
         lambda d: pd.Series({
             'total': int(d['amount'].sum()),
-            'unset': int(d.loc[d['source_kind'] == 'unset', 'amount'].sum()),
+            # 取り込みで unset→cash に倒しているので source_kind では数えられない。
+            # Zaim 側で支払元が空だった行は source_name の「未設定」で識別する
+            'unset': int(d.loc[d['source_name'].fillna('').str.contains('未設定'), 'amount'].sum()),
             'noshop': int(d.loc[d['shop'].fillna('').str.strip() == '', 'amount'].sum()),
         }), include_groups=False).sort_index().tail(months)
 
