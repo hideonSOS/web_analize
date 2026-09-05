@@ -250,8 +250,8 @@ def build(ym: str | None = None) -> dict:
     setting = SpendingSetting.get()
     today = date.today()
     is_current = ym == today.strftime('%Y-%m')
-    # 目安線: 平常月の「1日あたり平均支出額」の水平線。棒（今月のその日の支出）と
-    # **同じ金額スケール**で重ねる。棒が線を越えた日＝平均より使った日。
+    # 目安線: 平常月の「1日あたり平均支出額」の累積（avg_daily×日）。棒（今月の支出の累積）と
+    # **同じ累積スケール**で重ねる。棒が線を越えた日＝平均ペースより使っている。
     # 直近12か月の合計 ÷ その12か月の日数。月の目標額があれば 目標額 ÷ その月の日数。
     # ⚠️ 累計を同じグラフに混ぜないこと（スケールが2桁違い読めない、と指摘された）。
     # ⚠️ 日ごとに違う目安（日別平均の曲線）にもしないこと（「日別の線の意味が分からない、
@@ -265,10 +265,16 @@ def build(ym: str | None = None) -> dict:
         avg_daily = setting.monthly_target / last_day
     avg_daily = round(avg_daily)
     target = setting.monthly_target or avg_daily * last_day
+    # ユーザー指示（2026-09-06・明示）: 線＝平均支出額の累積（avg_daily×日。下がらない）、
+    # 棒＝今月の支出の累積。両方とも累積で同じスケール。当月の未来日は棒を描かない
+    cum_values, acc = [], 0
+    for d in range(1, last_day + 1):
+        acc += daily.get(d, 0)
+        cum_values.append(None if is_current and d > today.day else acc)
     daily_spec = {
         'days': list(range(1, last_day + 1)),
-        'values': [daily.get(d, 0) if not (is_current and d > today.day) else None
-                   for d in range(1, last_day + 1)],
+        'values': cum_values,
+        'reference': [avg_daily * d for d in range(1, last_day + 1)],
         'avg_daily': avg_daily,
         'target': target,
         'target_source': 'manual' if setting.monthly_target else 'average',
@@ -280,7 +286,7 @@ def build(ym: str | None = None) -> dict:
     if is_current and avg_daily:
         ref_today = avg_daily * today.day
         cum_today = sum(daily.get(d, 0) for d in range(1, today.day + 1))
-        over_days = [d for d in range(1, today.day + 1) if daily.get(d, 0) > avg_daily]
+        over_days = [d for d in range(1, today.day + 1) if (cum_values[d - 1] or 0) > avg_daily * d]
         pace_status = {
             'target': target, 'source': daily_spec['target_source'], 'base_months': len(hist_vals),
             'avg_daily': avg_daily,
