@@ -36,8 +36,15 @@ def main():
         print('鍵が空です'); return 1
     c = ZaimClient(ck, cs)
     c.request_token()
-    print('\n次の URL をブラウザで開き、Zaim にログインして「許可」してください:\n')
-    print('  ' + c.authorize_url() + '\n')
+    url = c.authorize_url()
+    # ⚠️ 端末の幅で URL が折り返されると、コピーしたときに改行が混ざってトークンが壊れ、
+    # Zaim が「メンテナンス中か端末の設定により…」の画面を出す（実際に踏んだ）。
+    # 既定のブラウザで直接開いて、手でコピーさせない
+    import webbrowser
+    opened = webbrowser.open(url)
+    print('\nブラウザを開きました。Zaim にログインして「許可」してください。' if opened
+          else '\n次の URL を1行に繋げてブラウザで開き、Zaim にログインして「許可」してください:')
+    print('  ' + url + '\n')
     print('許可後、画面に出た認証コードか、飛んだ先の URL（127.0.0.1:5000/callback?...）を丸ごと貼ってください。')
     verifier = input('認証コード または URL: ').strip()
     if 'oauth_verifier=' in verifier:
