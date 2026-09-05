@@ -66,7 +66,9 @@ def _raise_with_body(r: requests.Response, what: str):
         return
     raise RuntimeError(f'{what}の取得に失敗: HTTP {r.status_code} {r.text[:300]} '
                        '→ "Consumer is not found" なら Consumer Key/Secret が違う（dev.zaim.net の'
-                       'アプリ画面の コンシューマID/シークレット を貼る）')
+                       'アプリ画面の コンシューマID/シークレット を貼る）。'
+                       '"401 Unauthorized" だけなら アプリ登録のコールバック URL と '
+                       f'{DEFAULT_CALLBACK} の不一致か、時計のずれ（PC の時刻を合わせる）を疑う')
 
 
 class ZaimClient:
@@ -111,11 +113,22 @@ class ZaimClient:
         return 'OAuth ' + ', '.join(f'{_pct(k)}="{_pct(v)}"' for k, v in sorted(oauth.items()))
 
     # --- 認可（初回にローカルで1度だけ） ------------------------------------
+    def _token_request(self, url: str, extra: dict, what: str) -> dict:
+        """トークン系エンドポイントを叩く。**POST が正**（requests-oauthlib・signpost も POST）。
+        GET だと Consumer は見つかるのに "401 Unauthorized" になる（実際に踏んだ）。
+        念のため POST → GET の順に試し、通った方の結果を返す"""
+        last = None
+        for method in ('POST', 'GET'):
+            h = self.auth_header(method, url, extra=extra)
+            r = self.session.request(method, url, headers={'Authorization': h}, timeout=30)
+            if r.ok:
+                self.token_method = method
+                return dict(urllib.parse.parse_qsl(r.text))
+            last = r
+        _raise_with_body(last, what)
+
     def request_token(self, callback: str = DEFAULT_CALLBACK) -> dict:
-        h = self.auth_header('GET', AUTH_REQUEST_URL, extra={'oauth_callback': callback})
-        r = self.session.get(AUTH_REQUEST_URL, headers={'Authorization': h}, timeout=30)
-        _raise_with_body(r, 'リクエストトークン')
-        d = dict(urllib.parse.parse_qsl(r.text))
+        d = self._token_request(AUTH_REQUEST_URL, {'oauth_callback': callback}, 'リクエストトークン')
         self.token, self.token_secret = d['oauth_token'], d['oauth_token_secret']
         return d
 
@@ -123,10 +136,7 @@ class ZaimClient:
         return f'{AUTHORIZE_URL}?oauth_token={_pct(self.token)}'
 
     def access_token(self, verifier: str) -> dict:
-        h = self.auth_header('GET', AUTH_ACCESS_URL, extra={'oauth_verifier': verifier})
-        r = self.session.get(AUTH_ACCESS_URL, headers={'Authorization': h}, timeout=30)
-        _raise_with_body(r, 'アクセストークン')
-        d = dict(urllib.parse.parse_qsl(r.text))
+        d = self._token_request(AUTH_ACCESS_URL, {'oauth_verifier': verifier}, 'アクセストークン')
         self.token, self.token_secret = d['oauth_token'], d['oauth_token_secret']
         return d
 
