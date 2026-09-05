@@ -58,14 +58,32 @@ COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
     # ギフト券払いや別カードの注文はそもそもこのカードの明細に出ないので、
     # 突合できなくて当然だと分かるようにするために持っておく
     'pay_method': ('paymentmethodtype', 'paymentinstrumenttype', '支払方法', 'クレカ種類'),
+    # ⚠️ デジタル注文(Digital Content Orders.csv)は 1 商品が「Price Amount」「Tax」の
+    # 複数行に分かれて入っている。行をそのまま品目として扱うと金額が本体価格だけに
+    # なったり税だけの行が混ざるので、読み込み時に足し合わせて 1 行に畳む
+    'component_type': ('componenttype',),
+    'transaction_amount': ('transactionamount',),
+    'digital_item_id': ('digitalorderitemid',),
 }
 
 OUT_COLUMNS = ['order_id', 'order_date', 'ship_date', 'product_name', 'quantity',
                'item_total', 'order_total', 'shipment_subtotal', 'tracking',
-               'charge_date', 'charge_amount', 'status', 'pay_method']
+               'charge_date', 'charge_amount', 'status', 'pay_method',
+               # デジタル注文を1商品1行に畳むために使う（_collapse_components）
+               'component_type', 'transaction_amount', 'digital_item_id']
 
 # 注文が成立していない行は請求も発生しないので落とす
 CANCELLED = re.compile(r'cancel|キャンセル', re.IGNORECASE)
+
+# 返品・返金のファイルを弾く語。列名にこれを含むものが1つでもあれば購入履歴ではない。
+# ⚠️ 完全一致にしないこと。実物は Return Reason Code / Amount Refunded のように
+# 語が合成されており、決め打ちのリストでは取りこぼす（実際に Return Requests.csv が
+# すり抜けた）。購入履歴側の列に return/refund を含むものは無いと確認済み
+RETURN_MARKERS = ('return', 'refund')
+
+
+def _is_return_file(columns) -> bool:
+    return any(m in _key(c) for c in columns for m in RETURN_MARKERS)
 
 
 def _key(col: str) -> str:
@@ -91,7 +109,15 @@ def looks_like_amazon(head: str) -> bool:
     ファイル名に頼らない（書き出し元によって名前がばらばらなため）。
     注文を特定する列と商品名の列が揃っていることを条件にする。
     """
-    cols = [c for c in re.split(r'[,\t]', head.splitlines()[0] if head else '')]
+    # ⚠️ 引用符は自分で外すこと。実ファイルの見出しは "Product Name" のように
+    # 引用符付きで、外さないと列名が一致せず常に False になる
+    first = (head.replace('"', '').replace('﻿', '').splitlines() or [''])[0]
+    cols = re.split(r'[,\t]', first)
+    # ⚠️ 返品・返金のファイルを弾く。Your Orders.zip には Digital Returns.csv や
+    # Return Requests.csv が同居していて、商品名と注文番号を持つため見分けが付かない。
+    # 取り込むと「買っていない品目」が請求に紐づきうるので、返品特有の列で除外する
+    if _is_return_file(cols):
+        return False
     got = _resolve(cols)
     return 'product_name' in got and ('order_id' in got or 'order_date' in got)
 
@@ -100,6 +126,29 @@ def _to_int(series: pd.Series) -> pd.Series:
     """「￥1,234」「1,234円」「1234.0」などを整数の円にする。"""
     s = series.astype(str).str.replace(r'[^\d\.\-]', '', regex=True)
     return pd.to_numeric(s, errors='coerce').fillna(0).round().astype(int)
+
+
+def _collapse_components(df: pd.DataFrame) -> pd.DataFrame:
+    """「本体価格」「税」に分かれた行を 1 商品 1 行に畳む（デジタル注文の形式）
+
+    畳まないと 1 冊の本が 2〜3 行に見え、金額も本体だけ・税だけになって突合できない。
+    実測: 「米国会社四季報」は本体 2,946 円 + 税 295 円 の 3 行で、合計 3,241 円が
+    実際のカード請求額だった。
+    """
+    if 'component_type' not in df.columns or df['component_type'].isna().all():
+        return df
+    if 'transaction_amount' not in df.columns:
+        return df
+    amt = pd.to_numeric(
+        df['transaction_amount'].astype(str).str.replace(r'[^\d.\-]', '', regex=True),
+        errors='coerce').fillna(0)
+    key = df['digital_item_id'] if df.get('digital_item_id') is not None else None
+    if key is None or key.isna().all():
+        key = df['order_id'].astype(str) + '|' + df['product_name'].astype(str)
+    grouped = df.assign(_amt=amt, _key=key).groupby('_key', sort=False)
+    out = grouped.first().reset_index(drop=True)
+    out['item_total'] = grouped['_amt'].sum().values
+    return out.drop(columns=[c for c in ('_amt', '_key') if c in out.columns])
 
 
 def load_amazon(pattern: str | Path | list) -> pd.DataFrame:
@@ -124,6 +173,9 @@ def load_amazon(pattern: str | Path | list) -> pd.DataFrame:
                 continue
         if raw is None or raw.empty:
             continue
+        # 返品ファイルがフォルダに紛れ込んでも「買っていない品目」を作らない
+        if _is_return_file(raw.columns):
+            continue
         got = _resolve(raw.columns)
         if 'product_name' not in got:
             continue
@@ -132,7 +184,7 @@ def load_amazon(pattern: str | Path | list) -> pd.DataFrame:
             col = got.get(name)
             out[name] = raw[col] if col is not None else pd.NA
         out['source_file'] = Path(p).name
-        frames.append(out)
+        frames.append(_collapse_components(out))
 
     if not frames:
         return pd.DataFrame(columns=OUT_COLUMNS + ['source_file'])
