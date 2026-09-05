@@ -69,8 +69,12 @@ cd /srv/web_analize && git pull
 ./venv/bin/python manage.py shell -c "from spending import services; print(services.import_from_files().message)"
 ```
 
-- `sync_label_rules --prune` は **CSV から消した行を DB からも消したいとき**だけ使う
-  （自動同期は追加・更新のみ。勝手に消す方が事故が大きいため）
+- 取り込み時の自動同期は **CSV を正として追加・更新・削除**する（CSV に無い pattern は DB からも消える）。
+  ⚠️ **pattern は主キー**。pattern の文字列を書き換えると「新ルール追加＋旧ルール削除」になる。
+  削除しない設計にしていた時期は、旧 pattern の行が DB に残って効き続け、除外を足したのに
+  効かない事故が起きた（味ぽん500ml が飲料のままだった）。DB に手で足したルールは
+  次の取り込みで消えるので、**ルールは必ず CSV に書く**
+- `sync_label_rules` コマンドは手動で同期したいときの補助（`--dry-run` で差分確認）
 - 取り込みメッセージに件数が出る。変わらないときは CSV の文字コード（UTF-8）と
   ヘッダー行（`priority,pattern,category,subcategory,note`）を疑う
 

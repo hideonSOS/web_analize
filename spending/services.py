@@ -275,7 +275,11 @@ def apply_label_rules(led):
     品目名だけでは決まらないため（label_kind が item の行だけを対象にする）。
     """
     import re
-    sync_label_rules_from_csv()          # CSV を直して取り込めば効く（sync コマンド不要）
+    # CSV を直して取り込めば効く（sync コマンド不要）。
+    # ⚠️ prune=True は必須。pattern が主キーなので、pattern を書き換えると「新ルール追加」
+    # になり旧 pattern の行が DB に残って効き続ける（実際に 味ぽん の除外を足しても
+    # 旧ルールが先に当たり続けた）。CSV が正なので CSV に無い行は消す
+    sync_label_rules_from_csv(prune=True)
     rules = list(LabelRule.objects.all())
     if not rules or 'label' not in led.columns:
         return led
