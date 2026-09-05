@@ -53,14 +53,25 @@
     <h2>{{ count|intcomma }}件 ¥{{ total|intcomma }}
       <span class="pf-hint">
         {% if cat %}{{ cat }}の合計{% if ym %}（{{ ym }}）{% endif %}・{% endif %}先頭300件を表示・分類を直すと再取込でも保持されます</span></h2>
+    {% comment %}
+      表全体を一括修正フォームで囲む。各行のチェックを付けて下のバーで一括変更する。
+      行ごとの保存フォームは別（HTMLはフォームを入れ子にできないので、行の保存ボタンは
+      form 属性で外側のフォームを参照させず、独立した form 要素のまま残す）
+    {% endcomment %}
+    <form method="post" id="bulkform">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="bulk">
+    </form>
     <div class="pf-scroll">
-      <table class="pf-table num" style="min-width:900px">
+      <table class="pf-table num" style="min-width:960px">
         <tr>
+          <th class="sp-chk"><input type="checkbox" id="chkall" title="表示中を全選択"></th>
           <th>日付</th><th>内容</th><th>支払元</th><th>カテゴリ</th>
           <th>必要度</th><th>金額</th><th>状態</th><th>修正</th>
         </tr>
         {% for t in rows %}
         <tr>
+          <td class="sp-chk"><input type="checkbox" form="bulkform" name="ids" value="{{ t.id }}"></td>
           <td>{{ t.date|date:"n/j" }}<span class="sp-sub">{{ t.ym }}</span></td>
           <td style="text-align:left">{{ t.label|default:t.shop|truncatechars:32 }}
             {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}
@@ -124,10 +135,33 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="pf-muted" style="text-align:center; padding:24px">該当する明細がありません。</td></tr>
+        <tr><td colspan="9" class="pf-muted" style="text-align:center; padding:24px">該当する明細がありません。</td></tr>
         {% endfor %}
       </table>
     </div>
+
+    <div class="sp-bulk num">
+      <span class="k">選択した行を</span>
+      <input type="text" form="bulkform" name="bulk_category" list="catlist" placeholder="カテゴリ（例: 食費）" size="14">
+      <datalist id="catlist">
+        {% for c in category_choices %}<option value="{{ c }}">{% endfor %}
+      </datalist>
+      <select form="bulkform" name="bulk_necessity">
+        <option value="">必要度はそのまま</option>
+        {% for n in necessity_choices %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+      </select>
+      <button class="pf-btn" type="submit" form="bulkform">まとめて変更</button>
+      <span class="sub">手動修正として保存され、再取込でも保持されます。元の自動分類は残るので後から戻せます。</span>
+    </div>
   </div>
 </div>
+<script>
+  (function () {
+    var all = document.getElementById('chkall');
+    if (!all) return;
+    all.addEventListener('change', function () {
+      document.querySelectorAll('input[name="ids"]').forEach(function (c) { c.checked = all.checked; });
+    });
+  })();
+</script>
 {% endblock %}

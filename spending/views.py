@@ -14,7 +14,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from . import monthly, services, summary
-from .models import Budget, ImportLog, SavingsPlan, Transaction
+from .models import Budget, ImportLog, MonthlyIncome, SavingsPlan, Transaction
 
 
 def index(request):
@@ -71,6 +71,28 @@ def index(request):
                         'decided_at': date.today() if status in ('doing', 'done') else None,
                     })
                 messages.success(request, f'{plan.merchant} を「{plan.get_status_display()}」にしました。')
+            return redirect('spending:index')
+
+        if form_id == 'income':
+            # 収入の手入力。Zaim に記録が無い月を埋めるための受け皿で、
+            # 同じ月に Zaim の取込があっても手入力を優先する（MonthlyIncome.effective）
+            ym = request.POST.get('ym', '').strip()
+            raw = request.POST.get('amount', '').strip().replace(',', '')
+            if not ym:
+                messages.error(request, '年月を入力してください。')
+            elif raw == '':
+                MonthlyIncome.objects.filter(ym=ym, source='manual').delete()
+                messages.success(request, f'{ym} の手入力を削除しました。')
+            else:
+                try:
+                    amount = int(float(raw))
+                except ValueError:
+                    messages.error(request, '金額は数字で入力してください。')
+                    return redirect('spending:index')
+                MonthlyIncome.objects.update_or_create(
+                    ym=ym, source='manual',
+                    defaults={'amount': amount, 'note': request.POST.get('note', '')[:100]})
+                messages.success(request, f'{ym} の収入を {amount:,}円 で登録しました。')
             return redirect('spending:index')
 
         if form_id == 'clear':
@@ -198,6 +220,29 @@ def transactions(request):
     if csrc in CATEGORY_SOURCE_FILTERS:
         qs = qs.filter(CATEGORY_SOURCE_FILTERS[csrc])
     qs = qs.filter(in_total=False) if only_excluded else qs.filter(in_total=True)
+
+    if request.method == 'POST' and request.POST.get('form_id') == 'bulk':
+        # まとめて分類を直す。Zaim のレシート取込がスーパーの食料品を「遊び/風俗」に
+        # 分類していた件が実際にあり、1行ずつ直すのは現実的でないため用意した。
+        # ⚠️ 直すのは manual_* だけ。元の category は触らない（再取込で復元できる
+        # ようにしておくため。何が自動分類で何を手で直したかも追えなくなる）
+        ids = request.POST.getlist('ids')
+        new_cat = request.POST.get('bulk_category', '').strip()
+        new_nec = request.POST.get('bulk_necessity', '').strip()
+        if not ids:
+            messages.error(request, '行が選択されていません。')
+        elif not new_cat and not new_nec:
+            messages.error(request, '変更後のカテゴリか必要度を指定してください。')
+        else:
+            fields = {}
+            if new_cat:
+                fields['manual_category'] = new_cat
+            if new_nec:
+                fields['manual_necessity'] = new_nec
+            n = Transaction.objects.filter(id__in=ids).update(**fields)
+            what = ' / '.join(filter(None, [new_cat, new_nec]))
+            messages.success(request, f'{n}件を「{what}」に変更しました。')
+        return redirect(request.get_full_path())
 
     if request.method == 'POST' and request.POST.get('form_id') == 'edit':
         t = Transaction.objects.filter(pk=request.POST.get('id')).first()

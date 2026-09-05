@@ -11,7 +11,7 @@ import pandas as pd
 
 from card_insight import analyze
 
-from .models import SavingsPlan, Transaction
+from .models import MonthlyIncome, SavingsPlan, Transaction
 
 RECENT_MONTHS = 12
 
@@ -140,6 +140,63 @@ def _record_quality(total: pd.DataFrame, months: int) -> tuple[list, dict]:
         'noshop_total': sum(r['noshop'] for r in rows),
     }
     return rows, summary
+
+
+def _income_rows(total: pd.DataFrame, months: int) -> tuple[list, dict]:
+    """月ごとの 収入 / 支出 / 余力 / 貯蓄率。**これが入金力そのもの**。
+
+    ⚠️ 収入が記録されていない月は「余力ゼロ」ではなく**判定不能**として扱うこと。
+    0円として混ぜると貯蓄率が大きくマイナスに出て、実態と正反対の結論になる。
+    """
+    income = MonthlyIncome.effective()
+    if not income or total.empty:
+        return [], {'has_income': False, 'has_any': bool(income)}
+
+    spend = total.groupby('ym')['amount'].sum().to_dict()
+    yms = sorted(set(income) | set(spend))[-months:]
+    this_month = pd.Timestamp.today().strftime('%Y-%m')
+
+    rows = []
+    for ym in yms:
+        inc, exp = int(income.get(ym, 0)), int(spend.get(ym, 0))
+        known = ym in income and inc > 0
+        rows.append({
+            'ym': ym, 'income': inc, 'spend': exp,
+            'surplus': (inc - exp) if known else None,
+            'rate': round((inc - exp) / inc * 100, 1) if known else None,
+            'known': known, 'partial': ym >= this_month,
+            # 収入を100%として支出の占める割合。横棒の塗り幅に使う
+            'spend_width': round(min(exp / inc * 100, 100), 1) if known else 0,
+        })
+
+    usable = [r for r in rows if r['known'] and not r['partial']]
+    if not usable:
+        # 分析期間に収入が無い＝記録が途切れている。過去の水準を目安として出し、
+        # 「いくら入れればいいか」の手がかりにする（空の画面を見せても動けない）
+        past = sorted(income.items())[-12:]
+        avg = sum(v for _, v in past) // len(past) if past else 0
+        return rows, {
+            'has_income': False, 'has_any': True,
+            'income_last': max(income), 'spend_last': max(spend) if spend else None,
+            'ref_months': len(past), 'ref_avg': avg,
+            'ref_from': past[0][0] if past else None, 'ref_to': past[-1][0] if past else None,
+        }
+
+    inc_sum = sum(r['income'] for r in usable)
+    exp_sum = sum(r['spend'] for r in usable)
+    return rows, {
+        'has_income': True,
+        'months': len(usable),
+        'income_avg': inc_sum // len(usable),
+        'spend_avg': exp_sum // len(usable),
+        'surplus_avg': (inc_sum - exp_sum) // len(usable),
+        'rate': round((inc_sum - exp_sum) / inc_sum * 100, 1) if inc_sum else 0,
+        'latest': usable[-1],
+        # 収入の記録が支出より古いところで止まっていないか（実際に2025-04で止まっていた）
+        'income_last': max(income),
+        'spend_last': max(spend) if spend else None,
+        'stale': bool(spend) and max(income) < max(spend),
+    }
 
 
 def build(months: int = RECENT_MONTHS) -> dict:
@@ -318,12 +375,15 @@ def build(months: int = RECENT_MONTHS) -> dict:
     ]
 
     quality_rows, quality = _record_quality(total, months)
+    income_rows, income = _income_rows(total, months)
 
     return {
         'has_data': True,
         'kpi': kpi,
         'quality_rows': quality_rows,
         'quality': quality,
+        'income_rows': income_rows,
+        'income': income,
         'monthly_spec': monthly_spec,
         'category_rows': category_rows,
         'merchant_rows': merchant_rows,

@@ -258,6 +258,73 @@
   {% endif %}
 
   {% comment %}
+    収入と貯蓄率。目的は入金力の向上なので、支出だけでは話が閉じない。
+    収入 − 支出 = 余力 まで出して初めて「月いくら投資に回せるか」が分かる。
+    ⚠️ 収入が記録されていない月を0円として混ぜないこと。貯蓄率が大きくマイナスに
+    出て実態と正反対の結論になる。判定不能として除外している。
+  {% endcomment %}
+  <div class="pf-card">
+    <h2>収入と貯蓄率 <span class="pf-hint">収入 − 支出 ＝ 投資に回せる額</span></h2>
+
+    {% if income.has_income %}
+    <div class="pf-hero">
+      <div>
+        <div class="k">直近{{ income.months }}か月の平均 貯蓄率</div>
+        <div class="total num pf-pos">{{ income.rate }}<span class="sp-unit">%</span></div>
+      </div>
+      <div class="pf-chips">
+        <div class="pf-chip"><div class="k">月平均 収入</div>
+          <div class="v num">¥{{ income.income_avg|intcomma }}</div></div>
+        <div class="pf-chip"><div class="k">月平均 支出</div>
+          <div class="v num">¥{{ income.spend_avg|intcomma }}</div></div>
+        <div class="pf-chip"><div class="k">月平均 余力</div>
+          <div class="v num pf-pos">¥{{ income.surplus_avg|intcomma }}</div></div>
+      </div>
+    </div>
+    {% else %}
+    <div class="pf-warn">
+      <b>分析期間の収入が記録されていません。</b>
+      Zaimの収入は <b>{{ income.income_last }}</b> で止まっており、支出は {{ income.spend_last }} まであります。
+      このままでは「月いくら投資に回せるか」が出せません。<br>
+      参考: 記録が残る直近{{ income.ref_months }}か月（{{ income.ref_from }}〜{{ income.ref_to }}）の平均は
+      <b>¥{{ income.ref_avg|intcomma }}/月</b> でした。下の欄から月ごとに入れられます。
+    </div>
+    {% endif %}
+
+    {% if income_rows %}
+    <div class="sp-bars num sp-income">
+      {% for r in income_rows %}
+      <div class="sp-bar-row{% if r.partial %} sp-q-partial{% endif %}">
+        <div class="sp-bar-name">{{ r.ym }}</div>
+        {% if r.known %}
+        <div class="sp-bar-track" title="収入 ¥{{ r.income|intcomma }} のうち支出 ¥{{ r.spend|intcomma }}">
+          <div class="sp-bar-fill" style="width:{{ r.spend_width }}%; background:#f87171"></div>
+        </div>
+        <div class="sp-bar-amt">{{ r.rate }}%<span class="sp-sub">余力 ¥{{ r.surplus|intcomma }}</span></div>
+        {% else %}
+        <div class="sp-bar-track sp-income-na"><span>収入の記録なし</span></div>
+        <div class="sp-bar-amt pf-muted">—<span class="sp-sub">支出 ¥{{ r.spend|intcomma }}</span></div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="pf-frm sp-income-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="income">
+      <label class="pf-fld">年月<input type="month" name="ym" required></label>
+      <label class="pf-fld">手取り（円）<input type="text" name="amount" inputmode="numeric" placeholder="285000"></label>
+      <label class="pf-fld">メモ<input type="text" name="note" placeholder="賞与込み など"></label>
+      <button class="pf-btn" type="submit">登録</button>
+    </form>
+    <div class="pf-note">
+      給与は月1回なので、記録は月1行で足ります。金額を空で登録するとその月の手入力を削除します。<br>
+      Zaimで収入の記録を再開すれば、次回のCSV取り込みから自動で入ります（同じ月に両方あれば手入力を優先）。
+    </div>
+  </div>
+
+  {% comment %}
     記録の質。Zaimのレシート撮影で取り込んだ行には支払元も店名も付かず、
     実測で支出の62%が「どの財布から出たか分からない」状態だった。
     金額の合計は正しい（レシートとカード請求の二重計上は0件と確認済み）ので

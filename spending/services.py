@@ -14,7 +14,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from .models import AmazonOrderItem, ImportLog, MerchantRule, Transaction
+from .models import AmazonOrderItem, ImportLog, MerchantRule, MonthlyIncome, Transaction
 
 # アップロードされた CSV の保管先（nginx が配信しない場所・.gitignore 済み）
 DATA_DIR = Path(settings.BASE_DIR) / 'data' / 'spending'
@@ -175,6 +175,44 @@ def import_amazon() -> dict:
     }
 
 
+def import_income(zaim_path: Path) -> dict:
+    """Zaim CSV の収入行 → MonthlyIncome（source='zaim'）を作り直す。
+
+    ⚠️ 台帳と違い**期間で絞らない**。収入は e-navi と突合しないので、
+    揃っている期間に合わせる理由が無い。むしろ過去の水準が分かる方が有益。
+    手入力（source='manual'）には触らない。
+    """
+    import pandas as pd
+    try:
+        raw = None
+        for enc in ('cp932', 'utf-8-sig', 'utf-8'):
+            try:
+                raw = pd.read_csv(zaim_path, encoding=enc)
+                break
+            except (UnicodeDecodeError, pd.errors.ParserError):
+                continue
+        if raw is None or '収入' not in raw.columns:
+            return {'months': 0, 'total': 0, 'message': ''}
+        raw['amount'] = pd.to_numeric(raw['収入'], errors='coerce').fillna(0)
+        inc = raw[raw['amount'] > 0].copy()
+        if inc.empty:
+            return {'months': 0, 'total': 0, 'message': ''}
+        inc['ym'] = inc['日付'].astype(str).str[:7]
+        g = inc.groupby('ym')['amount'].sum()
+    except Exception:  # noqa: BLE001  収入が取れなくても支出の取り込みは通したい
+        return {'months': 0, 'total': 0, 'message': ''}
+
+    MonthlyIncome.objects.filter(source='zaim').delete()
+    MonthlyIncome.objects.bulk_create([
+        MonthlyIncome(ym=ym, amount=int(v), source='zaim') for ym, v in g.items()
+    ])
+    last = max(g.index)
+    return {
+        'months': int(len(g)), 'total': int(g.sum()), 'last': last,
+        'message': f'収入 {len(g)}か月分を取り込み（最終 {last}）',
+    }
+
+
 def seed_rules_if_empty() -> int:
     """merchant_rules.csv を MerchantRule へ初回シードする。以後は DB が正。"""
     if MerchantRule.objects.exists():
@@ -326,6 +364,7 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
         Transaction.objects.filter(id__in=[t.id for t in removed]).delete()
 
     amazon = import_amazon()
+    income = import_income(zaim_path)
 
     return ImportLog.objects.create(
         ok=True,
@@ -338,6 +377,7 @@ def import_from_files(zaim_path: Path | None = None, enavi_pattern: str | None =
             + (f' ／ {start_ym} 以降に限定（e-navi の無い古い{trimmed:,}行は対象外）'
                if start_ym else '')
             + (f' ／ {amazon["message"]}' if amazon['message'] else '')
+            + (f' ／ {income["message"]}' if income['message'] else '')
         ),
     )
 

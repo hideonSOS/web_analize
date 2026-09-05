@@ -152,3 +152,18 @@
   background:#b45309; }
 .sp-q-partial{ opacity:.5; }
 .sp-q-partial .sp-bar-name span{ font-size:9px; color:#6b7280; }
+
+/* 収入と貯蓄率。棒は「収入のうち支出が占める割合」＝短いほど余力が大きい */
+.sp-income .sp-bar-track{ position:relative; }
+.sp-income-na{ display:flex; align-items:center; justify-content:center;
+  border:1px dashed #374151; background:none; }
+.sp-income-na span{ font-size:9px; color:#4b5563; }
+.sp-income-form{ margin-top:12px; }
+
+/* 明細の一括修正 */
+.sp-chk{ width:26px; text-align:center; }
+.sp-bulk{ display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  margin-top:10px; padding-top:10px; border-top:1px solid #1f2937; }
+.sp-bulk .k{ font-size:11px; color:#9ca3af; }
+.sp-bulk .sub{ font-size:10px; color:#6b7280; flex-basis:100%; }
+.sp-bulk input, .sp-bulk select{ font-size:12px; }

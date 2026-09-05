@@ -229,3 +229,41 @@ class AmazonOrderItem(models.Model):
 
     def __str__(self):
         return f'{self.order_date} {self.product_name[:30]} {self.item_total:,}円'
+
+
+class MonthlyIncome(models.Model):
+    """月ごとの収入（手取り）。支出と突き合わせて貯蓄率＝入金力を出すための唯一の材料。
+
+    なぜ要るか: 支出だけ見ても「月いくら投資に回せるはずか」は出ない。目的は入金力の
+    向上なので、収入 − 支出 = 余力 まで出して初めて話が閉じる。
+
+    2系統を持つ:
+    - source='zaim'   … Zaim CSV の収入行から自動取込。**取り込みのたびに作り直す**
+    - source='manual' … 画面からの手入力。Zaim に記録が無い月を埋める
+
+    ⚠️ 同じ月に両方あるときは**手入力を優先**する（手で入れたのは自動が間違って
+    いるか記録が無いときなので、自動で上書きしてはいけない）。
+    """
+    SOURCE = [('zaim', 'Zaimから取込'), ('manual', '手入力')]
+
+    ym = models.CharField(max_length=7, db_index=True, help_text='YYYY-MM')
+    amount = models.IntegerField(help_text='その月の手取り合計（円）')
+    source = models.CharField(max_length=8, choices=SOURCE, default='manual')
+    note = models.CharField(max_length=100, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-ym']
+        constraints = [
+            models.UniqueConstraint(fields=['ym', 'source'], name='uniq_income_ym_source'),
+        ]
+
+    def __str__(self):
+        return f'{self.ym} {self.amount:,}円（{self.get_source_display()}）'
+
+    @classmethod
+    def effective(cls) -> dict:
+        """月 → 採用する収入額。手入力があればそちらを使う。"""
+        out = {i.ym: i.amount for i in cls.objects.filter(source='zaim')}
+        out.update({i.ym: i.amount for i in cls.objects.filter(source='manual')})
+        return out
