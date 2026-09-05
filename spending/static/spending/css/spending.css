@@ -194,3 +194,14 @@
 .sp-pace b { color: #34d399; }
 .sp-pace.over b { color: #f87171; }
 .sp-pace .pf-hint { display: block; }
+
+/* 月次ページ: 入力フォームは <details> で畳む（閲覧に専念するため。JSなし） */
+.sp-edit{ margin-top:14px; border-top:1px solid #1e3a5f; padding-top:8px; }
+.sp-edit > summary{
+  cursor:pointer; list-style:none; font-size:13px; color:#87cefa; padding:6px 0; user-select:none;
+}
+.sp-edit > summary::-webkit-details-marker{ display:none; }
+.sp-edit > summary::before{ content:'▸ '; color:#6b7280; }
+.sp-edit[open] > summary::before{ content:'▾ '; }
+.sp-edit > summary .pf-hint{ margin-left:6px; }
+.sp-edit .sp-budget-form:first-child, .sp-edit .pf-grid2 .sp-budget-form{ border-top:none; margin-top:4px; padding-top:0; }

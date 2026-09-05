@@ -160,6 +160,12 @@
     </p>
     {% endif %}
 
+    {% comment %}
+      入力フォームは既定で畳む（ユーザー要望 2026-09-06「閲覧に専念したい」）。
+      JS なしの <details>。保存直後（messages あり）と、まだ項目が無いときだけ開いた状態にする
+    {% endcomment %}
+    <details class="sp-edit" {% if messages or not template_items %}open{% endif %}>
+      <summary>✎ 入力・設定 <span class="pf-hint">理想テンプレート／{{ ym }} の実際／引き落とし日・給与日・月の目標</span></summary>
     <div class="pf-grid2">
       <form method="post" class="pf-frm sp-budget-form">
         {% csrf_token %}
@@ -235,6 +241,7 @@
       </div>
       <button class="pf-btn sp-btn-sub" type="submit">基準日と目標を保存</button>
     </form>
+    </details>
   </div>
 
   <!-- サマリー -->
