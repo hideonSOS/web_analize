@@ -37,6 +37,32 @@
         </div>
       </div>
       {% endif %}
+
+      {% comment %}
+        支出分析の出口。節約を決めただけでは何も変わらないので、
+        「その入金力で弾薬が何か月で満タンになるか」まで出して話を閉じる。
+      {% endcomment %}
+      {% if savings_monthly %}
+      <div class="dr-ammo-supply">
+        <span class="k">補給</span>
+        <span class="v">＋¥{{ savings_monthly|intcomma }}<span class="u">/月</span></span>
+        <span class="sub">
+          <a class="pf-link" href="{% url 'spending:index' %}">支出分析</a>で決めた節約ぶん
+          {% if months_to_fill %}／ この調子なら <b>あと{{ months_to_fill }}か月</b>で満タン
+          {% elif ammo_pct >= 100 %}／ 弾薬は満タン。増えたぶんはそのまま買付余力
+          {% endif %}
+        </span>
+      </div>
+      {% else %}
+      <div class="dr-ammo-supply dr-ammo-empty">
+        <span class="k">補給</span>
+        <span class="v">なし</span>
+        <span class="sub">
+          <a class="pf-link" href="{% url 'spending:index' %}">支出分析</a>で節約を「実行中」か「完了」にすると、
+          その分が毎月の弾薬としてここに積まれます
+        </span>
+      </div>
+      {% endif %}
     </div>
     {% if not ammo_linked %}
     {% comment %} 目標ポートフォリオの現金比率が未設定のときだけ手動入力を出す {% endcomment %}

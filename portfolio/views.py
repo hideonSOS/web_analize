@@ -1,3 +1,4 @@
+import math
 from datetime import date
 
 from django.contrib import messages
@@ -576,6 +577,20 @@ def drill(request):
     else:
         ammo_target = note.cash_target
     ammo_pct = (cash / ammo_target * 100) if ammo_target > 0 else None
+    ammo_remaining = max(0.0, ammo_target - cash)
+
+    # 支出分析で「やる」と決めた節約が、そのまま毎月の入金力になる。
+    # ⚠️ ここが支出分析の出口。目的は入金力の向上で、可視化はその手段なので、
+    # 「節約を決めた → 弾薬が何か月で満タンになるか」まで繋がって初めて話が閉じる。
+    # spending は独立したアプリなので、未導入でも落ちないように遅延 import する。
+    savings_monthly, months_to_fill = 0, None
+    try:
+        from spending.models import SavingsPlan
+        savings_monthly = SavingsPlan.monthly_capacity()
+    except Exception:      # noqa: BLE001  支出分析が無い環境でも下落上等は動くべき
+        savings_monthly = 0
+    if savings_monthly > 0 and ammo_remaining > 0:
+        months_to_fill = int(math.ceil(ammo_remaining / savings_monthly))
 
     context = {
         'note': note,
@@ -596,7 +611,9 @@ def drill(request):
         'ammo_target': ammo_target,
         'ammo_linked': ammo_linked,
         'ammo_ratio': cash_alloc.ratio if ammo_linked else None,
-        'ammo_remaining': max(0.0, ammo_target - cash),
+        'ammo_remaining': ammo_remaining,
+        'savings_monthly': savings_monthly,
+        'months_to_fill': months_to_fill,
     }
     return render(request, 'portfolio/drill.html', context)
 

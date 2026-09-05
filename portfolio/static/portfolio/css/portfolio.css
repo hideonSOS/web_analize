@@ -255,3 +255,12 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
 
 /* ⑤ 教訓 */
 .dr-lessons{ font-size:13px; line-height:2; color:#d1d5db; }
+
+/* 下落上等: 弾薬の「補給」行（支出分析で決めた節約 → 毎月の入金力） */
+.dr-ammo-supply{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+  margin-top:10px; padding-top:10px; border-top:1px solid #1f2937; }
+.dr-ammo-supply .k{ font-size:11px; color:#9ca3af; }
+.dr-ammo-supply .v{ font-size:18px; font-weight:700; color:#34d399; }
+.dr-ammo-supply .v .u{ font-size:11px; font-weight:400; color:#6b7280; }
+.dr-ammo-supply .sub{ font-size:11px; color:#6b7280; }
+.dr-ammo-empty .v{ color:#6b7280; font-size:14px; }
