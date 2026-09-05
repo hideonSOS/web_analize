@@ -17,7 +17,15 @@ from datetime import date
 
 from django.db.models import Count, Sum
 
-from .models import Budget, Transaction
+from .models import Budget, FixedCostEntry, Transaction
+
+# 理想テンプレートに置く「基礎支出」の候補。台帳に無くても項目として選べるようにする
+# （口座振替で払うものは CSV に出てこない。実測で家賃・ガス・水道は台帳に0件）
+BASIC_ITEMS = ['家賃', '電気', 'ガス', '水道', '通信', '保険', '駐車場']
+
+# 円グラフの色。理想額の大きい順に割り当て、理想と実際の2つの円で同じ項目は同じ色
+PIE_PALETTE = ['#1e90ff', '#8b5cf6', '#34d399', '#fbbf24', '#f87171', '#63b3ff',
+               '#c4b5fd', '#f9a8d4', '#5eead4', '#fdba74', '#94a3b8', '#a3e635']
 
 BASELINE_MONTHS = 12          # 「平常月」を決める窓
 TOP_N = 12                    # カテゴリ・明細の表示件数
@@ -149,9 +157,12 @@ def build(ym: str | None = None) -> dict:
     # ⚠️ 支出の予算は「上限」。資産配分の目標（近づけたい値）と向きが逆で、
     # 超過が赤・未達が緑になる。バー幅は予算を100%とした消化率
     budgets = list(Budget.objects.all())
+    # 口座振替など CSV に出ない基礎支出の手入力分。台帳の同名カテゴリ実績に足す
+    # （家賃は台帳に無いので実質これだけが実績になる）
+    manual = {e.item: e.amount for e in FixedCostEntry.objects.filter(ym=ym)}
     budget_rows = []
     for b in budgets:
-        actual = cur_cat.get(b.category, 0)
+        actual = cur_cat.get(b.category, 0) + manual.get(b.category, 0)
         limit = b.monthly_limit or 0
         rate = round(actual / limit * 100, 1) if limit else None
         budget_rows.append({
@@ -169,6 +180,23 @@ def build(ym: str | None = None) -> dict:
             'note': b.note,
         })
     budget_rows.sort(key=lambda r: -(r['rate'] or 0))
+
+    # --- 理想テンプレートと実際（円グラフ2つ） -------------------------------
+    # 理想額の大きい順に色を振り、「理想の構成」と「この月の実際」で同じ項目は同じ色。
+    # ⚠️ 実際の円は「予算を設定した項目」だけで作る（未設定カテゴリを混ぜると
+    # 理想の円と項目が揃わず比較にならない）。未設定分は unbudgeted で別に出す
+    by_ideal = sorted(budget_rows, key=lambda r: -r['limit'])
+    color_of = {r['category']: PIE_PALETTE[i % len(PIE_PALETTE)] for i, r in enumerate(by_ideal)}
+    template_spec = {
+        'items': [{'name': r['category'], 'ideal': r['limit'], 'actual': r['actual'],
+                   'color': color_of[r['category']]} for r in by_ideal],
+        'ideal_total': sum(r['limit'] for r in budget_rows),
+        'actual_total': sum(r['actual'] for r in budget_rows),
+    }
+    # 手入力の対象＝理想テンプレートにあって台帳には無い項目（家賃・電気 など）
+    ledger_cats = set(cur_cat) | set(base_cat)
+    manual_items = [b.category for b in budgets if b.category not in ledger_cats]
+    fixed_entries = list(FixedCostEntry.objects.filter(ym=ym).values('item', 'amount', 'note'))
     budget_limit_total = sum(r['limit'] for r in budget_rows)
     budget_actual_total = sum(r['actual'] for r in budget_rows)
     budget_summary = {
@@ -208,5 +236,9 @@ def build(ym: str | None = None) -> dict:
         'budget_rows': budget_rows,
         'budget_summary': budget_summary,
         'unbudgeted': unbudgeted,
-        'all_categories': sorted(set(cur_cat) | set(base_cat)),
+        # 予算の項目候補: 台帳のカテゴリ ＋ 既に予算のある項目 ＋ 基礎支出の雛形（家賃・電気…）
+        'all_categories': sorted(set(cur_cat) | set(base_cat) | {b.category for b in budgets} | set(BASIC_ITEMS)),
+        'template_spec': template_spec,
+        'manual_items': manual_items,
+        'fixed_entries': fixed_entries,
     }

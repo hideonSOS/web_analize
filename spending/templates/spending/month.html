@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if has_data %}{{ daily_spec|json_script:"sp-daily" }}{% endif %}
+{% if has_data %}{{ daily_spec|json_script:"sp-daily" }}{{ template_spec|json_script:"sp-template" }}{% endif %}
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script src="{% static 'spending/js/month.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
@@ -39,6 +39,55 @@
       {% if next_ym %}<a class="pf-btn sp-btn-sub" href="?ym={{ next_ym }}">{{ next_ym }} →</a>
       {% else %}<span class="pf-btn sp-btn-sub sp-disabled">→</span>{% endif %}
     </form>
+  </div>
+
+  {% comment %}
+    理想の支出テンプレート（ユーザー要望 2026-09-06）。
+    「自分でだいたいこれくらいが理想」という配分を先に置き、この月の実際と円グラフで並べる。
+    理想＝既存の Budget（項目名は自由なので 家賃・電気・ガス・水道 も置ける）。
+    ⚠️ 家賃・光熱費は口座振替で CSV に出てこない（実測: 台帳に0件）。それらの実際は
+    下の入力欄（FixedCostEntry）で月ごとに手で入れ、同名項目の実績に足し合わせる。
+  {% endcomment %}
+  <div class="pf-card">
+    <h2>理想の支出テンプレートと実際
+      <span class="pf-hint">
+        {% if template_spec.items %}理想 ¥{{ template_spec.ideal_total|intcomma }} に対し実際 ¥{{ template_spec.actual_total|intcomma }}
+        {% else %}まず下の「予算と実績」で理想の額を項目ごとに置く{% endif %}</span></h2>
+    {% if template_spec.items %}
+    <div id="sp-template-chart" class="sp-chart sp-pie"></div>
+    <div class="pf-note">
+      左が理想の構成、右がこの月の実際。同じ項目は同じ色です。項目ごとの超過・残りは下の「予算と実績」で。
+    </div>
+    {% else %}
+    <div class="pf-note" style="margin-top:0">
+      理想の額がまだ置かれていません。下の「予算と実績」で、家賃・電気・ガス・水道・食費…と
+      項目ごとに「月これくらいが理想」という額を入れると、ここに円グラフが出ます。
+    </div>
+    {% endif %}
+
+    {% if manual_items %}
+    {% comment %} 口座振替の基礎支出だけは CSV に無いので、この月の実額を手で入れる {% endcomment %}
+    <form method="post" class="pf-frm sp-budget-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="fixed_cost">
+      <input type="hidden" name="ym" value="{{ ym }}">
+      <div class="pf-row2">
+        <label class="pf-fld">この月の口座振替分（項目）
+          <select name="item">
+            {% for it in manual_items %}<option value="{{ it }}">{{ it }}</option>{% endfor %}
+          </select></label>
+        <label class="pf-fld">払った額（円・空で削除）
+          <input type="text" name="amount" inputmode="numeric" placeholder="例: 65000"></label>
+      </div>
+      <button class="pf-btn sp-btn-sub" type="submit">{{ ym }} の実績を保存</button>
+    </form>
+    <div class="pf-note">
+      家賃・電気・ガス・水道のように<b>口座振替で CSV に出てこない支出</b>は、ここで月ごとに実額を入れます
+      （通帳やアプリの引き落とし額）。台帳にある項目は自動なので入力不要です。
+      {% if fixed_entries %}<br>この月の入力済み:
+      {% for e in fixed_entries %}<b>{{ e.item }}</b> ¥{{ e.amount|intcomma }}{% if not forloop.last %} ／ {% endif %}{% endfor %}{% endif %}
+    </div>
+    {% endif %}
   </div>
 
   <!-- サマリー -->
@@ -127,14 +176,19 @@
       <input type="hidden" name="form_id" value="budget">
       <input type="hidden" name="ym" value="{{ ym }}">
       <div class="pf-row2">
-        <label class="pf-fld">カテゴリ
-          <select name="category">
-            {% for c in all_categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-          </select></label>
-        <label class="pf-fld">月の上限（円・空で削除）
+        {% comment %}
+          項目は自由入力（候補付き）。台帳に無い 家賃・電気・ガス・水道 も理想テンプレートの
+          項目として置けるようにするため、select ではなく datalist にしている
+        {% endcomment %}
+        <label class="pf-fld">項目（候補から選ぶか入力）
+          <input type="text" name="category" list="sp-cat-list" placeholder="例: 家賃" autocomplete="off">
+          <datalist id="sp-cat-list">
+            {% for c in all_categories %}<option value="{{ c }}">{% endfor %}
+          </datalist></label>
+        <label class="pf-fld">理想の月額（円・空で削除）
           <input type="number" name="monthly_limit" placeholder="例: 50000"></label>
       </div>
-      <button class="pf-btn sp-btn-sub" type="submit">予算を保存</button>
+      <button class="pf-btn sp-btn-sub" type="submit">理想の額を保存</button>
     </form>
 
     {% if unbudgeted %}

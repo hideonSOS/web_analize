@@ -302,3 +302,30 @@ class LabelRule(models.Model):
 
     def __str__(self):
         return f'/{self.pattern}/ → {self.category}/{self.subcategory}'
+
+
+class FixedCostEntry(models.Model):
+    """口座振替など CSV に出てこない基礎支出の、月ごとの実績（手入力）。
+
+    なぜ要るか: 家賃・電気・ガス・水道は銀行の口座振替で払っていて、Zaim の記録経路
+    （レシート撮影・楽天カード連携・お財布）のどれにも乗らない。実測で10年分の Zaim に
+    電気代が1件しか無く、台帳には0件だった。金額の大きい基礎支出が丸ごと抜けると
+    貯蓄率が過大に出るので、月ごとに手で入れる受け皿を持つ。
+
+    項目名（item）は Budget.category と同じ名前で持ち、月次ページの「理想テンプレートと
+    実際」で台帳の同名カテゴリ実績に足し合わせる（家賃は台帳に無いので実質これだけ）。
+    """
+    ym = models.CharField(max_length=7, db_index=True, help_text='YYYY-MM')
+    item = models.CharField(max_length=50, help_text='Budget.category と同じ名前（家賃・電気 など）')
+    amount = models.IntegerField(help_text='その月に払った額（円）')
+    note = models.CharField(max_length=100, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-ym', 'item']
+        constraints = [
+            models.UniqueConstraint(fields=['ym', 'item'], name='uniq_fixedcost_ym_item'),
+        ]
+
+    def __str__(self):
+        return f'{self.ym} {self.item} {self.amount:,}円'

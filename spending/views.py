@@ -14,7 +14,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from . import monthly, services, summary
-from .models import Budget, ImportLog, MonthlyIncome, SavingsPlan, Transaction
+from .models import Budget, FixedCostEntry, ImportLog, MonthlyIncome, SavingsPlan, Transaction
 
 
 def index(request):
@@ -143,6 +143,29 @@ def month(request):
                 category=category,
                 defaults={'monthly_limit': limit, 'note': request.POST.get('note', '').strip()})
             messages.success(request, f'{category} の予算を月 ¥{limit:,} に設定しました。')
+            return redirect(back)
+
+        if form_id == 'fixed_cost':
+            # 口座振替など CSV に出ない基礎支出（家賃・電気・ガス・水道）の月ごとの実績。
+            # 項目名は Budget.category と同じ名前で持ち、月次の実績に足し合わせる
+            item = request.POST.get('item', '').strip()
+            raw = request.POST.get('amount', '').strip().replace(',', '')
+            if not ym or not item:
+                messages.error(request, '月と項目を指定してください。')
+                return redirect(back)
+            if raw == '':
+                FixedCostEntry.objects.filter(ym=ym, item=item).delete()
+                messages.success(request, f'{ym} の {item} を削除しました。')
+                return redirect(back)
+            try:
+                amount = max(0, int(float(raw)))
+            except ValueError:
+                messages.error(request, '金額は数字で入力してください。')
+                return redirect(back)
+            FixedCostEntry.objects.update_or_create(
+                ym=ym, item=item,
+                defaults={'amount': amount, 'note': request.POST.get('note', '').strip()[:100]})
+            messages.success(request, f'{ym} の {item} を ¥{amount:,} で登録しました。')
             return redirect(back)
 
         if form_id == 'budget_seed':
