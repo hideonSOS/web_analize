@@ -46,21 +46,70 @@ def main():
           else '\n次の URL を1行に繋げてブラウザで開き、Zaim にログインして「許可」してください:')
     print('  ' + url + '\n')
     print('許可後、画面に出た認証コードか、飛んだ先の URL（127.0.0.1:5000/callback?...）を丸ごと貼ってください。')
-    verifier = input('認証コード または URL: ').strip()
+    verifier = input('認証コード または URL（Zaim が出さない場合は空のまま Enter）: ').strip()
     if 'oauth_verifier=' in verifier:
         from urllib.parse import parse_qs, urlparse
         verifier = parse_qs(urlparse(verifier).query).get('oauth_verifier', [''])[0]
-    if not verifier:
-        print('認証コードが空です'); return 1
+    # Zaim は verifier 無しでもアクセストークンを返す（実測。空でも通る）
     c.access_token(verifier)
     me = c.verify()
-    print(f'\n認証OK: user_id={me.get("id")} login={me.get("login", "")}\n')
-    print('config.json に以下を追加してください（サーバー側。gitに入れないこと）:\n')
-    print(json.dumps({'zaim': {
-        'consumer_key': ck, 'consumer_secret': cs,
-        'access_token': c.token, 'access_token_secret': c.token_secret,
-    }}, ensure_ascii=False, indent=4))
+    print(f'\n認証OK: user_id={me.get("id")} login={me.get("login", "")}')
+
+    conf = {'consumer_key': ck, 'consumer_secret': cs,
+            'access_token': c.token, 'access_token_secret': c.token_secret}
+    # ⚠️ トークンを画面に出さない（端末に残る／会話に貼られる事故が実際に起きた）。
+    # ローカルの config.json に書き、サーバーへは ssh で直接差し込む
+    local = Path(__file__).resolve().parent.parent / 'config.json'
+    _merge_config(local, conf)
+    print(f'ローカルの {local.name} に "zaim" を書きました（値は表示しません）')
+
+    server = input(f'\nサーバーにも入れますか？ [{DEFAULT_SERVER}] （Enter=はい / n=いいえ）: ').strip()
+    if server.lower() != 'n':
+        host, path = (server or DEFAULT_SERVER).split(':', 1) if ':' in (server or DEFAULT_SERVER) \
+            else (server or DEFAULT_SERVER, '/srv/web_analize/config.json')
+        _push_server(host, path, conf)
+    print('\n次: サーバーで  ./venv/bin/python manage.py fetch_zaim --check  を実行して欠けを確認')
     return 0
+
+
+DEFAULT_SERVER = 'root@160.251.215.92:/srv/web_analize/config.json'
+
+_REMOTE_MERGE = r'''
+import json, sys, shutil
+path = sys.argv[1]
+conf = json.load(sys.stdin)
+try:
+    cur = json.load(open(path, encoding='utf-8'))
+except FileNotFoundError:
+    cur = {}
+shutil.copy(path, path + '.bak') if cur else None
+cur['zaim'] = conf
+json.dump(cur, open(path, 'w', encoding='utf-8'), ensure_ascii=False, indent=4)
+print('server config.json updated:', sorted(conf.keys()))
+'''
+
+
+def _merge_config(path: Path, conf: dict):
+    """config.json に "zaim" を差し込む（他のキーは触らない。上書き前に .bak を残す）"""
+    import shutil
+    cur = {}
+    if path.exists():
+        cur = json.loads(path.read_text(encoding='utf-8'))
+        shutil.copy(path, path.with_suffix('.json.bak'))
+    cur['zaim'] = conf
+    path.write_text(json.dumps(cur, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+
+
+def _push_server(host: str, remote_path: str, conf: dict):
+    """ssh でサーバーの config.json に "zaim" を差し込む。値は標準入力で渡す（引数・画面に出ない）"""
+    import subprocess
+    r = subprocess.run(['ssh', host, 'python3', '-c', _REMOTE_MERGE, remote_path],
+                       input=json.dumps(conf), text=True, capture_output=True)
+    if r.returncode == 0:
+        print(f'サーバー {host} の {remote_path} に "zaim" を書きました')
+    else:
+        print(f'サーバーへの書き込みに失敗（{r.returncode}）: {r.stderr.strip()[:300]}')
+        print('ローカルの config.json の "zaim" ブロックを、手でサーバーの config.json に貼ってください')
 
 
 if __name__ == '__main__':
