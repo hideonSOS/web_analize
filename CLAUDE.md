@@ -628,8 +628,10 @@ python manage.py update_us_ranking --refresh-list # 構成銘柄CSVを再取得
 - **「特殊」タブ（`?country=SP`・2026-09-08）= 標準化して重ねる相関分析**（`japan_kabu/macro_special.py`）。
   ユーザー独自の分析機能の置き場。カタログ（`CATALOG`）の系列を最大5本選び、選んだ期間の中で
   −1〜+1（min-max）または z スコアに標準化して1枚の折れ線に重ね、ピアソン相関（重なる月・生の値）
-  を表で出す。株価指数は `update_macro` の `yf` ソース（^GSPC/^N225 の月足終値・月初日で保存。
-  yfinance の月足 max は 1985〜の約500行）。系列を足すときは `SOURCES`（取得）と `CATALOG`
+  を表で出す。株価指数・金・銀・BTC は `update_macro` の `yf` ソース（^GSPC/^N225/GC=F/SI=F/BTC-USD）。
+  ⚠️ **日足を取って自分で月末値に丸める**（`_fetch_yf`）。`interval='1mo'` の月足は先物で月が
+  抜け（141か月中120か月）、^GSPC も 1985〜しか返らない。日足なら ^GSPC 1927〜・^N225 1965〜・
+  金銀 2000-08〜・BTC 2014-09〜が揃う（実測）。系列を足すときは `SOURCES`（取得）と `CATALOG`
   （表示・変換 level/yoy・色）の両方。⚠️ 標準化は表示期間内で行う設計（全期間だと直近が潰れる）。
   相関は因果ではない・36か月未満は信用しない、を画面に明記してある。ラグ相関は未実装。
   **カルテ登録銘柄も選べる**（キー `K:<code>`・`karte_catalog()`・DailyPrice の月末終値を

@@ -56,6 +56,11 @@ SOURCES = {
     # FRED の SP500 は直近10年しか無いので yfinance（^GSPC は 1927〜、^N225 は 1965〜）
     'SP500':         ('yf', '^GSPC'),
     'N225':          ('yf', '^N225'),
+    # 金・銀・ビットコイン（ユーザー要望 2026-09-08）。先物の連続足はETFより履歴が長い
+    # （GC=F/SI=F は 2000〜、BTC-USD は 2014〜）。単位はドル（金銀=トロイオンス）
+    'GOLD':          ('yf', 'GC=F'),
+    'SILVER':        ('yf', 'SI=F'),
+    'BTC':           ('yf', 'BTC-USD'),
 }
 
 
@@ -110,22 +115,25 @@ class Command(BaseCommand):
 
     @staticmethod
     def _fetch_yf(ticker):
-        """yfinance の月足終値 → [(月初日, 終値), ...]。当月の途中バーも入れる（毎朝更新される）"""
+        """yfinance の日足終値を月末値に丸める → [(月初日, その月の最終終値), ...]。
+
+        ⚠️ interval='1mo' の月足は使わない。先物（GC=F/SI=F）の月足は月が抜ける
+        （実測: 2015〜2026 の 141 か月中 120 か月しか無く、直近1年の相関が計算不能になった）。
+        ^GSPC の月足も 1985 年からしか返らない。日足を全期間取って自分で月末値にすれば
+        両方とも解決する（^GSPC は 1927〜・約2.5万行、1銘柄1コール・数秒）。
+        当月は途中の最終終値が入り、毎朝更新される
+        """
         import yfinance as yf
-        df = yf.download(ticker, period='max', interval='1mo', auto_adjust=False, progress=False)
+        df = yf.download(ticker, period='max', interval='1d', auto_adjust=False, progress=False)
         if df is None or df.empty:
             raise ValueError('取得結果が空')
         close = df['Close']
         if hasattr(close, 'columns'):          # MultiIndex 列（yfinance 0.2.5x〜）
             close = close.iloc[:, 0]
-        out = []
+        by = {}
         for ts, v in close.dropna().items():
             d = ts.date() if hasattr(ts, 'date') else ts
-            out.append((date(d.year, d.month, 1), float(v)))
-        # 同じ月が2行（月初と当月の途中）になることがあるので後勝ちで1行に
-        by = {}
-        for d, v in out:
-            by[d] = v
+            by[date(d.year, d.month, 1)] = float(v)   # 日付順なので後勝ち＝月末
         return sorted(by.items())
 
     @staticmethod
