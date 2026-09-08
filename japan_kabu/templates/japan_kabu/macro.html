@@ -102,6 +102,53 @@
     </table>
   </section>
 
+  {% comment %}
+    相関ヒートマップ（ユーザー要望 2026-09-08）: 基準を1つ選び、他の全系列（指標＋カルテ銘柄）との
+    相関を期間窓ごとに色で見る。サーバー側で色まで決めて描く（JSなし・インパルスと同方針）。
+    赤=正・青=負・濃さ=|r|。基準の変更は h= で、上のグラフの条件（s/from/norm）は保つ
+  {% endcomment %}
+  <section class="mac-sec">
+    <h2>相関ヒートマップ <span class="mac-src">基準を1つ選び、他の全系列との相関を期間ごとに色で見る</span></h2>
+    <form method="get" class="mac-form mac-form-inline">
+      <input type="hidden" name="country" value="SP">
+      {% for k in selected %}<input type="hidden" name="s" value="{{ k }}">{% endfor %}
+      <input type="hidden" name="from" value="{{ year_from }}">
+      <input type="hidden" name="norm" value="{{ norm }}">
+      <label>基準
+        <select name="h">
+          {% for k, l in heat_options %}<option value="{{ k }}" {% if k == heat_key %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select></label>
+      <button type="submit" class="mac-btn">この基準で見る</button>
+    </form>
+    {% if heat.rows %}
+    <div class="mac-heat-wrap">
+      <table class="mac-heat">
+        <tr><th class="mac-heat-name">{{ heat.base }} との相関</th>
+          {% for w, wl in heat.windows %}<th>{{ wl }}</th>{% endfor %}</tr>
+        {% for r in heat.rows %}
+        <tr>
+          <td class="mac-heat-name"><span class="mac-swatch" style="background:{{ r.color }}"></span>{{ r.label }}{% if r.is_karte %} <span class="mac-src">カルテ</span>{% endif %}</td>
+          {% for c in r.cells %}
+          <td class="mac-heat-cell {% if c.weak %}weak{% endif %}" style="background:{{ c.color }}"
+              title="{{ r.label }} × {{ heat.base }}: r={% if c.r is not None %}{{ c.r|floatformat:2 }}{% else %}—{% endif %}・{{ c.n }}か月">
+            {% if c.r is not None %}{{ c.r|floatformat:2 }}<span class="n">{{ c.n }}</span>{% else %}<span class="n">—</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <p class="mac-desc">
+      赤＝正の相関、青＝負の相関、濃いほど |r| が大きい。小さい数字は重なっている月数。
+      薄い文字は36か月未満（偶然で |r|=0.3 程度まで出る）。12か月未満は計算しない。
+      列を横に見て「期間を変えても色が保たれるか」が、本物の関係かどうかの目安。
+      選択期間の |r| が大きい順に並ぶ。
+    </p>
+    {% else %}
+    <p class="mac-desc">基準の系列にこの期間のデータがありません。</p>
+    {% endif %}
+  </section>
+
   {{ charts|json_script:"macro-data" }}
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script src="{% static 'japan_kabu/js/macro.js' %}?v={% now 'U' %}"></script>

@@ -37,6 +37,17 @@
 .mac-form-row select{ background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:6px 10px; font-size:13px; }
 .mac-btn{ background:#1e90ff; color:#fff; border:none; border-radius:8px; padding:8px 18px; font-weight:700; cursor:pointer; }
 .mac-btn:hover{ background:#3b82f6; }
+.mac-form-inline{ display:flex; flex-wrap:wrap; gap:14px; align-items:end; font-size:12px; color:#9ca3af; margin-bottom:10px; }
+.mac-form-inline label{ display:flex; flex-direction:column; gap:3px; }
+.mac-form-inline select{ background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:6px 10px; font-size:13px; max-width:360px; }
+/* 相関ヒートマップ（サーバー側で色を決める。赤=正・青=負） */
+.mac-heat-wrap{ overflow-x:auto; }
+.mac-heat{ border-collapse:separate; border-spacing:2px; width:100%; font-size:12px; }
+.mac-heat th{ color:#9ca3af; font-weight:400; font-size:11px; padding:4px 6px; text-align:center; }
+.mac-heat-name{ text-align:left !important; color:#c7ced9; white-space:nowrap; padding:4px 8px; position:sticky; left:0; background:#000; }
+.mac-heat-cell{ text-align:center; color:#fff; font-variant-numeric:tabular-nums; font-weight:700; padding:6px 8px; border-radius:4px; min-width:64px; }
+.mac-heat-cell .n{ display:block; font-size:9px; font-weight:400; color:rgba(255,255,255,.7); }
+.mac-heat-cell.weak{ color:rgba(255,255,255,.55); font-weight:400; }
 .mac-corr td.num{ text-align:right; font-variant-numeric:tabular-nums; }
 .mac-corr-alert td:nth-child(2){ color:#f87171; font-weight:700; }
 .mac-corr-warn td:nth-child(2){ color:#facc15; font-weight:700; }

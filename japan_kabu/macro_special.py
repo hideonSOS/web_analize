@@ -112,6 +112,62 @@ def _corr_word(r):
     return f'{strength}{sign}の相関' if a >= 0.2 else '相関ほぼ無し'
 
 
+HEAT_WINDOWS = [('sel', '選択期間'), ('5y', '直近5年'), ('3y', '直近3年'), ('1y', '直近1年')]
+HEAT_MIN_N = 12          # これ未満の月数は計算しない（1年未満の相関は偶然と区別できない）
+
+
+def _series_dict(key, lookup, raw):
+    """key → {'YYYY-MM': 生の値}（変換込み）"""
+    _, _, sid, tf, _ = lookup[key]
+    rows = _karte_monthly(sid) if key.startswith('K:') else raw.get(sid, [])
+    if tf == 'yoy':
+        rows = _yoy(rows)
+    return {d.strftime('%Y-%m'): v for d, v in rows}
+
+
+def _heat_color(r):
+    """相関係数 → 背景色。正=赤系・負=青系、|r| が大きいほど濃い（発散ランプ）。None は無色"""
+    if r is None:
+        return 'transparent'
+    a = min(abs(r), 1.0)
+    alpha = 0.08 + 0.72 * a
+    return f'rgba(239,68,68,{alpha:.2f})' if r > 0 else f'rgba(59,130,246,{alpha:.2f})'
+
+
+def heatmap(base_key: str, lookup: dict, raw: dict, year_from: int, today: date) -> dict:
+    """基準系列 × 他の全系列 × 期間窓 の相関ヒートマップ（ユーザー要望 2026-09-08）。
+
+    行=他の系列（選択期間の |r| 順）、列=期間窓。色は正=赤・負=青、濃さ=|r|。
+    月数が HEAT_MIN_N 未満の窓は空欄、36 未満は薄字で「短い」と分かるようにする。
+    ⚠️ 全系列を毎回読むので、系列が増えたら DailyPrice の読み込みが重くなる（現状20銘柄で数千行）
+    """
+    base = _series_dict(base_key, lookup, raw)
+    if not base:
+        return {'base': lookup[base_key][1], 'rows': [], 'windows': HEAT_WINDOWS}
+    starts = {
+        'sel': f'{year_from:04d}-01',
+        '5y': f'{today.year - 5:04d}-{today.month:02d}',
+        '3y': f'{today.year - 3:04d}-{today.month:02d}',
+        '1y': f'{today.year - 1:04d}-{today.month:02d}',
+    }
+    rows = []
+    for key, (_, label, _sid, _tf, color) in lookup.items():
+        if key == base_key:
+            continue
+        other = _series_dict(key, lookup, raw)
+        cells = []
+        for wkey, wlabel in HEAT_WINDOWS:
+            common = sorted(m for m in base if m in other and m >= starts[wkey])
+            r = _pearson([base[m] for m in common], [other[m] for m in common]) if len(common) >= HEAT_MIN_N else None
+            cells.append({'w': wkey, 'r': r, 'n': len(common), 'color': _heat_color(r),
+                          'weak': len(common) < 36})
+        rows.append({'key': key, 'label': label, 'color': color, 'cells': cells,
+                     'is_karte': key.startswith('K:'),
+                     'sort': abs(cells[0]['r']) if cells[0]['r'] is not None else -1})
+    rows.sort(key=lambda x: -x['sort'])
+    return {'base': lookup[base_key][1], 'base_key': base_key, 'rows': rows, 'windows': HEAT_WINDOWS}
+
+
 def build(params) -> dict:
     """GET パラメータ → 画面データ。s=<key>（複数）, from=<年>, norm=minmax|z"""
     karte = karte_catalog()
@@ -125,11 +181,12 @@ def build(params) -> dict:
         year_from = this_year - 10
     year_from = max(1950, min(year_from, this_year))
 
+    # ヒートマップが全系列を使うので MacroIndicator は全部読む（1万行強・数十ms）
     raw = defaultdict(list)
-    wanted = {lookup[k][2] for k in keys if not k.startswith('K:')}
-    for sid, d, v in (MacroIndicator.objects.filter(series__in=wanted)
-                      .order_by('date').values_list('series', 'date', 'value')):
+    for sid, d, v in MacroIndicator.objects.order_by('date').values_list('series', 'date', 'value'):
         raw[sid].append((d, v))
+    heat_key = params.get('h') if params.get('h') in lookup else keys[0]
+    heat = heatmap(heat_key, lookup, raw, year_from, date.today())
 
     chart_series, items, by_key = [], [], {}
     for k in keys:
@@ -172,6 +229,8 @@ def build(params) -> dict:
     }
     return {
         'catalog': CATALOG, 'karte_catalog': karte, 'selected': keys, 'norm': norm, 'norms': NORMS,
+        'heat': heat, 'heat_key': heat_key,
+        'heat_options': [(c[0], c[1]) for c in CATALOG] + [(c[0], c[1]) for c in karte],
         'year_from': year_from, 'year_options': list(range(this_year - 1, 1949, -1)),
         'items': items, 'pairs': pairs, 'charts': [chart] if any(s['data'] for s in chart_series) else [],
         'max_series': MAX_SERIES,
