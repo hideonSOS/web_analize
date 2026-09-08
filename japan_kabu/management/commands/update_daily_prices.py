@@ -81,7 +81,11 @@ class Command(BaseCommand):
             if latest:
                 # 既にある分の翌日から。全期間を取り直さないための差分同期
                 from_date = max(start, latest + timedelta(days=1))
-                if from_date > date.today():
+                # ⚠️ 「今日」はニューヨーク時間で判定する。サーバー（JST）の朝は米国ではまだ前日で、
+                # from_date=JST今日 > US今日 となり yfinance が "start date cannot be after end date"
+                # の警告を吐く（実際にカルテのボタンで出た）。取るものが無いので黙って終わる
+                us_today = datetime.now(ZoneInfo('America/New_York')).date()
+                if from_date > min(date.today(), us_today):
                     return 0
 
         if stock.country == 'US':

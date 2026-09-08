@@ -236,6 +236,14 @@
           株価データが未取得です（新しく登録した銘柄は翌朝のバッチまで空です）。
         </p>
         {% endif %}
+        {% if warrant_common %}
+        <p class="kt-note kt-msg-error">
+          ⚠️ この銘柄はワラント（新株予約権）などの派生証券で、株価データがほぼありません。
+          普通株は <b>{{ warrant_common.stock.display_code }}</b>（{{ warrant_common.stock.name }}）です。
+          {% if warrant_common.has_karte %}<a href="{% url 'karte:detail' warrant_common.stock.display_code %}">普通株のカルテを開く →</a>
+          {% else %}カルテ一覧で {{ warrant_common.stock.display_code }} を登録し直してください（このカルテは削除して構いません）。{% endif %}
+        </p>
+        {% endif %}
         {% comment %}
           ブラウザから update_daily_prices --code をその場で実行する（ユーザー要望 2026-09-09）。
           結果は messages で出す。base.html は messages を描かないのでここで描く

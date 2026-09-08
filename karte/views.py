@@ -138,6 +138,18 @@ def detail(request, code):
     if karte is None:
         raise Http404
 
+    # ワラント（新株予約権）や優先株を普通株と取り違えて登録した場合の案内（2026-09-09）。
+    # 実際に Rigetti の RGTIW（warrants）でカルテを作り、株価が2日分しか無く
+    # 「取得ボタンを押してもグラフが出ない」となった。普通株のコードを添える
+    warrant_common = None
+    name_l = (stock.name or '').lower()
+    if stock.country == 'US' and ('warrant' in name_l or 'unit' in name_l or 'right' in name_l) \
+            and len(stock.display_code) > 1:
+        cand = Stock.objects.filter(country='US', display_code=stock.display_code[:-1]).first()
+        if cand:
+            warrant_common = {'stock': cand,
+                              'has_karte': StockKarte.objects.filter(stock=cand).exists()}
+
     filled = sum(1 for f in FIELDS if getattr(karte, f).strip())
 
     # KPIをname別にまとめてグラフ用データにする
@@ -179,6 +191,7 @@ def detail(request, code):
 
     context = {
         'stock': stock,
+        'warrant_common': warrant_common,
         'karte': karte,
         'executives': karte.executives.all(),
         'videos': karte.videos.all(),
