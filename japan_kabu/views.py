@@ -486,7 +486,10 @@ def _macro_sahm(un_rows):
     return out
 
 
-MACRO_COUNTRIES = [('US', '米国'), ('JP', '日本')]   # マクロページ専用（株ではないので「〜株」表記にしない）
+# マクロページ専用（株ではないので「〜株」表記にしない）。
+# 'SP'（特殊）は 2026-09-08 追加。ユーザー独自の分析機能を置くタブで、右端に固定。
+# 中身はまだ雛形（「特殊」と表示するだけ）。国別のデータ・チップ・チャートは使わない
+MACRO_COUNTRIES = [('US', '米国'), ('JP', '日本'), ('SP', '特殊')]
 
 
 def _macro_fx(series, pack):
@@ -556,6 +559,12 @@ def macro(request):
     """
     country = request.GET.get('country')
     country = country if country in dict(MACRO_COUNTRIES) else 'US'
+    if country == 'SP':
+        # 特殊タブ: 独自分析の置き場（雛形）。国別のデータ処理は通さない
+        return render(request, 'japan_kabu/macro.html', {
+            'charts': [], 'chips': [], 'has_data': True, 'country': country,
+            'countries': MACRO_COUNTRIES, 'is_us': False, 'is_special': True,
+        })
 
     series = defaultdict(list)
     for sid, d, v in MacroIndicator.objects.order_by('date').values_list('series', 'date', 'value'):

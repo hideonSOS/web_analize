@@ -18,6 +18,14 @@
     {% endfor %}
   </div>
 
+  {% if is_special %}
+  {% comment %} 特殊タブ（2026-09-08）: 独自分析の置き場。中身は追って実装する {% endcomment %}
+  <p class="mc-meta">特殊</p>
+  <section class="mac-sec">
+    <h2>特殊</h2>
+    <p class="mac-desc">特殊</p>
+  </section>
+  {% else %}
   <p class="mc-meta">CPI（消費者物価）と失業率の長期時系列と「基準値」の読み方<br>
   <span class="mac-src">出所: {% if is_us %}FRED（セントルイス連銀）{% else %}総務省統計局（DBnomics経由）・FRED{% endif %}・月次。毎朝の定期バッチで自動更新</span></p>
 
@@ -171,5 +179,6 @@
     <pre>python manage.py update_macro</pre>
   </div>
   {% endif %}
+  {% endif %}{# is_special #}
 </main>
 {% endblock %}
