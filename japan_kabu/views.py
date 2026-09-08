@@ -495,24 +495,46 @@ def _macro_fx(series, pack):
     基準値は置かない（為替に「正常水準」は無い）。代わりに前年同月比で円安/円高の向きと
     速さを出す。±10%/年を超えると企業業績・物価への影響が大きい、を注意の目安にする
     """
-    fx = series.get('USDJPY', [])
+    fx = list(series.get('USDJPY', []))
+    # ⚠️ FRED の月中平均（EXJPUS）は翌月に出るので最大1か月強古い（「情報が古い」と指摘された）。
+    # 直近は夜間バッチが毎日取っている portfolio.FxRate（yfinance USDJPY=X の終値）で補う:
+    #   チップ = 最新の日次終値、チャート = 当月の途中平均を末尾に足す
+    daily = []
+    try:
+        from portfolio.models import FxRate
+        daily = list(FxRate.objects.filter(pair='USDJPY').order_by('date').values_list('date', 'rate'))
+    except Exception:   # noqa: BLE001  portfolio 未導入でもマクロページは落とさない
+        daily = []
+    last_month = fx[-1][0] if fx else None
+    if daily:
+        cur = [(d, r) for d, r in daily if last_month is None or (d.year, d.month) > (last_month.year, last_month.month)]
+        if cur:
+            d0 = cur[-1][0].replace(day=1)
+            fx.append((d0, sum(r for _, r in cur) / len(cur)))   # 当月（途中）の平均
     chip = None
     if fx:
         d, v = fx[-1]
         prev = [x for x in fx if x[0].year == d.year - 1 and x[0].month == d.month]
-        if prev:
-            chg = (v / prev[0][1] - 1) * 100
+        yoy = f'前年同月比 {(v / prev[0][1] - 1) * 100:+.1f}%' if prev else ''
+        if daily:
+            dd, dv = daily[-1]
+            m_prev = [x for x in fx if x[0] < dd.replace(day=1)]
+            base = m_prev[-1] if m_prev else None
+            chg = (dv / base[1] - 1) * 100 if base else 0.0
             direction = '円安' if chg > 0 else '円高'
-            state = 'warn' if abs(chg) >= 10 else 'ok'
-            note = f'前年同月比 {chg:+.1f}%（{direction}方向）' + ('・年10%超の急変' if state == 'warn' else '')
+            state = 'warn' if abs(chg) >= 5 else 'ok'
+            note = ((f'{base[0].month}月平均 ¥{base[1]:.2f} から {chg:+.1f}%（{direction}方向）' if base else '日次終値')
+                    + ('・月内5%超の急変' if state == 'warn' else '') + (f'／{yoy}' if yoy else ''))
+            chip = {'label': 'ドル円（終値）', 'value': f'¥{dv:.2f}', 'date': dd, 'state': state,
+                    'note': note, 'date_fmt': 'day'}
         else:
-            state, note = 'ok', '月中平均'
-        chip = {'label': 'ドル円', 'value': f'¥{v:.2f}', 'date': d, 'state': state, 'note': note}
+            chip = {'label': 'ドル円', 'value': f'¥{v:.2f}', 'date': d, 'state': 'ok', 'note': yoy or '月中平均'}
     chart = {
-        'el': 'chart-fx', 'title': 'ドル円（月中平均）', 'unit': '円',
+        'el': 'chart-fx', 'title': 'ドル円（月中平均・当月は途中平均）', 'unit': '円',
         'desc': '1ドル＝何円か（上に行くほど円安）。基本は「日米の金利差」で動く: 米金利高・日本金利低なら円安、'
                 '日本の利上げ・米の利下げなら円高。円安は輸出株・海外資産の円換算に追い風、輸入物価（食品・エネルギー）には逆風。'
-                '1985年プラザ合意の240円→120円、2011年の75円、2022年以降の150円台まで遡れる。',
+                '末尾の当月分は日次終値の途中平均（毎晩更新）。1985年プラザ合意の240円→120円、2011年の75円、'
+                '2022年以降の150円台まで遡れる。',
         'series': [{'name': 'ドル円', 'color': '#facc15', 'data': pack(fx)}],
     }
     return chip, chart

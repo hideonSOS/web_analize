@@ -29,7 +29,7 @@
     <div class="mac-chip mac-{{ c.state }}">
       <span class="mac-chip-label">{{ c.label }}</span>
       <span class="mac-chip-value">{{ c.value }}</span>
-      <span class="mac-chip-date">{{ c.date|date:"Y年n月" }}分</span>
+      <span class="mac-chip-date">{% if c.date_fmt == 'day' %}{{ c.date|date:"Y年n月j日" }} 終値{% else %}{{ c.date|date:"Y年n月" }}分{% endif %}</span>
       <span class="mac-chip-note">{{ c.note }}</span>
     </div>
     {% endfor %}
