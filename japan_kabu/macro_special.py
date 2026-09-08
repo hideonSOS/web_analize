@@ -44,6 +44,36 @@ DEFAULT_KEYS = ['SP500', 'FEDFUNDS']
 MAX_SERIES = 5
 NORMS = [('minmax', '−1〜+1（最小・最大）'), ('z', 'zスコア（平均0・標準偏差1）')]
 
+# カルテ銘柄（ユーザー要望 2026-09-08）。キーは 'K:<code>'。月末終値を DailyPrice から組む。
+# DailyPrice は登録銘柄の調整後終値で約3年ぶん（update_impulse_prices / update_daily_prices）
+KARTE_PALETTE = ['#22d3ee', '#f472b6', '#a3e635', '#fb7185', '#34d399', '#fbbf24',
+                 '#818cf8', '#f59e0b', '#2dd4bf', '#e879f9', '#84cc16', '#38bdf8']
+
+
+def karte_catalog() -> list[tuple]:
+    """(key, label, code, 'level', color) をカルテ登録順で。カルテ未導入でも落とさない"""
+    try:
+        from karte.models import StockKarte
+        rows = list(StockKarte.objects.select_related('stock').order_by('id')
+                    .values_list('stock__code', 'stock__name', 'stock__display_code'))
+    except Exception:   # noqa: BLE001
+        return []
+    out = []
+    for i, (code, name, disp) in enumerate(rows):
+        label = f'{name}（{disp or code}）'
+        out.append((f'K:{code}', label, code, 'level', KARTE_PALETTE[i % len(KARTE_PALETTE)]))
+    return out
+
+
+def _karte_monthly(code: str) -> list[tuple[date, float]]:
+    """DailyPrice → 月末終値の月次系列 [(月初日, 終値)]"""
+    from .models import DailyPrice
+    last = {}
+    for d, c in (DailyPrice.objects.filter(stock__code=code).order_by('date')
+                 .values_list('date', 'close')):
+        last[date(d.year, d.month, 1)] = float(c)     # 同じ月は後勝ち＝月末
+    return sorted(last.items())
+
 
 def _yoy(rows):
     by = {(d.year, d.month): v for d, v in rows}
@@ -84,7 +114,9 @@ def _corr_word(r):
 
 def build(params) -> dict:
     """GET パラメータ → 画面データ。s=<key>（複数）, from=<年>, norm=minmax|z"""
-    keys = [k for k in params.getlist('s') if k in CATALOG_BY_KEY][:MAX_SERIES] or list(DEFAULT_KEYS)
+    karte = karte_catalog()
+    lookup = {**CATALOG_BY_KEY, **{c[0]: c for c in karte}}
+    keys = [k for k in params.getlist('s') if k in lookup][:MAX_SERIES] or list(DEFAULT_KEYS)
     norm = params.get('norm') if params.get('norm') in dict(NORMS) else 'minmax'
     this_year = date.today().year
     try:
@@ -94,15 +126,15 @@ def build(params) -> dict:
     year_from = max(1950, min(year_from, this_year))
 
     raw = defaultdict(list)
-    wanted = {CATALOG_BY_KEY[k][2] for k in keys}
+    wanted = {lookup[k][2] for k in keys if not k.startswith('K:')}
     for sid, d, v in (MacroIndicator.objects.filter(series__in=wanted)
                       .order_by('date').values_list('series', 'date', 'value')):
         raw[sid].append((d, v))
 
     chart_series, items, by_key = [], [], {}
     for k in keys:
-        _, label, sid, tf, color = CATALOG_BY_KEY[k]
-        rows = raw.get(sid, [])
+        _, label, sid, tf, color = lookup[k]
+        rows = _karte_monthly(sid) if k.startswith('K:') else raw.get(sid, [])
         if tf == 'yoy':
             rows = _yoy(rows)
         rows = [(d, v) for d, v in rows if d.year >= year_from]
@@ -122,7 +154,7 @@ def build(params) -> dict:
             a, b = keys[i], keys[j]
             common = sorted(set(by_key[a]) & set(by_key[b]))
             r = _pearson([by_key[a][m] for m in common], [by_key[b][m] for m in common])
-            pairs.append({'a': CATALOG_BY_KEY[a][1], 'b': CATALOG_BY_KEY[b][1],
+            pairs.append({'a': lookup[a][1], 'b': lookup[b][1],
                           'r': r, 'n': len(common),
                           'word': _corr_word(r) if r is not None else '計算不能',
                           'weak_n': len(common) < 36,
@@ -139,7 +171,7 @@ def build(params) -> dict:
         'series': chart_series,
     }
     return {
-        'catalog': CATALOG, 'selected': keys, 'norm': norm, 'norms': NORMS,
+        'catalog': CATALOG, 'karte_catalog': karte, 'selected': keys, 'norm': norm, 'norms': NORMS,
         'year_from': year_from, 'year_options': list(range(this_year - 1, 1949, -1)),
         'items': items, 'pairs': pairs, 'charts': [chart] if any(s['data'] for s in chart_series) else [],
         'max_series': MAX_SERIES,

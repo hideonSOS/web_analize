@@ -37,6 +37,18 @@
         </label>
         {% endfor %}
       </div>
+      {% if karte_catalog %}
+      {% comment %} カルテ登録銘柄の月末終値（DailyPrice・約3年）。ユーザー要望 2026-09-08 {% endcomment %}
+      <div class="mac-form-group">カルテの銘柄（月末終値・履歴は約3年）</div>
+      <div class="mac-form-series">
+        {% for key, label, sid, tf, color in karte_catalog %}
+        <label class="mac-check {% if key in selected %}on{% endif %}">
+          <input type="checkbox" name="s" value="{{ key }}" {% if key in selected %}checked{% endif %}>
+          <span class="mac-swatch" style="background:{{ color }}"></span>{{ label }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="mac-form-row">
         <label>期間
           <select name="from">
