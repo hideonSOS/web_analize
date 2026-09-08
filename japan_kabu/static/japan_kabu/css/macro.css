@@ -24,6 +24,22 @@
 .mac-alert{ border-left:3px solid #e5484d; }
 .mac-alert .mac-chip-note{ color:#f87171; }
 
+/* ---- 特殊タブ: 系列の選択フォームと相関表（2026-09-08） ---- */
+.mac-form{ background:#0b1220; border:1px solid #1f2937; border-radius:10px; padding:12px 14px; }
+.mac-form-series{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:4px 12px; }
+.mac-check{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:#c7ced9; cursor:pointer; padding:3px 4px; border-radius:6px; }
+.mac-check.on{ color:#fff; background:rgba(59,130,246,.12); }
+.mac-check input{ accent-color:#3b82f6; }
+.mac-swatch{ display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+.mac-form-row{ display:flex; flex-wrap:wrap; gap:14px; align-items:end; margin-top:10px; font-size:12px; color:#9ca3af; }
+.mac-form-row label{ display:flex; flex-direction:column; gap:3px; }
+.mac-form-row select{ background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:6px 10px; font-size:13px; }
+.mac-btn{ background:#1e90ff; color:#fff; border:none; border-radius:8px; padding:8px 18px; font-weight:700; cursor:pointer; }
+.mac-btn:hover{ background:#3b82f6; }
+.mac-corr td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+.mac-corr-alert td:nth-child(2){ color:#f87171; font-weight:700; }
+.mac-corr-warn td:nth-child(2){ color:#facc15; font-weight:700; }
+
 /* ---- セクション ---- */
 .mac-sec{ max-width:960px; margin:0 auto 26px; }
 .mac-sec h2{

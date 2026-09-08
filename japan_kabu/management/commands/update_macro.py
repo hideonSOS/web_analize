@@ -52,6 +52,10 @@ SOURCES = {
                                                    # 2023-12 で配信停止、公定歩合 INTDSRJPM193N は
                                                    # 2017-04 で停止（実測）。コールレートだけが現役
                                                    # （約2か月遅れ）。米国の政策金利は FEDFUNDS
+    # 株価指数の月末値（yfinance・月足）。「特殊」タブの相関分析用（2026-09-08）。
+    # FRED の SP500 は直近10年しか無いので yfinance（^GSPC は 1927〜、^N225 は 1965〜）
+    'SP500':         ('yf', '^GSPC'),
+    'N225':          ('yf', '^N225'),
 }
 
 
@@ -62,7 +66,8 @@ class Command(BaseCommand):
         total_new = total_upd = 0
         for key, (src, sid) in SOURCES.items():
             try:
-                rows = self._fetch_fred(sid) if src == 'fred' else self._fetch_dbnomics(sid)
+                rows = {'fred': self._fetch_fred, 'dbnomics': self._fetch_dbnomics,
+                        'yf': self._fetch_yf}[src](sid)
             except Exception as e:  # noqa: BLE001  1系列の失敗で全体を止めない
                 self.stderr.write(f'  {key}: 取得失敗: {e}')
                 continue
@@ -102,6 +107,26 @@ class Command(BaseCommand):
             y, m = p.split('-')
             out.append((date(int(y), int(m), 1), float(v)))
         return out
+
+    @staticmethod
+    def _fetch_yf(ticker):
+        """yfinance の月足終値 → [(月初日, 終値), ...]。当月の途中バーも入れる（毎朝更新される）"""
+        import yfinance as yf
+        df = yf.download(ticker, period='max', interval='1mo', auto_adjust=False, progress=False)
+        if df is None or df.empty:
+            raise ValueError('取得結果が空')
+        close = df['Close']
+        if hasattr(close, 'columns'):          # MultiIndex 列（yfinance 0.2.5x〜）
+            close = close.iloc[:, 0]
+        out = []
+        for ts, v in close.dropna().items():
+            d = ts.date() if hasattr(ts, 'date') else ts
+            out.append((date(d.year, d.month, 1), float(v)))
+        # 同じ月が2行（月初と当月の途中）になることがあるので後勝ちで1行に
+        by = {}
+        for d, v in out:
+            by[d] = v
+        return sorted(by.items())
 
     @staticmethod
     def _store(key, rows):

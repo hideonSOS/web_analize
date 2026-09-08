@@ -37,6 +37,7 @@
       };
     }
 
+    const unit = (spec.unit === undefined || spec.unit === null) ? '%' : spec.unit;
     const c = echarts.init(dom);
     c.setOption({
       backgroundColor: 'transparent',
@@ -45,18 +46,20 @@
         trigger: 'axis',
         backgroundColor: '#111827', borderColor: '#374151',
         textStyle: { color: '#e5e7eb', fontSize: 12 },
-        // 単位はスペック側で指定（省略時 %）。ドル円は '円'（2026-09-08）
-        valueFormatter: (v) => (v == null ? '-' : v.toFixed(spec.unit === '円' ? 2 : 1) + (spec.unit || '%')),
+        // 単位はスペック側で指定（省略時 %）。ドル円は '円'、標準化系列は ''（2026-09-08）
+        valueFormatter: (v) => (v == null ? '-' : v.toFixed(unit === '円' ? 2 : unit === '' ? 2 : 1) + unit),
       },
       legend: { textStyle: { color: '#cbd5e1' }, top: 0 },
       xAxis: { type: 'category', data: labels, axisLabel: AXIS,
                axisLine: { lineStyle: { color: '#374151' } } },
-      yAxis: { type: 'value', axisLabel: { ...AXIS, formatter: '{value}' + (spec.unit || '%') },
-               scale: !!spec.unit,   // 為替は 0 起点にすると変化が潰れるので実レンジで描く
+      yAxis: { type: 'value', axisLabel: { ...AXIS, formatter: '{value}' + unit },
+               scale: unit !== '%',   // 為替は 0 起点にすると変化が潰れるので実レンジで描く
+               min: spec.y_min ?? undefined, max: spec.y_max ?? undefined,
                splitLine: { lineStyle: { color: '#1f2937' } } },
       dataZoom: [
         { type: 'slider', height: 18, bottom: 8,
-          start: Math.max(0, 100 - (120 / labels.length) * 100), end: 100,
+          // 特殊タブ（zoom_all）は選んだ期間を最初から全部見せる
+          start: spec.zoom_all ? 0 : Math.max(0, 100 - (120 / labels.length) * 100), end: 100,
           borderColor: '#374151', backgroundColor: '#0b1220',
           fillerColor: 'rgba(30,144,255,.15)', textStyle: { color: '#6b7280' } },
         { type: 'inside' },

@@ -560,9 +560,11 @@ def macro(request):
     country = request.GET.get('country')
     country = country if country in dict(MACRO_COUNTRIES) else 'US'
     if country == 'SP':
-        # 特殊タブ: 独自分析の置き場（雛形）。国別のデータ処理は通さない
+        # 特殊タブ: 複数系列を標準化して重ね、相関を見る（japan_kabu/macro_special.py）
+        from . import macro_special
+        sp = macro_special.build(request.GET)
         return render(request, 'japan_kabu/macro.html', {
-            'charts': [], 'chips': [], 'has_data': True, 'country': country,
+            **sp, 'chips': [], 'has_data': True, 'country': country,
             'countries': MACRO_COUNTRIES, 'is_us': False, 'is_special': True,
         })
 

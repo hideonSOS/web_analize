@@ -19,12 +19,80 @@
   </div>
 
   {% if is_special %}
-  {% comment %} 特殊タブ（2026-09-08）: 独自分析の置き場。中身は追って実装する {% endcomment %}
-  <p class="mc-meta">特殊</p>
+  {% comment %}
+    特殊タブ（2026-09-08）: 複数の時系列を −1〜+1 に標準化して重ね、相関を見る。
+    データは japan_kabu/macro_special.py が組む。フォームは GET（URL で共有できる）
+  {% endcomment %}
+  <p class="mc-meta">スケールの違う指標を標準化して重ね、相関を目で確かめる<br>
+  <span class="mac-src">系列は最大{{ max_series }}本。標準化は選んだ期間の中で行う（期間を変えると形も変わる）</span></p>
+
   <section class="mac-sec">
-    <h2>特殊</h2>
-    <p class="mac-desc">特殊</p>
+    <form method="get" class="mac-form">
+      <input type="hidden" name="country" value="SP">
+      <div class="mac-form-series">
+        {% for key, label, sid, tf, color in catalog %}
+        <label class="mac-check {% if key in selected %}on{% endif %}">
+          <input type="checkbox" name="s" value="{{ key }}" {% if key in selected %}checked{% endif %}>
+          <span class="mac-swatch" style="background:{{ color }}"></span>{{ label }}
+        </label>
+        {% endfor %}
+      </div>
+      <div class="mac-form-row">
+        <label>期間
+          <select name="from">
+            {% for y in year_options %}<option value="{{ y }}" {% if y == year_from %}selected{% endif %}>{{ y }}年〜</option>{% endfor %}
+          </select></label>
+        <label>標準化
+          <select name="norm">
+            {% for v, l in norms %}<option value="{{ v }}" {% if v == norm %}selected{% endif %}>{{ l }}</option>{% endfor %}
+          </select></label>
+        <button type="submit" class="mac-btn">描く</button>
+      </div>
+    </form>
   </section>
+
+  {% for ch in charts %}
+  <section class="mac-sec">
+    <h2>{{ ch.title }}</h2>
+    <p class="mac-desc">{{ ch.desc }}</p>
+    <div id="{{ ch.el }}" class="mac-chart"></div>
+  </section>
+  {% empty %}
+  <section class="mac-sec"><p class="mac-desc">選んだ系列にこの期間のデータがありません。</p></section>
+  {% endfor %}
+
+  <section class="mac-sec">
+    <h2>相関係数 <span class="mac-src">重なっている月の生の値で計算（標準化しても値は同じ）</span></h2>
+    <table class="mac-table mac-corr">
+      <tr><th>組み合わせ</th><th>r</th><th>月数</th><th>読み</th></tr>
+      {% for p in pairs %}
+      <tr class="mac-corr-{{ p.state }}">
+        <td>{{ p.a }} × {{ p.b }}</td>
+        <td class="num">{% if p.r is not None %}{{ p.r|floatformat:2 }}{% else %}—{% endif %}</td>
+        <td class="num">{{ p.n }}{% if p.weak_n %} <span class="mac-src">短い</span>{% endif %}</td>
+        <td>{{ p.word }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="mac-src">2本以上選ぶと組み合わせごとの相関が出ます</td></tr>
+      {% endfor %}
+    </table>
+    <p class="mac-desc">
+      |r|≥0.7 で強い、0.4〜0.7 でやや、0.2 未満はほぼ無し。
+      <b>相関は因果ではない</b>。両方が同じ時間トレンド（右肩上がり）を持つだけでも高く出る（見せかけの相関）。
+      月数が36未満は偶然で |r|=0.3 程度まで出るので信用しない。
+      期間を変えて相関が保たれるかを見るのが、この画面の使い方。
+    </p>
+    <table class="mac-table">
+      {% for it in items %}
+      <tr><th><span class="mac-swatch" style="background:{{ it.color }}"></span>{{ it.label }}</th>
+        <td>{% if it.missing %}この期間のデータなし{% else %}{{ it.first|date:"Y/n" }}〜{{ it.last|date:"Y/n" }}・{{ it.n }}か月・最新 {{ it.last_value|floatformat:2 }}{% endif %}</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+
+  {{ charts|json_script:"macro-data" }}
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <script src="{% static 'japan_kabu/js/macro.js' %}?v={% now 'U' %}"></script>
   {% else %}
   <p class="mc-meta">CPI（消費者物価）と失業率の長期時系列と「基準値」の読み方<br>
   <span class="mac-src">出所: {% if is_us %}FRED（セントルイス連銀）{% else %}総務省統計局（DBnomics経由）・FRED{% endif %}・月次。毎朝の定期バッチで自動更新</span></p>
