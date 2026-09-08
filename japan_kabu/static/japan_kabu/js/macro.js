@@ -45,12 +45,14 @@
         trigger: 'axis',
         backgroundColor: '#111827', borderColor: '#374151',
         textStyle: { color: '#e5e7eb', fontSize: 12 },
-        valueFormatter: (v) => (v == null ? '-' : v.toFixed(1) + '%'),
+        // 単位はスペック側で指定（省略時 %）。ドル円は '円'（2026-09-08）
+        valueFormatter: (v) => (v == null ? '-' : v.toFixed(spec.unit === '円' ? 2 : 1) + (spec.unit || '%')),
       },
       legend: { textStyle: { color: '#cbd5e1' }, top: 0 },
       xAxis: { type: 'category', data: labels, axisLabel: AXIS,
                axisLine: { lineStyle: { color: '#374151' } } },
-      yAxis: { type: 'value', axisLabel: { ...AXIS, formatter: '{value}%' },
+      yAxis: { type: 'value', axisLabel: { ...AXIS, formatter: '{value}' + (spec.unit || '%') },
+               scale: !!spec.unit,   // 為替は 0 起点にすると変化が潰れるので実レンジで描く
                splitLine: { lineStyle: { color: '#1f2937' } } },
       dataZoom: [
         { type: 'slider', height: 18, bottom: 8,

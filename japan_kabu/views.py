@@ -489,6 +489,35 @@ def _macro_sahm(un_rows):
 MACRO_COUNTRIES = [('US', '米国'), ('JP', '日本')]   # マクロページ専用（株ではないので「〜株」表記にしない）
 
 
+def _macro_fx(series, pack):
+    """ドル円（月中平均）のチップとチャート。日米どちらのタブにも同じものを出す（2026-09-08）。
+
+    基準値は置かない（為替に「正常水準」は無い）。代わりに前年同月比で円安/円高の向きと
+    速さを出す。±10%/年を超えると企業業績・物価への影響が大きい、を注意の目安にする
+    """
+    fx = series.get('USDJPY', [])
+    chip = None
+    if fx:
+        d, v = fx[-1]
+        prev = [x for x in fx if x[0].year == d.year - 1 and x[0].month == d.month]
+        if prev:
+            chg = (v / prev[0][1] - 1) * 100
+            direction = '円安' if chg > 0 else '円高'
+            state = 'warn' if abs(chg) >= 10 else 'ok'
+            note = f'前年同月比 {chg:+.1f}%（{direction}方向）' + ('・年10%超の急変' if state == 'warn' else '')
+        else:
+            state, note = 'ok', '月中平均'
+        chip = {'label': 'ドル円', 'value': f'¥{v:.2f}', 'date': d, 'state': state, 'note': note}
+    chart = {
+        'el': 'chart-fx', 'title': 'ドル円（月中平均）', 'unit': '円',
+        'desc': '1ドル＝何円か（上に行くほど円安）。基本は「日米の金利差」で動く: 米金利高・日本金利低なら円安、'
+                '日本の利上げ・米の利下げなら円高。円安は輸出株・海外資産の円換算に追い風、輸入物価（食品・エネルギー）には逆風。'
+                '1985年プラザ合意の240円→120円、2011年の75円、2022年以降の150円台まで遡れる。',
+        'series': [{'name': 'ドル円', 'color': '#facc15', 'data': pack(fx)}],
+    }
+    return chip, chart
+
+
 def macro(request):
     """マクロ指標（日米のCPI・失業率）の時系列と「基準値」の解説ページ
 
@@ -562,6 +591,14 @@ def macro(request):
                     '高め（PERを圧迫する逆風）' if state == 'warn' else '高い（株から債券へ資金が逃げる水準）')
             chips.append({'label': '10年国債利回り', 'value': f'{v:.2f}%', 'date': d,
                           'state': state, 'note': note})
+        ff = series.get('FEDFUNDS', [])
+        if ff:
+            d, v = ff[-1]
+            state = 'ok' if v < 3.5 else 'warn' if v <= 5.0 else 'alert'
+            note = ('中立水準（3%前後）の近く' if state == 'ok' else
+                    '引き締め気味（利下げ余地あり）' if state == 'warn' else '強い引き締め（インフレ抑制局面）')
+            chips.append({'label': '政策金利（FF金利）', 'value': f'{v:.2f}%', 'date': d,
+                          'state': state, 'note': note})
         if gs10 and gs2 and gs10[-1][0] == gs2[-1][0]:
             d = gs10[-1][0]
             sp = gs10[-1][1] - gs2[-1][1]
@@ -591,6 +628,10 @@ def macro(request):
                         {'name': '2年国債', 'color': '#f97316', 'data': pack(gs2)},
                         {'name': 'FF金利（政策金利）', 'color': '#9ca3af', 'data': pack(series.get('FEDFUNDS', []))}]},
         ]
+        fx_chip, fx_chart = _macro_fx(series, pack)
+        if fx_chip:
+            chips.append(fx_chip)
+        charts.append(fx_chart)
     else:
         cpi = _macro_yoy(series.get('JPCPI_ALL', []))
         core = _macro_yoy(series.get('JPCPI_CORE', []))
@@ -632,6 +673,16 @@ def macro(request):
                     '「金利のある世界」へ正常化中（銀行株に追い風・不動産/グロースに逆風）')
             chips.append({'label': '10年国債利回り', 'value': f'{v:.2f}%', 'date': d,
                           'state': state, 'note': note})
+        # 政策金利は無担保コール翌日物の月平均で代用（日銀の誘導目標にほぼ一致。
+        # 中銀金利そのものの系列は 2023-12 で配信停止のため）。約2か月遅れ
+        jpcall = series.get('JPCALL', [])
+        if jpcall:
+            d, v = jpcall[-1]
+            state = 'ok' if v < 0.5 else 'warn'
+            note = ('ゼロ金利圏' if v < 0.1 else
+                    '利上げ局面の入口' if state == 'ok' else '利上げ進行中（円高・銀行株高の要因）')
+            chips.append({'label': '政策金利（コールレート）', 'value': f'{v:.2f}%', 'date': d,
+                          'state': state, 'note': note})
 
         charts = [
             {'el': 'chart-cpi', 'title': 'CPI 前年比（インフレ率）',
@@ -650,9 +701,16 @@ def macro(request):
              'desc': '1990年の8%から30年かけてゼロへ沈み、2016年からはYCC（イールドカーブ・コントロール）で'
                      '0%近辺に固定されていた。2024年のYCC撤廃・マイナス金利解除で「金利のある世界」へ正常化中。'
                      'この上昇が銀行株高・不動産株安・円高圧力の源泉。',
-             'series': [{'name': '10年国債', 'color': '#1e90ff', 'data': pack(jp10)}],
+             'series': [{'name': '10年国債', 'color': '#1e90ff', 'data': pack(jp10)},
+                        {'name': '政策金利（無担保コール翌日物）', 'color': '#9ca3af', 'data': pack(jpcall)}],
              'mark': {'v': 1, 'label': 'YCC時代の上限のめやす 1%'}},
         ]
+        charts[-1]['title'] = '金利（10年国債利回り・政策金利）'
+        charts[-1]['desc'] += 'グレーが政策金利（無担保コール翌日物の月平均。日銀の誘導目標にほぼ一致）。'
+        fx_chip, fx_chart = _macro_fx(series, pack)
+        if fx_chip:
+            chips.append(fx_chip)
+        charts.append(fx_chart)
 
     context = {
         'charts': charts,
