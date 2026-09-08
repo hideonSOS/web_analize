@@ -79,6 +79,15 @@
 .kt-sortable-ghost{ opacity:.4; border-style:dashed; border-color:#3b82f6; }
 .kt-sortable-chosen{ box-shadow:0 0 0 1px #3b82f6, 0 8px 24px rgba(0,0,0,.5); }
 .kt-note{ color:#9ca3af; font-size:12px; margin:6px 0 0; line-height:1.7; }
+/* 株価をその場で取得するボタンと結果メッセージ（2026-09-09） */
+.kt-fetch-form{ margin-top:8px; }
+.kt-btn-sub{
+  background:none; border:1px solid #1e3a5f; border-radius:6px; color:#1e90ff;
+  font-size:11px; padding:4px 10px; cursor:pointer;
+}
+.kt-btn-sub:hover{ background:rgba(30,144,255,.12); }
+.kt-msg-success{ color:#4ade80; }
+.kt-msg-error{ color:#f87171; }
 
 /* 雛形フォーム */
 .kt-field{ margin-bottom:16px; }

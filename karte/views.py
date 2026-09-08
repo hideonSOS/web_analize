@@ -197,6 +197,39 @@ def detail(request, code):
 
 
 @require_POST
+def fetch_prices(request, code):
+    """カルテ詳細の「株価を取得」ボタン → サーバーで update_daily_prices --code をその場で実行する。
+
+    ユーザー要望（2026-09-09）: 新しく登録した銘柄（例: Rigetti）は翌朝のバッチまで株価が空で
+    「未取得です。コマンドを実行してください」と出る。SSH せずにブラウザから埋めたい。
+    - 1銘柄・差分同期なので数秒（yfinance 1コール）。同期実行で結果をメッセージに出す
+    - JP 銘柄は J-Quants 無料プランで直近が取れないため、コマンド側で yfinance に代替する
+    - 本番は gunicorn のタイムアウト（既定30秒）内に収まる。全銘柄一括はここからは回さない
+    """
+    from io import StringIO
+
+    from django.contrib import messages
+    from django.core.management import call_command
+
+    stock = get_object_or_404(Stock, display_code=code)
+    out, err = StringIO(), StringIO()
+    try:
+        call_command('update_daily_prices', code=code, years=3, stdout=out, stderr=err)
+    except Exception as e:   # noqa: BLE001
+        messages.error(request, f'株価の取得に失敗しました: {e}')
+        return redirect('karte:detail', code=code)
+    n = DailyPrice.objects.filter(stock=stock).count()
+    latest = DailyPrice.objects.filter(stock=stock).order_by('-date').values_list('date', flat=True).first()
+    summary = ' '.join(line.strip() for line in out.getvalue().splitlines() if line.strip())[-160:]
+    if n:
+        messages.success(request, f'株価を取得しました（{n:,}日分・最新 {latest}）。{summary}')
+    else:
+        messages.error(request, '株価を取得できませんでした（ティッカーが yfinance に無い可能性）。'
+                                + (err.getvalue().strip()[-200:] or summary))
+    return redirect('karte:detail', code=code)
+
+
+@require_POST
 def reorder(request, code):
     """セクションの並び順を保存する（ドラッグ&ドロップ後にJSから呼ぶ）。
 

@@ -84,8 +84,19 @@ class Command(BaseCommand):
                 if from_date > date.today():
                     return 0
 
-        rows = (self._fetch_us(stock, from_date) if stock.country == 'US'
-                else self._fetch_jp(stock, from_date))
+        if stock.country == 'US':
+            rows = self._fetch_us(stock, from_date)
+        else:
+            # J-Quants は無料プランで直近が取れない（約12週遅延・400/403）。失敗か0件なら
+            # yfinance（<コード>.T）に切り替える（2026-09-09。カルテの「株価を取得」ボタンから
+            # 呼ばれたとき JP 銘柄が空のままにならないように）
+            try:
+                rows = self._fetch_jp(stock, from_date)
+            except Exception as e:   # noqa: BLE001
+                self.stderr.write(f'  {stock.display_code} J-Quants 失敗 → yfinance で代替: {e}')
+                rows = []
+            if not rows:
+                rows = self._fetch_us(stock, from_date, ticker=f'{stock.display_code}.T')
         if stock.country == 'US':
             # 米国市場のクローズ確定前は当日バーが途中値なので保存しない
             now = datetime.now(ZoneInfo('America/New_York'))
@@ -114,11 +125,11 @@ class Command(BaseCommand):
         return out
 
     @staticmethod
-    def _fetch_us(stock, from_date):
-        """yfinance。auto_adjust=True で分割・配当調整済みの終値を取る"""
+    def _fetch_us(stock, from_date, ticker=None):
+        """yfinance。auto_adjust=True で分割・配当調整済みの終値を取る（ticker 指定で JP の .T にも使う）"""
         import yfinance as yf
 
-        df = yf.download(stock.display_code, start=from_date.isoformat(),
+        df = yf.download(ticker or stock.display_code, start=from_date.isoformat(),
                          progress=False, auto_adjust=True)
         if df is None or df.empty:
             return []
