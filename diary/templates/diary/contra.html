@@ -110,6 +110,32 @@
   {% comment %} ---- 成績 ---- {% endcomment %}
   <section class="ct-card">
     <h2>成績 <span class="ct-hint">決済済み {{ stats.n }}件・勝ち＝コスト込みで損益プラス</span></h2>
+    {% comment %}
+      損切りが「経費」として成立しているかの判定（ユーザー要望 2026-09-09）。
+      合意したルールの2条件: ①勝率 > 分岐勝率（コスト込み） ②1回の損失が資金のリスク%以内。
+      件数が MIN_N 未満は偶然で勝率が振れるので「判定中」にして断定しない
+    {% endcomment %}
+    {% with x=stats.expense %}
+    <div class="ct-verdict ct-verdict-{{ x.verdict }}">
+      <div class="ct-verdict-head">
+        {% if x.verdict == 'ok' %}✔ 損切りは<b>経費</b>として成立しています
+        {% elif x.verdict == 'ng' %}✖ 損切りが<b>経費になっていません</b>（負けです）
+        {% else %}⏳ 判定中 <span class="ct-hint">あと {{ x.need_more }}件決済すると判定します（{{ x.min_n }}件未満は勝率が偶然で振れるため）</span>{% endif %}
+      </div>
+      <ul class="ct-verdict-list">
+        <li class="{% if x.cond1 %}ok{% elif x.cond1 is not None %}ng{% endif %}">
+          ① 勝率 {% if x.win_rate is not None %}<b>{{ x.win_rate|floatformat:0 }}%</b>{% else %}—{% endif %}
+          {% if x.cond1 %}＞{% elif x.cond1 is not None %}≦{% else %}vs{% endif %} 分岐勝率 <b>{{ x.breakeven|floatformat:0 }}%</b>
+          <span class="ct-hint">{{ stats.wins }}勝{{ stats.losses }}敗。1勝あたり {{ x.allowed_losses|floatformat:1 }}敗まで許される{% if x.losses_per_win is not None %}（現在 {{ x.losses_per_win|floatformat:1 }}敗）{% endif %}</span></li>
+        <li class="{% if x.cond2 %}ok{% else %}ng{% endif %}">
+          ② 1回の損失が資金の {{ setting.risk_pct }}%（¥{{ x.limit_jpy|floatformat:0|intcomma }}）以内
+          {% if x.cond2 %}<b>守れている</b>{% else %}<b>超えた取引 {{ x.big_losses|length }}件</b>{% endif %}
+          {% if x.over_risk_n %}<span class="ct-hint">上限超えで入った取引 {{ x.over_risk_n }}件（裁量）</span>{% endif %}</li>
+        <li>損切り {{ x.stops }}回・合計 {{ x.stops_pct|floatformat:1 }}%
+          {% if x.manual %}／ <b class="ct-stale">裁量介入 {{ x.manual }}回</b>（見送った時点で経費ではなくなる）{% endif %}</li>
+      </ul>
+    </div>
+    {% endwith %}
     <div class="ct-kpis">
       <div class="ct-kpi"><span class="k">勝率</span><b class="{% if stats.above_breakeven %}up{% elif stats.win_rate is not None %}down{% endif %}">{% if stats.win_rate is not None %}{{ stats.win_rate|floatformat:0 }}%{% else %}—{% endif %}</b><span class="s">{{ stats.wins }}勝 {{ stats.losses }}敗</span></div>
       <div class="ct-kpi"><span class="k">分岐勝率（コスト込み）</span><b>{{ stats.breakeven.with_cost|floatformat:0 }}%</b><span class="s">名目 {{ stats.breakeven.nominal|floatformat:0 }}%・1勝あたり {{ stats.allowed_losses|floatformat:1 }}敗まで</span></div>

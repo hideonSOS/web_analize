@@ -61,6 +61,15 @@
 .ct-btn-sub:hover{ background:rgba(30,144,255,.12); }
 .ct-btn-danger{ background:none; border:1px solid #7c2d2d; border-radius:6px; color:#f87171; font-size:11px; padding:4px 10px; cursor:pointer; margin-top:6px; }
 
+/* ---- 経費判定（成績の先頭） ---- */
+.ct-verdict{ border:1px solid #334155; border-radius:10px; padding:10px 14px; margin-bottom:12px; background:#0f172a; }
+.ct-verdict-ok{ border-color:#1e5c2f; } .ct-verdict-ng{ border-color:#7c2d2d; } .ct-verdict-pending{ border-color:#7c5a1e; }
+.ct-verdict-head{ font-size:14px; color:#e5e7eb; margin-bottom:6px; }
+.ct-verdict-ok .ct-verdict-head{ color:#86efac; } .ct-verdict-ng .ct-verdict-head{ color:#fca5a5; } .ct-verdict-pending .ct-verdict-head{ color:#fcd34d; }
+.ct-verdict-list{ margin:0; padding-left:0; list-style:none; font-size:12.5px; color:#cbd5e1; line-height:1.8; }
+.ct-verdict-list li.ok{ color:#86efac; } .ct-verdict-list li.ng{ color:#fca5a5; }
+.ct-verdict-list b{ color:#fff; }
+
 /* ---- 成績 ---- */
 .ct-kpis{ display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px; margin-bottom:12px; }
 .ct-kpi{ background:#0f172a; border:1px solid #1f2937; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:2px; }

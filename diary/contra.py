@@ -15,6 +15,10 @@ from datetime import date
 
 from .models import ContraSetting, Trade, TradeBar
 
+# 「損切りは経費」の判定に必要な最低件数。これ未満は勝率が偶然で大きく振れるので断定しない
+# （10件で勝率±15pt程度は普通に動く。分岐勝率37%との差が出るまで待つ）
+EXPENSE_MIN_N = 10
+
 
 def latest_fx() -> tuple[date | None, float]:
     """ドル円の最新終値（portfolio.FxRate）。無ければ 150 を仮置き"""
@@ -126,7 +130,40 @@ def stats(setting: ContraSetting) -> dict:
     avg_win = sum(win_pcts) / len(win_pcts) if win_pcts else 0
     avg_loss = sum(loss_pcts) / len(loss_pcts) if loss_pcts else 0
     expectancy = (sum(win_pcts) + sum(loss_pcts)) / n if n else None
+
+    # --- 損切りが「経費」として成立しているか（合意したルールの2条件） ---------------
+    # ①勝率 > 分岐勝率（コスト込み） ②1回の損失が資金の risk_pct 以内
+    # ①は件数が少ないと偶然で上下するので、MIN_N 件までは「判定中」とし、成立/不成立を断定しない
+    limit_jpy = setting.capital * setting.risk_pct / 100
+    _, fx_now = latest_fx()
+    big_losses = []
+    for t in closed:
+        amt = t.pnl_amount
+        if amt is not None and amt < 0:
+            jpy = -amt * (fx_now if t.currency == 'USD' else 1.0)
+            if jpy > limit_jpy * 1.05:      # 5% はスリッページの許容
+                big_losses.append({'t': t, 'jpy': jpy})
+    over_risk_n = sum(1 for t in closed if t.over_risk)
+    stops = by_reason['stop']['n']
+    cond1 = None if n < EXPENSE_MIN_N else (win_rate > be['with_cost'])
+    cond2 = not big_losses
+    # 期待値（コスト込み・1取引あたり）がプラスかも併記。①と同じ意味だが金額の重みが入る
+    verdict = ('pending' if cond1 is None else
+               'ok' if (cond1 and cond2) else 'ng')
+    expense = {
+        'verdict': verdict,                       # pending / ok / ng
+        'min_n': EXPENSE_MIN_N, 'need_more': max(0, EXPENSE_MIN_N - n),
+        'cond1': cond1, 'cond2': cond2,
+        'win_rate': win_rate, 'breakeven': be['with_cost'],
+        'stops': stops, 'stops_pct': by_reason['stop']['sum'],   # 損切りの回数と合計%（=経費の総額）
+        'big_losses': big_losses, 'limit_jpy': limit_jpy, 'over_risk_n': over_risk_n,
+        'manual': by_reason['manual']['n'],
+        # いま何勝何敗で、分岐勝率に対してあと何敗まで許されるか（1勝あたり）
+        'allowed_losses': (be['win'] / be['lose']) if be['lose'] else None,
+        'losses_per_win': (losses / wins) if wins else None,
+    }
     return {
+        'expense': expense,
         'n': n, 'wins': wins, 'losses': losses, 'win_rate': win_rate,
         'breakeven': be, 'above_breakeven': (win_rate is not None and win_rate > be['with_cost']),
         'expectancy': expectancy, 'avg_win': avg_win, 'avg_loss': avg_loss,
