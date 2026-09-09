@@ -78,3 +78,6 @@ desktop.ini
 
 # Claude Code のプレビュー用dev-server設定（Windows固有パスのためサーバーでは使えない）
 .claude/launch.json
+
+# zaim_authorize.py が config.json を書く前に残すバックアップ（秘密情報を含む）
+config.json.bak

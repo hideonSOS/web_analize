@@ -204,7 +204,14 @@ crontab -e
 10 21 * * 1-5 /path/to/web_analize/scripts/daily_update.sh
 # 米国株ランキング: 毎朝7:00（US 16:00 ET クローズ確定後。詳細は下記）
 0 7 * * * /path/to/web_analize/scripts/us_ranking_update.sh
+# 市場指数＋インパルスの早朝更新: 毎朝6:30（下落上等の下落メーター用。暴落の朝に早く知る）
+30 6 * * * /path/to/web_analize/scripts/us_index_update.sh
 ```
+`us_index_update.sh` は**サーバー側で作られ本番 crontab に登録済み**だったものを 2026-09-09 に
+リポジトリへ取り込んだ（未追跡のままだと `git pull` の衝突源になり、消すと 6:30 の cron が
+exit 127 で死ぬ）。7:00 側でも同じ2コマンドを保険として重複実行する設計（差分同期なので無害）。
+日曜だけ `--full` で指数を取り直す（Yahoo 側で消えて復活した日の穴埋め）。詳細は
+`scripts/SETUP_CRON.md`。⚠️ サーバーで直接ファイルを編集・追加したら必ずリポジトリへ取り込むこと
 
 ### ⚠️ 米国株ランキングは JST 朝に別建てで実行する（時間帯が重要）
 `update_us_ranking` は **`scripts/us_ranking_update.sh` で JST 朝7:00 に実行**する

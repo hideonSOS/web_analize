@@ -53,6 +53,8 @@ fi
 # セクター別インパルス用の日次終値（JP/US 数銘柄・数コール）。
 # JP前日バーは朝に出そろい、USはこの時刻ならクローズ確定後なので同枠で回す。
 # コマンド側に「クローズ前の未確定当日バーは保存しない」ガードあり。
+# ※ 6:30の us_index_update.sh でも同コマンドを実行している。ここでの実行は
+#   6:30側が失敗した場合の保険（差分同期なので成功済みなら何もしない）。
 echo "===== $(date '+%F %T') manage.py update_impulse_prices =====" >> "$LOG"
 if "$PY" manage.py update_impulse_prices >> "$LOG" 2>&1; then
     echo "----- OK -----" >> "$LOG"
@@ -63,6 +65,7 @@ fi
 
 # 市場指数（日経平均・S&P500）の日次終値。下落上等ページの下落メーター用（2コール・数秒）。
 # JP前日バー・USクローズともこの時刻なら確定済み。未確定当日バーは保存しないガードあり。
+# ※ 本命は 6:30 の us_index_update.sh（暴落の朝に早く知るため）。ここは保険。
 echo "===== $(date '+%F %T') manage.py update_index_prices =====" >> "$LOG"
 if "$PY" manage.py update_index_prices >> "$LOG" 2>&1; then
     echo "----- OK -----" >> "$LOG"
