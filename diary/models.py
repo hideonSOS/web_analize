@@ -39,7 +39,7 @@ class DiaryEntry(models.Model):
     review_result = models.CharField(max_length=10, blank=True, choices=RESULT_CHOICES)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
-    # 戦略タグと、逆張り取引（Trade）への紐付け（2026-09-09）。逆張りの買い/売りは
+    # 戦略タグと、短期取引（Trade）への紐付け（2026-09-09）。短期の買い/売りは
     # Trade 側から自動で日記にも書かれるので、日記は「全部の記録」として読める
     strategy = models.CharField(max_length=10, blank=True, default='')
     trade = models.ForeignKey('Trade', null=True, blank=True, on_delete=models.SET_NULL,
@@ -55,7 +55,7 @@ class DiaryEntry(models.Model):
 
 
 class ContraSetting(models.Model):
-    """逆張りトレードの設定（1行のシングルトン）。資金は手入力（遊び・学習目的、ユーザー方針）"""
+    """短期トレードの設定（1行のシングルトン）。資金は手入力（遊び・学習目的、ユーザー方針）"""
     # ⚠️ 為替は考えない（ユーザー決定 2026-09-09）。一度ドルに替えたら円に戻さず運用するので、
     # 資金も損益も取引の通貨（米国株ならドル）のまま扱う。戦略そのものの精度を見るのが目的
     capital = models.IntegerField(default=10_000, help_text='資金全体（取引の通貨のまま。米国株ならドル）。1〜2%ルールの分母')
@@ -66,7 +66,7 @@ class ContraSetting(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return '逆張り設定'
+        return '短期設定'
 
     @classmethod
     def get(cls):
@@ -75,13 +75,13 @@ class ContraSetting(models.Model):
 
 
 class Trade(models.Model):
-    """1往復の取引（エントリー〜イグジット）。逆張りルールの機械的な運用と成績集計の単位。
+    """1往復の取引（エントリー〜イグジット）。短期ルールの機械的な運用と成績集計の単位。
 
     日記（DiaryEntry）は「判断の記録」で編集しない。こちらは帳簿で、損切り・利確ラインを
     エントリー時に確定して持つ。価格は銘柄の通貨のまま（米国株はドル。指値を入れる基準が
     ドルなので、円換算して混ぜない）。1〜2%ルールも同じ通貨で判定する（為替は考えない方針）。
     """
-    STRATEGY = [('contra', '逆張り'), ('long', '長期'), ('div', '配当')]
+    STRATEGY = [('contra', '短期'), ('long', '長期'), ('div', '配当')]
     EXIT = [('stop', '損切り'), ('target', '利確'), ('manual', '裁量'), ('time', '期限')]
 
     stock = models.ForeignKey(Stock, null=True, blank=True, on_delete=models.SET_NULL)

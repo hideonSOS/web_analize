@@ -22,8 +22,8 @@
 
   <div class="dy-toolbar">
     <button type="button" class="dy-new-btn" id="dy-open-modal">＋ 新規記録</button>
-    {% comment %} 逆張りは日記の下位機能。入力は日記、結果の追跡はこのページ（2026-09-09） {% endcomment %}
-    <a class="dy-contra-btn" href="{% url 'diary:contra' %}">逆張りの結果追跡 →{% if open_trades_n %} <b>{{ open_trades_n }}</b>件保有中{% endif %}</a>
+    {% comment %} 短期は日記の下位機能。入力は日記、結果の追跡はこのページ（2026-09-09） {% endcomment %}
+    <a class="dy-contra-btn" href="{% url 'diary:contra' %}">短期トレードの結果追跡 →{% if open_trades_n %} <b>{{ open_trades_n }}</b>件保有中{% endif %}</a>
     <div class="dy-view-toggle">
       <a href="?action={{ filter_action }}&q={{ filter_q|urlencode }}" {% if not view %}class="active"{% endif %}>カード</a>
       <a href="?view=list&action={{ filter_action }}&q={{ filter_q|urlencode }}" {% if view %}class="active"{% endif %}>一覧表</a>
@@ -65,9 +65,9 @@
           <td class="num">{% if r.pnl is not None %}<span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">{% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{% if r.is_us %}{{ r.pnl|floatformat:2|intcomma }}{% else %}{{ r.pnl|floatformat:0|intcomma }}{% endif %}{{ r.cur_suf }}</span>{% endif %}</td>
           <td class="num">{% if r.rr is not None %}{{ r.rr|floatformat:1 }}{% endif %}</td>
           <td>{% if r.hit == 'target' %}<span class="dy-hit dy-hit-target">目標到達</span>{% elif r.hit == 'stop' %}<span class="dy-hit dy-hit-stop">損切到達</span>{% endif %}
-            {% if r.tracked_closed %}<span class="dy-track-done">逆張り済</span>
+            {% if r.tracked_closed %}<span class="dy-track-done">短期済</span>
             {% elif r.trackable or r.trade %}<form method="post" action="{% url 'diary:track' r.e.pk %}" class="dy-track-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
-              <label title="逆張りで結果を追跡"><input type="checkbox" name="on" value="1" {% if r.tracked_open %}checked{% endif %} onchange="this.form.submit()"> 逆張り</label></form>{% endif %}</td>
+              <label title="短期トレードとして追跡"><input type="checkbox" name="on" value="1" {% if r.tracked_open %}checked{% endif %} onchange="this.form.submit()"> 短期</label></form>{% endif %}</td>
           <td>{% if r.e.review_result %}<span class="dy-result dy-result-{{ r.e.review_result }}">{{ r.e.get_review_result_display }}</span>{% endif %}</td>
           <td>
             <form method="post" action="{% url 'diary:delete' r.e.pk %}" class="dy-del-form" onsubmit="return confirm('この記録を削除しますか？');">
@@ -126,16 +126,16 @@
       {% elif r.hit == 'stop' %}<span class="dy-hit dy-hit-stop">損切りライン到達</span>{% endif %}
     </div>
     {% endif %}
-    {% comment %} 逆張りの追跡チェック（買いで銘柄・株価・株数がある記録だけ）。決済済みは外せない {% endcomment %}
+    {% comment %} 短期トレードの追跡チェック（買いで銘柄・株価・株数がある記録だけ）。決済済みは外せない {% endcomment %}
     {% if r.trackable or r.trade %}
     <div class="dy-track">
       {% if r.tracked_closed %}
-        <span class="dy-track-done">逆張り 決済済み（{{ r.trade.get_exit_reason_display }}）</span>
+        <span class="dy-track-done">短期 決済済み（{{ r.trade.get_exit_reason_display }}）</span>
         <a class="dy-track-link" href="{% url 'diary:contra' %}">結果 →</a>
       {% else %}
         <form method="post" action="{% url 'diary:track' r.e.pk %}" class="dy-track-form">
           {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
-          <label><input type="checkbox" name="on" value="1" {% if r.tracked_open %}checked{% endif %} onchange="this.form.submit()"> 逆張りで結果を追跡</label>
+          <label><input type="checkbox" name="on" value="1" {% if r.tracked_open %}checked{% endif %} onchange="this.form.submit()"> 短期トレードとして追跡</label>
         </form>
         {% if r.tracked_open %}<a class="dy-track-link" href="{% url 'diary:contra' %}">保有中 →</a>{% endif %}
       {% endif %}
@@ -256,14 +256,15 @@
           </div>
         </div>
         <p class="dy-rr-hint" id="dy-rr-hint"></p>
-        {% comment %} 逆張りで結果を追跡（買いのみ）。損切り/利確は上の価格から%を逆算、無ければ設定の既定 {% endcomment %}
-        <label class="dy-track-check"><input type="checkbox" name="track_contra" value="1" />
-          逆張りで結果を追跡する <span class="dy-track-hint">損切り・利確ラインに触れたかをザラ場で追い、成績に入れます（結果は「逆張りの結果追跡」ページ）</span></label>
+        {% comment %} 短期トレードとして追跡（買いのみ）。損切り/利確は上の価格から%を逆算、無ければ設定の既定 {% endcomment %}
+        <label class="dy-track-check"><input type="checkbox" name="track_contra" value="1" id="dy-track" />
+          短期トレードとして追跡する（ルール固定: 利確 +{{ contra_setting.default_target_pct|floatformat:"-1" }}%／損切り −{{ contra_setting.default_stop_pct|floatformat:"-1" }}%）
+          <span class="dy-track-hint" id="dy-track-hint">チェックすると目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）</span></label>
       </div>
-      {% comment %} 売りのとき: 保有中の逆張り取引があれば決済として扱う。理由は未選択なら価格から推定 {% endcomment %}
+      {% comment %} 売りのとき: 保有中の短期取引があれば決済として扱う。理由は未選択なら価格から推定 {% endcomment %}
       <div id="dy-sell-extra" hidden>
         <div class="dy-field">
-          <span class="dy-field-label">逆張りの決済理由（同じ銘柄を追跡中なら決済として記録）</span>
+          <span class="dy-field-label">短期トレードの決済理由（同じ銘柄を追跡中なら決済として記録）</span>
           <div class="dy-radio-row">
             <label><input type="radio" name="exit_reason" value="" checked /> 価格から自動判定</label>
             {% for v, l in exit_choices %}<label><input type="radio" name="exit_reason" value="{{ v }}" /> {{ l }}</label>{% endfor %}
@@ -302,6 +303,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";</script>
+<script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";
+  window.CONTRA = {stop: {{ contra_setting.default_stop_pct }}, target: {{ contra_setting.default_target_pct }},
+                   capital: {{ contra_setting.capital }}, riskPct: {{ contra_setting.risk_pct }}};</script>
 <script src="{% static 'diary/js/diary.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

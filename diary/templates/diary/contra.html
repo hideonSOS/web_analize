@@ -1,7 +1,7 @@
 {% extends 'website/base.html' %}
 {% load static humanize %}
 
-{% block title %}逆張りトレード | 株分析ツール KABU ANALYZE{% endblock %}
+{% block title %}短期トレード | 株分析ツール KABU ANALYZE{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'diary/css/diary.css' %}?v={% now 'U' %}" />
@@ -10,8 +10,8 @@
 
 {% block content %}
 <main class="dy ct">
-  <h1 class="dy-title">逆張りトレード</h1>
-  <p class="dy-lead">売買日記の下位機能。「逆張りで結果を追跡」にチェックした買いを、損切り・利確ラインで機械的に追う。
+  <h1 class="dy-title">短期トレード</h1>
+  <p class="dy-lead">売買日記の下位機能。「短期トレードとして追跡」にチェックした買いを、損切り・利確ラインで機械的に追う。
     損切りは経費。判定はザラ場（日足の安値・高値）。
     ／ <a class="ct-link" href="{% url 'diary:index' %}">← 売買日記</a></p>
 
@@ -65,13 +65,13 @@
       {% if r.t.entry_note %}<p class="ct-note">{{ r.t.entry_note|truncatechars:120 }}</p>{% endif %}
     </div>
     {% empty %}
-    <p class="ct-empty">保有中の取引はありません。売買日記で「買い」を記録し「逆張りで結果を追跡する」にチェックすると、ここに現れます。</p>
+    <p class="ct-empty">保有中の取引はありません。売買日記で「買い」を記録し「短期トレードとして追跡する」にチェックすると、ここに現れます。</p>
     {% endfor %}
   </section>
 
   {% comment %} 新規エントリーの入力は売買日記に統一した（2026-09-09）。ここには置かない {% endcomment %}
   <section class="ct-card ct-howto">
-    <b>記録の仕方</b>: 売買日記で「買い」を記録し「逆張りで結果を追跡する」にチェック → ここに現れます。
+    <b>記録の仕方</b>: 売買日記で「買い」を記録し「短期トレードとして追跡する」にチェック → ここに現れます。
     決済は日記で「売り」を記録。許容株数（資金 ${{ setting.capital|intcomma }} × {{ setting.risk_pct }}% ＝ ${{ risk_budget|floatformat:0|intcomma }} まで）を
     超えた株数は裁量として記録されます。<a class="ct-link" href="{% url 'diary:index' %}">売買日記へ →</a>
   </section>

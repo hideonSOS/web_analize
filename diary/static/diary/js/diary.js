@@ -129,7 +129,7 @@
     const checked = actionRadios.find((r) => r.checked);
     const isBuy = checked && checked.value === 'buy';
     exitSection.hidden = !isBuy;
-    // 売りのときだけ「逆張りの決済理由」を出す（追跡中の同じ銘柄があれば決済として記録される）
+    // 売りのときだけ「短期トレードの決済理由」を出す（追跡中の同じ銘柄があれば決済として記録される）
     const sellExtra = document.getElementById('dy-sell-extra');
     if (sellExtra) sellExtra.hidden = !(checked && checked.value === 'sell');
     if (!isBuy) {
@@ -143,6 +143,48 @@
   }
   actionRadios.forEach((r) => r.addEventListener('change', toggleExit));
   toggleExit();
+
+  // 短期で追跡（ルール固定）: チェックすると目標・損切りを既定%（利確+10/損切り-5）で
+  // 埋めてロックする。手入力で崩せないようにするのが目的（サーバー側でも同じ値で上書きする）。
+  // 許容株数（資金×リスク% ÷ 1株あたりの損失）も出す
+  const trackBox = document.getElementById('dy-track');
+  const trackHint = document.getElementById('dy-track-hint');
+  function applyTrackLock() {
+    if (!trackBox || !window.CONTRA) return;
+    const on = trackBox.checked;
+    [targetInput, stopInput].forEach((el) => { el.readOnly = on; el.classList.toggle('dy-locked', on); });
+    [targetPct, stopPct].forEach((el) => { el.disabled = on; });
+    if (on) {
+      const p = parseFloat(priceInput.value);
+      const C = window.CONTRA;
+      if (p > 0) {
+        targetInput.value = (p * (1 + C.target / 100)).toFixed(2);
+        stopInput.value = (p * (1 - C.stop / 100)).toFixed(2);
+        const perShare = p * C.stop / 100;
+        const maxN = Math.floor(C.capital * C.riskPct / 100 / perShare);
+        const n = parseInt(sharesInput.value, 10);
+        trackHint.textContent = `ルール固定: 利確 ${targetInput.value}（+${C.target}%）／損切り ${stopInput.value}（−${C.stop}%）。` +
+          `許容株数 ${maxN}株（資金 $${C.capital.toLocaleString()} × ${C.riskPct}%）` +
+          (n > maxN ? ' ⚠ 上限超え（裁量として記録されます）' : n > 0 ? ' ✔ ルール内' : '');
+        trackHint.classList.toggle('warn', n > maxN);
+      } else {
+        trackHint.textContent = '株価を入れるとルールの価格と許容株数を出します。';
+      }
+      updateRR();
+    } else {
+      trackHint.textContent = 'チェックすると目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）';
+      trackHint.classList.remove('warn');
+    }
+  }
+  if (trackBox) {
+    trackBox.addEventListener('change', applyTrackLock);
+    priceInput.addEventListener('input', () => { if (trackBox.checked) applyTrackLock(); });
+    sharesInput.addEventListener('input', () => { if (trackBox.checked) applyTrackLock(); });
+    // 売りに切り替えたらチェックを外す（追跡は買いだけ）
+    actionRadios.forEach((r) => r.addEventListener('change', () => {
+      if (r.checked && r.value !== 'buy' && trackBox.checked) { trackBox.checked = false; applyTrackLock(); }
+    }));
+  }
 
   function closeModal() { overlay.hidden = true; }
 

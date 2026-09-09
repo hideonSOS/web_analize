@@ -61,7 +61,7 @@ def index(request):
             'is_us': is_us,
             'cur_pre': '$' if is_us else '',
             'cur_suf': '' if is_us else '円',
-            # 逆張りの追跡状態（チェックボックス用）。買いで銘柄・株価・株数があれば追跡できる
+            # 短期トレードの追跡状態（チェックボックス用）。買いで銘柄・株価・株数があれば追跡できる
             'trade': e.trade,
             'trackable': e.action == 'buy' and bool(e.stock and e.price and e.shares),
             'tracked_open': bool(e.trade and e.trade.exit_date is None),
@@ -74,13 +74,14 @@ def index(request):
         'buy': all_entries.filter(action='buy').count(),
         'sell': all_entries.filter(action='sell').count(),
     }
-    from .models import Trade
+    from .models import ContraSetting, Trade
     open_trades_n = Trade.objects.filter(exit_date__isnull=True).count()
 
     context = {
         'rows': rows,
         'stats': stats,
         'open_trades_n': open_trades_n,
+        'contra_setting': ContraSetting.get(),   # フォームの「追跡」チェックでルールを固定するため
         'exit_choices': Trade.EXIT,
         'tags': TAGS,
         'moods': MOODS,
@@ -171,9 +172,9 @@ def create(request):
         reason=request.POST.get('reason', '').strip(),
         impression=request.POST.get('impression', '').strip(),
     )
-    # 逆張りとの連動（入力は日記に統一・2026-09-09）:
-    #   買い＋「逆張りで結果を追跡」チェック → Trade を起こす（損切り/利確は日記の価格から）
-    #   売り → 同じ銘柄の保有中の逆張り取引があれば決済（理由は選択、未選択なら価格から推定）
+    # 短期との連動（入力は日記に統一・2026-09-09）:
+    #   買い＋「短期トレードとして追跡」チェック → Trade を起こす（損切り/利確は日記の価格から）
+    #   売り → 同じ銘柄の保有中の短期取引があれば決済（理由は選択、未選択なら価格から推定）
     from django.contrib import messages
 
     from . import contra as C
@@ -181,21 +182,21 @@ def create(request):
     if action == 'buy' and request.POST.get('track_contra'):
         t = C.open_from_entry(entry, ContraSetting.get())
         if t:
-            messages.success(request, f'{t.ticker} を逆張りで追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。'
+            messages.success(request, f'{t.ticker} を短期トレードとして追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。'
                              + ('⚠️ 許容株数を超えています（裁量として記録）。' if t.over_risk else ''))
         else:
-            messages.error(request, '逆張りの追跡には銘柄・株価・株数が必要です（日記の記録は保存しました）。')
+            messages.error(request, '短期トレードの追跡には銘柄・株価・株数が必要です（日記の記録は保存しました）。')
     elif action == 'sell':
         t = C.close_from_entry(entry, request.POST.get('exit_reason', ''))
         if t:
             net = t.pnl_pct_net(ContraSetting.get().cost_pct)
-            messages.success(request, f'逆張りの {t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {net:+.2f}%）。')
+            messages.success(request, f'短期トレードの {t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {net:+.2f}%）。')
     return redirect('diary:index')
 
 
 @require_POST
 def track(request, pk):
-    """一覧のチェックボックス: 買いの記録を逆張りで追跡する／やめる（未決済のみ）"""
+    """一覧のチェックボックス: 買いの記録を短期で追跡する／やめる（未決済のみ）"""
     from django.contrib import messages
 
     from . import contra as C
@@ -205,7 +206,7 @@ def track(request, pk):
     if request.POST.get('on'):
         t = C.open_from_entry(entry, ContraSetting.get())
         if t:
-            messages.success(request, f'{t.ticker} を逆張りで追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。')
+            messages.success(request, f'{t.ticker} を短期トレードとして追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。')
         else:
             messages.error(request, '追跡できるのは銘柄・株価・株数のある「買い」だけです。')
     else:
@@ -218,7 +219,7 @@ def track(request, pk):
 
 
 def contra(request):
-    """逆張りトレードのダッシュボード（2026-09-09）。
+    """短期トレードのダッシュボード（2026-09-09）。
 
     保有中の一覧（損切り線・利確線・現在価格・経過日数を1本のレンジバーで）、新規エントリー
     （1〜2%ルールから許容株数を逆算）、決済、成績（勝率 vs 分岐勝率・裁量回数・累積損益）。
@@ -256,7 +257,7 @@ def contra(request):
             return redirect('diary:contra')
 
         # ⚠️ エントリー／決済の入力は売買日記に統一した（2026-09-09）。ここには置かない。
-        #   買い＋「逆張りで結果を追跡」→ contra.open_from_entry、売り → contra.close_from_entry
+        #   買い＋「短期トレードとして追跡」→ contra.open_from_entry、売り → contra.close_from_entry
         if form_id == 'refresh':
             try:
                 call_command('update_trade_bars')
@@ -288,7 +289,7 @@ def review(request, pk):
 @require_POST
 def delete(request, pk):
     entry = get_object_or_404(DiaryEntry, pk=pk)
-    # 逆張りのエントリー記録を消したら、その取引（日足・決済の紐付け）も消す。
+    # 短期のエントリー記録を消したら、その取引（日足・決済の紐付け）も消す。
     # 決済側の記録だけ消した場合は取引を未決済に戻す
     t = entry.trade
     if t is not None:

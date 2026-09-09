@@ -1,6 +1,6 @@
-"""逆張りトレード（Trade）の計算: 建玉サイズ・保有中の状態・成績（2026-09-09）。
+"""短期トレード（Trade）の計算: 建玉サイズ・保有中の状態・成績（2026-09-09）。
 
-ルール（ユーザーと合意済み・申し送り「逆張りトレードのルール設計」）:
+ルール（ユーザーと合意済み・申し送り「短期トレードのルール設計」）:
 - 底は当てない。損切り・利確ラインをエントリー時に決め、損切りは経費として扱う
 - 経費として成立する条件: 期待値がプラス（勝率 > 分岐勝率）、1回の損失が資金の1〜2%以内
 - 「今回は特別に損切りを見送る」は裁量介入。記録して回数を監視する
@@ -59,7 +59,7 @@ def plan_risk(trade: Trade) -> float:
 
 # --- 売買日記との連動（入力は日記に統一・ユーザー決定 2026-09-09） ----------------------
 def open_from_entry(entry, setting: ContraSetting) -> Trade | None:
-    """日記の「買い」から逆張り取引を起こす（チェック「逆張りで結果を追跡」）。
+    """日記の「買い」から短期取引を起こす（チェック「短期トレードとして追跡」）。
 
     損切り/利確は日記に入れた価格から%を逆算。無ければ設定の既定%で線を引く。
     取引を起こしたら日足を即取る（失敗しても取引は残す。画面の「日足を更新」で取り直せる）
@@ -70,10 +70,14 @@ def open_from_entry(entry, setting: ContraSetting) -> Trade | None:
     if entry.trade_id:
         return entry.trade
     price = float(entry.price)
-    stop_pct = ((price - entry.stop_price) / price * 100) if entry.stop_price and entry.stop_price < price \
-        else setting.default_stop_pct
-    target_pct = ((entry.target_price - price) / price * 100) if entry.target_price and entry.target_price > price \
-        else setting.default_target_pct
+    # ⚠️ ルールは固定（ユーザー決定 2026-09-09）: 追跡対象にした時点で必ず設定の既定
+    # （利確 +10% / 損切り −5%）で線を引く。日記に入れた目標・損切り価格は使わない。
+    # 日記側の出口計画もルールの価格に揃える（画面の「目標」「損切り」が帳簿と食い違わないように）
+    stop_pct = setting.default_stop_pct
+    target_pct = setting.default_target_pct
+    entry.stop_price = round(price * (1 - stop_pct / 100), 4)
+    entry.target_price = round(price * (1 + target_pct / 100), 4)
+    entry.save(update_fields=['stop_price', 'target_price'])
     limit = max_shares(setting, price, stop_pct)
     t = Trade.objects.create(
         stock=entry.stock, stock_name=entry.stock_name, ticker=entry.stock.display_code,
@@ -86,7 +90,11 @@ def open_from_entry(entry, setting: ContraSetting) -> Trade | None:
     t.risk_jpy = plan_risk(t)
     t.save(update_fields=['risk_jpy'])
     entry.strategy, entry.trade = 'contra', t
-    entry.save(update_fields=['strategy', 'trade'])
+    tags = [x for x in entry.tags.split(',') if x]
+    if '短期' not in tags:
+        tags.append('短期')          # 日記の一覧で短期トレードと分かるように
+    entry.tags = ','.join(tags)
+    entry.save(update_fields=['strategy', 'trade', 'tags'])
     try:
         call_command('update_trade_bars', trade=t.id)
     except Exception:   # noqa: BLE001
@@ -104,7 +112,7 @@ def auto_exit_reason(trade: Trade, price: float) -> str:
 
 
 def close_from_entry(entry, reason: str = '') -> Trade | None:
-    """日記の「売り」で、同じ銘柄の保有中の逆張り取引を決済する（古いものから1件）"""
+    """日記の「売り」で、同じ銘柄の保有中の短期取引を決済する（古いものから1件）"""
     if entry.action != 'sell' or not entry.price or entry.stock is None:
         return None
     t = (Trade.objects.filter(stock=entry.stock, exit_date__isnull=True, strategy='contra')
@@ -127,7 +135,8 @@ def untrack(entry) -> bool:
     if t is None or t.exit_date is not None:
         return False
     entry.trade, entry.strategy = None, ''
-    entry.save(update_fields=['trade', 'strategy'])
+    entry.tags = ','.join(x for x in entry.tags.split(',') if x and x != '短期')
+    entry.save(update_fields=['trade', 'strategy', 'tags'])
     t.delete()
     return True
 
@@ -173,7 +182,7 @@ def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
 
 
 def stats(setting: ContraSetting) -> dict:
-    """決済済み（逆張り）の成績。勝ち＝コスト込みで損益がプラス"""
+    """決済済み（短期）の成績。勝ち＝コスト込みで損益がプラス"""
     c = setting.cost_pct
     closed = list(Trade.objects.filter(strategy='contra', exit_date__isnull=False).order_by('exit_date', 'id'))
     rows, cum, curve = [], 0.0, []

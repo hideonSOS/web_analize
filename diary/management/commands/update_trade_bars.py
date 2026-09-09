@@ -1,4 +1,4 @@
-"""保有中の逆張り取引の日足（生の OHLC）を yfinance から取る。
+"""保有中の短期取引の日足（生の OHLC）を yfinance から取る。
 
     python manage.py update_trade_bars            # 保有中の全取引
     python manage.py update_trade_bars --trade 12 # 1件だけ（エントリー直後の即時反映用）
@@ -58,7 +58,7 @@ def fetch_bars(trade: Trade) -> int:
 
 
 class Command(BaseCommand):
-    help = '保有中の逆張り取引の日足（生OHLC）を yfinance から更新する'
+    help = '保有中の短期取引の日足（生OHLC）を yfinance から更新する'
 
     def add_arguments(self, parser):
         parser.add_argument('--trade', type=int, default=0, help='Trade の id を1件だけ')
