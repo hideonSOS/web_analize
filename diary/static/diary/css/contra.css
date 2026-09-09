@@ -1,0 +1,71 @@
+/* 逆張りトレード（/diary/contra/）。売買日記の diary.css の上に重ねる */
+.ct{ max-width:1000px; margin:0 auto; }
+.ct-link{ color:#1e90ff; text-decoration:none; }
+.ct-card{ background:#0b1220; border:1px solid #1f2937; border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+.ct-card h2{ color:#1e90ff; font-size:16px; margin:0 0 10px; }
+.ct-hint{ color:#6b7280; font-size:11px; font-weight:400; margin-left:8px; }
+.ct-sub{ color:#6b7280; font-size:11px; margin-left:6px; }
+.ct-note{ color:#9ca3af; font-size:12px; line-height:1.7; margin:8px 0 0; }
+.ct-empty{ color:#6b7280; font-size:13px; text-align:center; padding:14px; }
+.ct-head{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.ct-inline{ display:inline; }
+.ct-msg{ border-radius:8px; padding:8px 12px; font-size:13px; margin-bottom:10px; border:1px solid #1e3a5f; color:#e5e7eb; background:#0f172a; }
+.ct-msg-success{ border-color:#1e5c2f; color:#86efac; }
+.ct-msg-warning{ border-color:#7c5a1e; color:#fcd34d; }
+.ct-msg-error{ border-color:#7c2d2d; color:#fca5a5; }
+.up{ color:#4ade80; } .down{ color:#f87171; }
+.ct-stale{ color:#f87171; }
+
+/* ---- 保有中: 1件1ブロック ---- */
+.ct-pos{ border:1px solid #1f2937; border-radius:10px; padding:10px 12px; margin-bottom:10px; background:#0f172a; }
+.ct-pos.hit-stop{ border-color:#7c2d2d; box-shadow:0 0 0 1px rgba(239,68,68,.25) inset; }
+.ct-pos.hit-target{ border-color:#1e5c2f; box-shadow:0 0 0 1px rgba(74,222,128,.25) inset; }
+.ct-pos-top{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; font-size:13px; color:#e5e7eb; }
+.ct-pos-name b{ font-size:15px; color:#fff; }
+.ct-pos-now b{ font-size:15px; }
+/* レンジバー: 損切り線（左）〜利確線（右）。▲建値・●現在値 */
+.ct-range{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; margin:10px 0 6px; font-size:11px; }
+.ct-range-stop{ color:#fca5a5; text-align:right; }
+.ct-range-target{ color:#86efac; }
+.ct-range i{ display:block; font-style:normal; color:#6b7280; font-size:10px; }
+.ct-track{ position:relative; height:22px; border-radius:6px; background:linear-gradient(90deg, rgba(239,68,68,.35), rgba(107,114,128,.15) 45%, rgba(107,114,128,.15) 55%, rgba(74,222,128,.35)); border:1px solid #334155; }
+.ct-mark-entry{ position:absolute; top:100%; transform:translate(-50%, -6px); color:#9ca3af; font-size:10px; line-height:1; }
+.ct-mark-now{ position:absolute; top:50%; transform:translate(-50%, -50%); color:#fff; font-size:16px; line-height:1; text-shadow:0 0 4px #000, 0 0 8px #1e90ff; }
+.ct-pos-meta{ display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:#9ca3af; margin-top:10px; }
+.ct-pos-meta b{ color:#e5e7eb; }
+.ct-flag{ flex-basis:100%; font-weight:700; }
+.ct-flag.stop{ color:#f87171; } .ct-flag.target{ color:#4ade80; }
+.ct-close{ margin-top:8px; }
+.ct-close > summary{ cursor:pointer; color:#87cefa; font-size:12px; list-style:none; }
+.ct-close > summary::before{ content:'▸ '; color:#6b7280; } .ct-close[open] > summary::before{ content:'▾ '; }
+
+/* ---- フォーム ---- */
+.ct-details > summary{ cursor:pointer; color:#1e90ff; font-size:15px; font-weight:700; list-style:none; }
+.ct-details > summary::before{ content:'▸ '; color:#6b7280; } .ct-details[open] > summary::before{ content:'▾ '; }
+.ct-form-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-top:10px; }
+.ct-form-row label, .ct-fld{ display:flex; flex-direction:column; gap:3px; font-size:11px; color:#9ca3af; }
+.ct-form-row label.wide{ flex:1 1 220px; }
+.ct-fld{ margin-top:10px; position:relative; }
+.ct input[type=number], .ct input[type=text], .ct input[type=date], .ct select{
+  background:#0b1220; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:7px 10px; font-size:13px; width:100%; box-sizing:border-box;
+}
+.ct-form-row label input{ width:130px; }
+.ct-form-row label.wide input{ width:100%; }
+.ct-open .dy-stock-list{ position:absolute; z-index:5; left:0; right:0; top:100%; }
+.ct-calc{ color:#cbd5e1; font-size:12.5px; line-height:1.8; margin:10px 0; }
+.ct-calc b{ color:#fff; }
+.ct-calc a{ color:#1e90ff; }
+.ct-btn{ background:#1e90ff; color:#fff; border:none; border-radius:8px; padding:8px 16px; font-weight:700; cursor:pointer; margin-top:8px; }
+.ct-btn:hover{ background:#3b82f6; }
+.ct-btn-sub{ background:none; border:1px solid #1e3a5f; border-radius:6px; color:#1e90ff; font-size:11px; padding:4px 10px; cursor:pointer; }
+.ct-btn-sub:hover{ background:rgba(30,144,255,.12); }
+.ct-btn-danger{ background:none; border:1px solid #7c2d2d; border-radius:6px; color:#f87171; font-size:11px; padding:4px 10px; cursor:pointer; margin-top:6px; }
+
+/* ---- 成績 ---- */
+.ct-kpis{ display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px; margin-bottom:12px; }
+.ct-kpi{ background:#0f172a; border:1px solid #1f2937; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:2px; }
+.ct-kpi .k{ color:#9ca3af; font-size:11px; }
+.ct-kpi b{ font-size:22px; color:#e5e7eb; font-variant-numeric:tabular-nums; }
+.ct-kpi .s{ color:#6b7280; font-size:10px; }
+.ct-chart{ width:100%; height:220px; margin-bottom:12px; }
+.ct-win td:nth-child(7){ color:#4ade80; } .ct-lose td:nth-child(7){ color:#f87171; }

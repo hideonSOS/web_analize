@@ -68,6 +68,15 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
+# 逆張り取引（保有中）の日足OHLC。米国株の引け後に取って「安値が損切り線に触れたか」を朝に見る
+echo "===== $(date '+%F %T') manage.py update_trade_bars =====" >> "$LOG"
+if "$PY" manage.py update_trade_bars >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'us_index_*.log' -mtime +30 -delete 2>/dev/null
 

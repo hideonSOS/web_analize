@@ -39,6 +39,12 @@ class DiaryEntry(models.Model):
     review_result = models.CharField(max_length=10, blank=True, choices=RESULT_CHOICES)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # 戦略タグと、逆張り取引（Trade）への紐付け（2026-09-09）。逆張りの買い/売りは
+    # Trade 側から自動で日記にも書かれるので、日記は「全部の記録」として読める
+    strategy = models.CharField(max_length=10, blank=True, default='')
+    trade = models.ForeignKey('Trade', null=True, blank=True, on_delete=models.SET_NULL,
+                              related_name='diary_entries')
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -46,3 +52,112 @@ class DiaryEntry(models.Model):
 
     def __str__(self):
         return f"{self.recorded_at:%Y-%m-%d} {self.stock_name} {self.get_action_display()}"
+
+
+class ContraSetting(models.Model):
+    """逆張りトレードの設定（1行のシングルトン）。資金は手入力（遊び・学習目的、ユーザー方針）"""
+    capital = models.IntegerField(default=1_000_000, help_text='資金全体（円）。1〜2%ルールの分母')
+    risk_pct = models.FloatField(default=2.0, help_text='1回の損失の上限（資金の%）')
+    default_stop_pct = models.FloatField(default=5.0, help_text='損切り幅の既定（%）')
+    default_target_pct = models.FloatField(default=10.0, help_text='利確幅の既定（%）')
+    cost_pct = models.FloatField(default=0.3, help_text='片道の手数料・スリッページ（%）')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return '逆張り設定'
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class Trade(models.Model):
+    """1往復の取引（エントリー〜イグジット）。逆張りルールの機械的な運用と成績集計の単位。
+
+    日記（DiaryEntry）は「判断の記録」で編集しない。こちらは帳簿で、損切り・利確ラインを
+    エントリー時に確定して持つ。価格は銘柄の通貨のまま（米国株はドル。指値を入れる基準が
+    ドルなので、円換算して混ぜない）。1〜2%ルールの判定だけ円換算（FxRate）する。
+    """
+    STRATEGY = [('contra', '逆張り'), ('long', '長期'), ('div', '配当')]
+    EXIT = [('stop', '損切り'), ('target', '利確'), ('manual', '裁量'), ('time', '期限')]
+
+    stock = models.ForeignKey(Stock, null=True, blank=True, on_delete=models.SET_NULL)
+    stock_name = models.CharField(max_length=100)
+    ticker = models.CharField(max_length=20)            # 表示コード（US: 'RGTI' / JP: '6758'）
+    country = models.CharField(max_length=2, default='US')
+    currency = models.CharField(max_length=3, default='USD')
+    strategy = models.CharField(max_length=10, choices=STRATEGY, default='contra')
+
+    entry_date = models.DateField()
+    entry_price = models.FloatField()
+    shares = models.IntegerField()
+    stop_pct = models.FloatField()
+    target_pct = models.FloatField()
+    stop_price = models.FloatField()                    # エントリー時に確定（指値の基準）
+    target_price = models.FloatField()
+    entry_note = models.TextField(blank=True)
+    fx_at_entry = models.FloatField(null=True, blank=True)   # 円換算に使ったドル円
+    risk_jpy = models.FloatField(null=True, blank=True)      # 計画時の最大損失（円）
+    over_risk = models.BooleanField(default=False)          # 1〜2%ルールを超えて入った（裁量）
+
+    exit_date = models.DateField(null=True, blank=True)
+    exit_price = models.FloatField(null=True, blank=True)
+    exit_reason = models.CharField(max_length=10, blank=True, choices=EXIT)
+    exit_note = models.TextField(blank=True)
+
+    entry_diary = models.ForeignKey(DiaryEntry, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='+')
+    exit_diary = models.ForeignKey(DiaryEntry, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-entry_date', '-id']
+
+    def __str__(self):
+        return f'{self.entry_date} {self.ticker} {self.get_strategy_display()}'
+
+    @property
+    def is_open(self):
+        return self.exit_date is None
+
+    @property
+    def pnl_pct(self):
+        """粗利（%）。未決済は None"""
+        if self.exit_price is None or not self.entry_price:
+            return None
+        return (self.exit_price / self.entry_price - 1) * 100
+
+    def pnl_pct_net(self, cost_pct):
+        p = self.pnl_pct
+        return None if p is None else p - 2 * cost_pct
+
+    @property
+    def pnl_amount(self):
+        if self.exit_price is None:
+            return None
+        return (self.exit_price - self.entry_price) * self.shares
+
+    @property
+    def days_held(self):
+        from datetime import date
+        end = self.exit_date or date.today()
+        return (end - self.entry_date).days
+
+
+class TradeBar(models.Model):
+    """取引中の日足（生の OHLC・調整なし）。ザラ場の安値/高値で損切り・利確に触れたかを見る。
+
+    ⚠️ DailyPrice（調整後終値）は使わない。指値は生の価格に置くので判定も生の価格で行う。
+    """
+    trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='bars')
+    date = models.DateField()
+    open = models.FloatField()
+    high = models.FloatField()
+    low = models.FloatField()
+    close = models.FloatField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['trade', 'date'], name='uniq_trade_bar')]
+        ordering = ['date']
