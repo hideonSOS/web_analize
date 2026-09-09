@@ -11,9 +11,9 @@
 {% block content %}
 <main class="dy ct">
   <h1 class="dy-title">逆張りトレード</h1>
-  <p class="dy-lead">大幅安の日に乗り、損切り・利確を先に決めて機械的に運用する。損切りは経費。
-    判定はザラ場（日足の安値・高値）。
-    ／ <a class="ct-link" href="{% url 'diary:index' %}">売買日記 →</a></p>
+  <p class="dy-lead">売買日記の下位機能。「逆張りで結果を追跡」にチェックした買いを、損切り・利確ラインで機械的に追う。
+    損切りは経費。判定はザラ場（日足の安値・高値）。
+    ／ <a class="ct-link" href="{% url 'diary:index' %}">← 売買日記</a></p>
 
   {% for m in messages %}<div class="ct-msg ct-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
 
@@ -59,52 +59,21 @@
         {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた（指値は約定しているはず → 決済を記録）</span>{% endif %}
         {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた（→ 決済を記録）</span>{% endif %}
       </div>
-      <details class="ct-close">
-        <summary>決済を記録</summary>
-        <form method="post" class="ct-form-row">
-          {% csrf_token %}<input type="hidden" name="form_id" value="close"><input type="hidden" name="id" value="{{ r.t.id }}">
-          <label>日付<input type="date" name="exit_date" value="{{ today }}"></label>
-          <label>約定価格（{{ r.unit }}）<input type="number" step="0.01" name="exit_price"
-            value="{% if r.touched_stop %}{{ r.t.stop_price|floatformat:2 }}{% elif r.touched_target %}{{ r.t.target_price|floatformat:2 }}{% endif %}" required></label>
-          <label>理由<select name="exit_reason">
-            {% for v, l in exit_choices %}<option value="{{ v }}" {% if r.touched_stop and v == 'stop' or r.touched_target and v == 'target' %}selected{% endif %}>{{ l }}</option>{% endfor %}
-          </select></label>
-          <label class="wide">メモ<input type="text" name="exit_note" placeholder="裁量なら理由を必ず"></label>
-          <button class="ct-btn" type="submit">決済</button>
-        </form>
-        <form method="post" class="ct-inline" onsubmit="return confirm('この取引と日記の自動記録を削除します。よろしいですか？');">
-          {% csrf_token %}<input type="hidden" name="form_id" value="delete"><input type="hidden" name="id" value="{{ r.t.id }}">
-          <button class="ct-btn-danger" type="submit">誤登録を削除</button></form>
-      </details>
-      {% if r.t.entry_note %}<p class="ct-note">{{ r.t.entry_note }}</p>{% endif %}
+      {% comment %} 入力は売買日記に統一。決済は日記で「売り」を記録すると自動で反映される {% endcomment %}
+      <p class="ct-note">決済は <a class="ct-link" href="{% url 'diary:index' %}">売買日記</a> で「売り」を記録すると自動で反映されます（理由は選択、未選択なら約定価格から判定）。
+        追跡をやめるには日記のチェックを外します。</p>
+      {% if r.t.entry_note %}<p class="ct-note">{{ r.t.entry_note|truncatechars:120 }}</p>{% endif %}
     </div>
     {% empty %}
-    <p class="ct-empty">保有中の取引はありません。下の「新規エントリー」から記録します。</p>
+    <p class="ct-empty">保有中の取引はありません。売買日記で「買い」を記録し「逆張りで結果を追跡する」にチェックすると、ここに現れます。</p>
     {% endfor %}
   </section>
 
-  {% comment %} ---- 新規エントリー ---- {% endcomment %}
-  <section class="ct-card">
-    <details class="ct-details" {% if not open_rows %}open{% endif %}>
-      <summary>＋ 新規エントリー <span class="ct-hint">損切り幅から許容株数を逆算（資金 ${{ setting.capital|intcomma }} × {{ setting.risk_pct }}% ＝ ${{ risk_budget|floatformat:0|intcomma }} まで）</span></summary>
-      <form method="post" id="ct-open" class="ct-open">
-        {% csrf_token %}<input type="hidden" name="form_id" value="open">
-        <label class="ct-fld">銘柄
-          <input type="text" id="ct-search" placeholder="銘柄名かティッカーで検索" autocomplete="off">
-          <div id="ct-list" class="dy-stock-list" hidden></div>
-          <input type="hidden" name="stock_code" id="ct-code"></label>
-        <div class="ct-form-row">
-          <label>約定日<input type="date" name="entry_date" value="{{ today }}"></label>
-          <label>約定価格（<span class="ct-unit">$</span>）<input type="number" step="0.01" name="entry_price" id="ct-price" placeholder="銘柄選択で自動" required></label>
-          <label>損切り幅 %<input type="number" step="0.5" name="stop_pct" id="ct-stop" value="{{ setting.default_stop_pct }}"></label>
-          <label>利確幅 %<input type="number" step="0.5" name="target_pct" id="ct-target" value="{{ setting.default_target_pct }}"></label>
-          <label>株数<input type="number" step="1" min="1" name="shares" id="ct-shares" required></label>
-        </div>
-        <p class="ct-calc" id="ct-calc">銘柄と価格を入れると、損切り線・利確線と許容株数を出します。</p>
-        <label class="ct-fld">メモ（なぜ乗るか。任意）<input type="text" name="entry_note" placeholder="例: 決算で−18%、指数は平常"></label>
-        <button class="ct-btn" type="submit">エントリーを記録（日記にも「買い」が残ります）</button>
-      </form>
-    </details>
+  {% comment %} 新規エントリーの入力は売買日記に統一した（2026-09-09）。ここには置かない {% endcomment %}
+  <section class="ct-card ct-howto">
+    <b>記録の仕方</b>: 売買日記で「買い」を記録し「逆張りで結果を追跡する」にチェック → ここに現れます。
+    決済は日記で「売り」を記録。許容株数（資金 ${{ setting.capital|intcomma }} × {{ setting.risk_pct }}% ＝ ${{ risk_budget|floatformat:0|intcomma }} まで）を
+    超えた株数は裁量として記録されます。<a class="ct-link" href="{% url 'diary:index' %}">売買日記へ →</a>
   </section>
 
   {% comment %} ---- 成績 ---- {% endcomment %}

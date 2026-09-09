@@ -2,6 +2,7 @@ from datetime import datetime
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -60,6 +61,11 @@ def index(request):
             'is_us': is_us,
             'cur_pre': '$' if is_us else '',
             'cur_suf': '' if is_us else '円',
+            # 逆張りの追跡状態（チェックボックス用）。買いで銘柄・株価・株数があれば追跡できる
+            'trade': e.trade,
+            'trackable': e.action == 'buy' and bool(e.stock and e.price and e.shares),
+            'tracked_open': bool(e.trade and e.trade.exit_date is None),
+            'tracked_closed': bool(e.trade and e.trade.exit_date is not None),
         })
 
     all_entries = DiaryEntry.objects.all()
@@ -68,10 +74,14 @@ def index(request):
         'buy': all_entries.filter(action='buy').count(),
         'sell': all_entries.filter(action='sell').count(),
     }
+    from .models import Trade
+    open_trades_n = Trade.objects.filter(exit_date__isnull=True).count()
 
     context = {
         'rows': rows,
         'stats': stats,
+        'open_trades_n': open_trades_n,
+        'exit_choices': Trade.EXIT,
         'tags': TAGS,
         'moods': MOODS,
         'filter_action': action,
@@ -146,7 +156,7 @@ def create(request):
     if action not in dict(DiaryEntry.ACTION_CHOICES):
         action = 'buy'
 
-    DiaryEntry.objects.create(
+    entry = DiaryEntry.objects.create(
         stock=stock,
         stock_name=name,
         stock_code=stock.display_code if stock else code,
@@ -161,7 +171,50 @@ def create(request):
         reason=request.POST.get('reason', '').strip(),
         impression=request.POST.get('impression', '').strip(),
     )
+    # 逆張りとの連動（入力は日記に統一・2026-09-09）:
+    #   買い＋「逆張りで結果を追跡」チェック → Trade を起こす（損切り/利確は日記の価格から）
+    #   売り → 同じ銘柄の保有中の逆張り取引があれば決済（理由は選択、未選択なら価格から推定）
+    from django.contrib import messages
+
+    from . import contra as C
+    from .models import ContraSetting
+    if action == 'buy' and request.POST.get('track_contra'):
+        t = C.open_from_entry(entry, ContraSetting.get())
+        if t:
+            messages.success(request, f'{t.ticker} を逆張りで追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。'
+                             + ('⚠️ 許容株数を超えています（裁量として記録）。' if t.over_risk else ''))
+        else:
+            messages.error(request, '逆張りの追跡には銘柄・株価・株数が必要です（日記の記録は保存しました）。')
+    elif action == 'sell':
+        t = C.close_from_entry(entry, request.POST.get('exit_reason', ''))
+        if t:
+            net = t.pnl_pct_net(ContraSetting.get().cost_pct)
+            messages.success(request, f'逆張りの {t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {net:+.2f}%）。')
     return redirect('diary:index')
+
+
+@require_POST
+def track(request, pk):
+    """一覧のチェックボックス: 買いの記録を逆張りで追跡する／やめる（未決済のみ）"""
+    from django.contrib import messages
+
+    from . import contra as C
+    from .models import ContraSetting
+
+    entry = get_object_or_404(DiaryEntry, pk=pk)
+    if request.POST.get('on'):
+        t = C.open_from_entry(entry, ContraSetting.get())
+        if t:
+            messages.success(request, f'{t.ticker} を逆張りで追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。')
+        else:
+            messages.error(request, '追跡できるのは銘柄・株価・株数のある「買い」だけです。')
+    else:
+        if C.untrack(entry):
+            messages.success(request, '追跡をやめました（日記の記録は残っています）。')
+        else:
+            messages.error(request, '決済済みの取引は追跡を外せません。')
+    back = request.POST.get('next') or reverse('diary:index')
+    return redirect(back)
 
 
 def contra(request):
@@ -202,85 +255,14 @@ def contra(request):
                 messages.success(request, '設定を保存しました。')
             return redirect('diary:contra')
 
-        if form_id == 'open':
-            code = request.POST.get('stock_code', '').strip()
-            stock = Stock.objects.filter(code=code).first()
-            price, shares = _f('entry_price'), _f('shares')
-            sp, tp = _f('stop_pct', setting.default_stop_pct), _f('target_pct', setting.default_target_pct)
-            try:
-                entry_date = datetime.strptime(request.POST.get('entry_date', ''), '%Y-%m-%d').date()
-            except ValueError:
-                entry_date = _date.today()
-            if stock is None or not price or price <= 0 or not shares or shares <= 0 or sp <= 0 or tp <= 0:
-                messages.error(request, '銘柄・約定価格・株数・損切り幅・利確幅をすべて入れてください。')
-                return redirect('diary:contra')
-            currency = 'USD' if stock.country == 'US' else 'JPY'
-            limit = C.max_shares(setting, price, sp)      # 為替は考えない（取引の通貨のまま）
-            t = Trade.objects.create(
-                stock=stock, stock_name=stock.name, ticker=stock.display_code, country=stock.country,
-                currency=currency, strategy='contra', entry_date=entry_date, entry_price=price,
-                shares=int(shares), stop_pct=sp, target_pct=tp,
-                stop_price=round(price * (1 - sp / 100), 4), target_price=round(price * (1 + tp / 100), 4),
-                entry_note=request.POST.get('entry_note', '').strip(),
-                over_risk=int(shares) > limit['shares'],
-            )
-            t.risk_jpy = C.plan_risk(t)
-            t.save(update_fields=['risk_jpy'])
-            # 日記にも「買い」として残す（全部の記録を日記で読めるように）
-            t.entry_diary = DiaryEntry.objects.create(
-                stock=stock, stock_name=stock.name, stock_code=stock.display_code,
-                recorded_at=timezone.now(), price=price, shares=int(shares),
-                target_price=t.target_price, stop_price=t.stop_price, action='buy',
-                tags='逆張り', mood='', reason=t.entry_note or '逆張りルールでエントリー',
-                strategy='contra', trade=t)
-            t.save(update_fields=['entry_diary'])
-            try:
-                call_command('update_trade_bars', trade=t.id)
-            except Exception as e:   # noqa: BLE001
-                messages.warning(request, f'日足の取得に失敗しました（後で「更新」を押してください）: {e}')
-            msg = f'{stock.display_code} を {int(shares)}株 @{price} で記録。損切り {t.stop_price:g}／利確 {t.target_price:g}。'
-            if t.over_risk:
-                messages.warning(request, msg + f' ⚠️ 許容株数 {limit["shares"]} を超えています（裁量として記録）。')
-            else:
-                messages.success(request, msg)
-            return redirect('diary:contra')
-
-        if form_id == 'close':
-            t = get_object_or_404(Trade, pk=request.POST.get('id'))
-            price = _f('exit_price')
-            reason = request.POST.get('exit_reason', '')
-            try:
-                exit_date = datetime.strptime(request.POST.get('exit_date', ''), '%Y-%m-%d').date()
-            except ValueError:
-                exit_date = _date.today()
-            if not price or price <= 0 or reason not in dict(Trade.EXIT):
-                messages.error(request, '決済価格と理由を入れてください。')
-                return redirect('diary:contra')
-            t.exit_date, t.exit_price, t.exit_reason = exit_date, price, reason
-            t.exit_note = request.POST.get('exit_note', '').strip()
-            t.exit_diary = DiaryEntry.objects.create(
-                stock=t.stock, stock_name=t.stock_name, stock_code=t.ticker,
-                recorded_at=timezone.now(), price=price, shares=t.shares, action='sell',
-                tags='逆張り', reason=f'{t.get_exit_reason_display()}で決済' + (f'：{t.exit_note}' if t.exit_note else ''),
-                strategy='contra', trade=t)
-            t.save()
-            net = t.pnl_pct_net(setting.cost_pct)
-            messages.success(request, f'{t.ticker} を {t.get_exit_reason_display()}で決済（コスト込み {net:+.2f}%）。')
-            return redirect('diary:contra')
-
+        # ⚠️ エントリー／決済の入力は売買日記に統一した（2026-09-09）。ここには置かない。
+        #   買い＋「逆張りで結果を追跡」→ contra.open_from_entry、売り → contra.close_from_entry
         if form_id == 'refresh':
             try:
                 call_command('update_trade_bars')
                 messages.success(request, '保有中の日足を更新しました。')
             except Exception as e:   # noqa: BLE001
                 messages.error(request, f'更新に失敗: {e}')
-            return redirect('diary:contra')
-
-        if form_id == 'delete':
-            t = get_object_or_404(Trade, pk=request.POST.get('id'))
-            DiaryEntry.objects.filter(trade=t).delete()
-            t.delete()
-            messages.success(request, '取引を削除しました（日記の自動記録も消しました）。')
             return redirect('diary:contra')
 
     be = C.breakeven(setting.default_stop_pct, setting.default_target_pct, setting.cost_pct)
@@ -306,5 +288,16 @@ def review(request, pk):
 @require_POST
 def delete(request, pk):
     entry = get_object_or_404(DiaryEntry, pk=pk)
+    # 逆張りのエントリー記録を消したら、その取引（日足・決済の紐付け）も消す。
+    # 決済側の記録だけ消した場合は取引を未決済に戻す
+    t = entry.trade
+    if t is not None:
+        if t.entry_diary_id == entry.id:
+            DiaryEntry.objects.filter(trade=t).exclude(id=entry.id).update(trade=None, strategy='')
+            t.delete()
+        elif t.exit_diary_id == entry.id:
+            t.exit_date = t.exit_price = None
+            t.exit_reason, t.exit_note, t.exit_diary = '', '', None
+            t.save()
     entry.delete()
     return redirect('diary:index')

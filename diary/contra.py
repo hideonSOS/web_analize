@@ -57,6 +57,81 @@ def plan_risk(trade: Trade) -> float:
     return trade.shares * (trade.entry_price - trade.stop_price)
 
 
+# --- 売買日記との連動（入力は日記に統一・ユーザー決定 2026-09-09） ----------------------
+def open_from_entry(entry, setting: ContraSetting) -> Trade | None:
+    """日記の「買い」から逆張り取引を起こす（チェック「逆張りで結果を追跡」）。
+
+    損切り/利確は日記に入れた価格から%を逆算。無ければ設定の既定%で線を引く。
+    取引を起こしたら日足を即取る（失敗しても取引は残す。画面の「日足を更新」で取り直せる）
+    """
+    from django.core.management import call_command
+    if entry.action != 'buy' or not entry.price or not entry.shares or entry.stock is None:
+        return None
+    if entry.trade_id:
+        return entry.trade
+    price = float(entry.price)
+    stop_pct = ((price - entry.stop_price) / price * 100) if entry.stop_price and entry.stop_price < price \
+        else setting.default_stop_pct
+    target_pct = ((entry.target_price - price) / price * 100) if entry.target_price and entry.target_price > price \
+        else setting.default_target_pct
+    limit = max_shares(setting, price, stop_pct)
+    t = Trade.objects.create(
+        stock=entry.stock, stock_name=entry.stock_name, ticker=entry.stock.display_code,
+        country=entry.stock.country, currency='USD' if entry.stock.country == 'US' else 'JPY',
+        strategy='contra', entry_date=entry.recorded_at.date(), entry_price=price, shares=int(entry.shares),
+        stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
+        stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
+        entry_note=entry.reason, over_risk=int(entry.shares) > limit['shares'], entry_diary=entry,
+    )
+    t.risk_jpy = plan_risk(t)
+    t.save(update_fields=['risk_jpy'])
+    entry.strategy, entry.trade = 'contra', t
+    entry.save(update_fields=['strategy', 'trade'])
+    try:
+        call_command('update_trade_bars', trade=t.id)
+    except Exception:   # noqa: BLE001
+        pass
+    return t
+
+
+def auto_exit_reason(trade: Trade, price: float) -> str:
+    """決済価格から理由を推定（損切り線以下=損切り・利確線以上=利確・それ以外=裁量）"""
+    if price <= trade.stop_price:
+        return 'stop'
+    if price >= trade.target_price:
+        return 'target'
+    return 'manual'
+
+
+def close_from_entry(entry, reason: str = '') -> Trade | None:
+    """日記の「売り」で、同じ銘柄の保有中の逆張り取引を決済する（古いものから1件）"""
+    if entry.action != 'sell' or not entry.price or entry.stock is None:
+        return None
+    t = (Trade.objects.filter(stock=entry.stock, exit_date__isnull=True, strategy='contra')
+         .order_by('entry_date').first())
+    if t is None:
+        return None
+    price = float(entry.price)
+    t.exit_date, t.exit_price = entry.recorded_at.date(), price
+    t.exit_reason = reason if reason in dict(Trade.EXIT) else auto_exit_reason(t, price)
+    t.exit_note, t.exit_diary = entry.reason, entry
+    t.save()
+    entry.strategy, entry.trade = 'contra', t
+    entry.save(update_fields=['strategy', 'trade'])
+    return t
+
+
+def untrack(entry) -> bool:
+    """追跡をやめる（未決済の取引だけ）。日記の行は残す"""
+    t = entry.trade
+    if t is None or t.exit_date is not None:
+        return False
+    entry.trade, entry.strategy = None, ''
+    entry.save(update_fields=['trade', 'strategy'])
+    t.delete()
+    return True
+
+
 def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
     """保有中の取引を UI 用に。現在値・損切り/利確までの距離・ザラ場で触れたか・経過日数"""
     today = today or date.today()

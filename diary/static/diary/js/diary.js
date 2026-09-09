@@ -129,6 +129,9 @@
     const checked = actionRadios.find((r) => r.checked);
     const isBuy = checked && checked.value === 'buy';
     exitSection.hidden = !isBuy;
+    // 売りのときだけ「逆張りの決済理由」を出す（追跡中の同じ銘柄があれば決済として記録される）
+    const sellExtra = document.getElementById('dy-sell-extra');
+    if (sellExtra) sellExtra.hidden = !(checked && checked.value === 'sell');
     if (!isBuy) {
       targetInput.value = '';
       stopInput.value = '';
