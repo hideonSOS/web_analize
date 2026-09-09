@@ -7,6 +7,8 @@
 - 分岐勝率 = 損切り幅 ÷（損切り幅 + 利確幅）。コスト込みは 勝ち=利確−2c、負け=損切り+2c
 - 判定は**ザラ場**（日足の安値/高値）。指値を入れる運用なので終値は合わない（ユーザー決定）
 - 資金は手入力（遊び・学習目的）。ポートフォリオとは連動させない（ユーザー決定）
+- **為替は考えない**（ユーザー決定）。一度ドルに替えたら円に戻さず運用する。資金・損益・
+  リスクはすべて取引の通貨のまま。戦略の精度だけを見る
 """
 from __future__ import annotations
 
@@ -41,26 +43,23 @@ def breakeven(stop_pct: float, target_pct: float, cost_pct: float) -> dict:
     return {'nominal': nominal * 100, 'with_cost': with_cost * 100, 'win': win, 'lose': lose}
 
 
-def max_shares(setting: ContraSetting, price: float, stop_pct: float, currency: str, fx: float) -> dict:
-    """1〜2%ルールから許容株数を逆算。損失 = 株数 × 価格 × 損切り幅（円換算）"""
+def max_shares(setting: ContraSetting, price: float, stop_pct: float) -> dict:
+    """1〜2%ルールから許容株数を逆算。損失 = 株数 × 価格 × 損切り幅（取引の通貨のまま）"""
     if not price or not stop_pct:
-        return {'shares': 0, 'risk_budget': 0, 'per_share_jpy': 0}
-    rate = fx if currency == 'USD' else 1.0
-    per_share = price * stop_pct / 100 * rate
+        return {'shares': 0, 'risk_budget': 0, 'per_share': 0}
+    per_share = price * stop_pct / 100
     budget = setting.capital * setting.risk_pct / 100
     return {'shares': int(math.floor(budget / per_share)) if per_share > 0 else 0,
-            'risk_budget': budget, 'per_share_jpy': per_share}
+            'risk_budget': budget, 'per_share': per_share}
 
 
-def plan_risk(trade: Trade, fx: float) -> float:
-    rate = fx if trade.currency == 'USD' else 1.0
-    return trade.shares * (trade.entry_price - trade.stop_price) * rate
+def plan_risk(trade: Trade) -> float:
+    return trade.shares * (trade.entry_price - trade.stop_price)
 
 
 def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
     """保有中の取引を UI 用に。現在値・損切り/利確までの距離・ザラ場で触れたか・経過日数"""
     today = today or date.today()
-    fx_date, fx = latest_fx()
     rows = []
     for t in Trade.objects.filter(exit_date__isnull=True).select_related('stock').order_by('entry_date'):
         bars = list(t.bars.order_by('date').values('date', 'open', 'high', 'low', 'close'))
@@ -76,14 +75,12 @@ def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
             pos = max(0.0, min(1.0, (cur - t.stop_price) / span)) * 100
         entry_pos = (t.entry_price - t.stop_price) / span * 100 if span > 0 else 50
         change = (cur / t.entry_price - 1) * 100 if cur else None
-        rate = fx if t.currency == 'USD' else 1.0
         rows.append({
             't': t,
             'cur': cur, 'cur_date': last['date'] if last else None,
             'last_low': last['low'] if last else None, 'last_high': last['high'] if last else None,
             'change': change,
             'pnl_now': (cur - t.entry_price) * t.shares if cur else None,
-            'pnl_now_jpy': (cur - t.entry_price) * t.shares * rate if cur else None,
             'to_stop': (cur / t.stop_price - 1) * 100 if cur else None,     # 損切りまでの余裕（%）
             'to_target': (t.target_price / cur - 1) * 100 if cur else None,  # 利確までの距離（%）
             'hi': hi, 'lo': lo,
@@ -91,7 +88,7 @@ def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
             'pos': pos, 'entry_pos': entry_pos,
             'days': (today - t.entry_date).days,
             'bars_n': len(bars),
-            'risk_jpy': plan_risk(t, fx),
+            'risk': plan_risk(t),
             'unit': '$' if t.currency == 'USD' else '円',
             'stale': (last is None) or (today - last['date']).days > 4,
         })
@@ -134,15 +131,12 @@ def stats(setting: ContraSetting) -> dict:
     # --- 損切りが「経費」として成立しているか（合意したルールの2条件） ---------------
     # ①勝率 > 分岐勝率（コスト込み） ②1回の損失が資金の risk_pct 以内
     # ①は件数が少ないと偶然で上下するので、MIN_N 件までは「判定中」とし、成立/不成立を断定しない
-    limit_jpy = setting.capital * setting.risk_pct / 100
-    _, fx_now = latest_fx()
+    limit_amt = setting.capital * setting.risk_pct / 100
     big_losses = []
     for t in closed:
         amt = t.pnl_amount
-        if amt is not None and amt < 0:
-            jpy = -amt * (fx_now if t.currency == 'USD' else 1.0)
-            if jpy > limit_jpy * 1.05:      # 5% はスリッページの許容
-                big_losses.append({'t': t, 'jpy': jpy})
+        if amt is not None and amt < 0 and -amt > limit_amt * 1.05:   # 5% はスリッページの許容
+            big_losses.append({'t': t, 'amount': -amt})
     over_risk_n = sum(1 for t in closed if t.over_risk)
     stops = by_reason['stop']['n']
     cond1 = None if n < EXPENSE_MIN_N else (win_rate > be['with_cost'])
@@ -156,7 +150,7 @@ def stats(setting: ContraSetting) -> dict:
         'cond1': cond1, 'cond2': cond2,
         'win_rate': win_rate, 'breakeven': be['with_cost'],
         'stops': stops, 'stops_pct': by_reason['stop']['sum'],   # 損切りの回数と合計%（=経費の総額）
-        'big_losses': big_losses, 'limit_jpy': limit_jpy, 'over_risk_n': over_risk_n,
+        'big_losses': big_losses, 'limit_amt': limit_amt, 'over_risk_n': over_risk_n,
         'manual': by_reason['manual']['n'],
         # いま何勝何敗で、分岐勝率に対してあと何敗まで許されるか（1勝あたり）
         'allowed_losses': (be['win'] / be['lose']) if be['lose'] else None,

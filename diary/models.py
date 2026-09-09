@@ -56,11 +56,13 @@ class DiaryEntry(models.Model):
 
 class ContraSetting(models.Model):
     """逆張りトレードの設定（1行のシングルトン）。資金は手入力（遊び・学習目的、ユーザー方針）"""
-    capital = models.IntegerField(default=1_000_000, help_text='資金全体（円）。1〜2%ルールの分母')
+    # ⚠️ 為替は考えない（ユーザー決定 2026-09-09）。一度ドルに替えたら円に戻さず運用するので、
+    # 資金も損益も取引の通貨（米国株ならドル）のまま扱う。戦略そのものの精度を見るのが目的
+    capital = models.IntegerField(default=10_000, help_text='資金全体（取引の通貨のまま。米国株ならドル）。1〜2%ルールの分母')
     risk_pct = models.FloatField(default=2.0, help_text='1回の損失の上限（資金の%）')
     default_stop_pct = models.FloatField(default=5.0, help_text='損切り幅の既定（%）')
     default_target_pct = models.FloatField(default=10.0, help_text='利確幅の既定（%）')
-    cost_pct = models.FloatField(default=0.3, help_text='片道の手数料・スリッページ（%）')
+    cost_pct = models.FloatField(default=0.5, help_text='片道の手数料・スリッページ（%）。ユーザー指定 0.5')
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -77,7 +79,7 @@ class Trade(models.Model):
 
     日記（DiaryEntry）は「判断の記録」で編集しない。こちらは帳簿で、損切り・利確ラインを
     エントリー時に確定して持つ。価格は銘柄の通貨のまま（米国株はドル。指値を入れる基準が
-    ドルなので、円換算して混ぜない）。1〜2%ルールの判定だけ円換算（FxRate）する。
+    ドルなので、円換算して混ぜない）。1〜2%ルールも同じ通貨で判定する（為替は考えない方針）。
     """
     STRATEGY = [('contra', '逆張り'), ('long', '長期'), ('div', '配当')]
     EXIT = [('stop', '損切り'), ('target', '利確'), ('manual', '裁量'), ('time', '期限')]
@@ -97,8 +99,8 @@ class Trade(models.Model):
     stop_price = models.FloatField()                    # エントリー時に確定（指値の基準）
     target_price = models.FloatField()
     entry_note = models.TextField(blank=True)
-    fx_at_entry = models.FloatField(null=True, blank=True)   # 円換算に使ったドル円
-    risk_jpy = models.FloatField(null=True, blank=True)      # 計画時の最大損失（円）
+    fx_at_entry = models.FloatField(null=True, blank=True)   # 未使用（為替は考えない方針。互換のため残す）
+    risk_jpy = models.FloatField(null=True, blank=True)      # 計画時の最大損失（取引の通貨。列名は歴史的事情）
     over_risk = models.BooleanField(default=False)          # 1〜2%ルールを超えて入った（裁量）
 
     exit_date = models.DateField(null=True, blank=True)

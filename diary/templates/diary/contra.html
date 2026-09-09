@@ -52,10 +52,10 @@
         {% if r.cur %}
           <span>損切りまで <b class="{% if r.to_stop < 1.5 %}down{% endif %}">{{ r.to_stop|floatformat:1 }}%</b></span>
           <span>利確まで <b>{{ r.to_target|floatformat:1 }}%</b></span>
-          <span>含み <b class="{% if r.pnl_now > 0 %}up{% elif r.pnl_now < 0 %}down{% endif %}">{{ r.unit }}{{ r.pnl_now|floatformat:0|intcomma }}</b>{% if r.t.currency == 'USD' %}（約 ¥{{ r.pnl_now_jpy|floatformat:0|intcomma }}）{% endif %}</span>
+          <span>含み <b class="{% if r.pnl_now > 0 %}up{% elif r.pnl_now < 0 %}down{% endif %}">{{ r.unit }}{{ r.pnl_now|floatformat:0|intcomma }}</b></span>
           <span>期間安値 {{ r.lo|floatformat:2 }} ／ 高値 {{ r.hi|floatformat:2 }}</span>
         {% endif %}
-        <span>計画リスク ¥{{ r.risk_jpy|floatformat:0|intcomma }}{% if r.t.over_risk %} <b class="ct-stale">上限超え（裁量）</b>{% endif %}</span>
+        <span>計画リスク {{ r.unit }}{{ r.risk|floatformat:0|intcomma }}{% if r.t.over_risk %} <b class="ct-stale">上限超え（裁量）</b>{% endif %}</span>
         {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた（指値は約定しているはず → 決済を記録）</span>{% endif %}
         {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた（→ 決済を記録）</span>{% endif %}
       </div>
@@ -86,7 +86,7 @@
   {% comment %} ---- 新規エントリー ---- {% endcomment %}
   <section class="ct-card">
     <details class="ct-details" {% if not open_rows %}open{% endif %}>
-      <summary>＋ 新規エントリー <span class="ct-hint">損切り幅から許容株数を逆算（資金 ¥{{ setting.capital|intcomma }} × {{ setting.risk_pct }}% ＝ ¥{{ risk_budget|floatformat:0|intcomma }} まで）</span></summary>
+      <summary>＋ 新規エントリー <span class="ct-hint">損切り幅から許容株数を逆算（資金 ${{ setting.capital|intcomma }} × {{ setting.risk_pct }}% ＝ ${{ risk_budget|floatformat:0|intcomma }} まで）</span></summary>
       <form method="post" id="ct-open" class="ct-open">
         {% csrf_token %}<input type="hidden" name="form_id" value="open">
         <label class="ct-fld">銘柄
@@ -128,7 +128,7 @@
           {% if x.cond1 %}＞{% elif x.cond1 is not None %}≦{% else %}vs{% endif %} 分岐勝率 <b>{{ x.breakeven|floatformat:0 }}%</b>
           <span class="ct-hint">{{ stats.wins }}勝{{ stats.losses }}敗。1勝あたり {{ x.allowed_losses|floatformat:1 }}敗まで許される{% if x.losses_per_win is not None %}（現在 {{ x.losses_per_win|floatformat:1 }}敗）{% endif %}</span></li>
         <li class="{% if x.cond2 %}ok{% else %}ng{% endif %}">
-          ② 1回の損失が資金の {{ setting.risk_pct }}%（¥{{ x.limit_jpy|floatformat:0|intcomma }}）以内
+          ② 1回の損失が資金の {{ setting.risk_pct }}%（${{ x.limit_amt|floatformat:0|intcomma }}）以内
           {% if x.cond2 %}<b>守れている</b>{% else %}<b>超えた取引 {{ x.big_losses|length }}件</b>{% endif %}
           {% if x.over_risk_n %}<span class="ct-hint">上限超えで入った取引 {{ x.over_risk_n }}件（裁量）</span>{% endif %}</li>
         <li>損切り {{ x.stops }}回・合計 {{ x.stops_pct|floatformat:1 }}%
@@ -170,10 +170,10 @@
   {% comment %} ---- 設定 ---- {% endcomment %}
   <section class="ct-card">
     <details class="ct-details">
-      <summary>設定 <span class="ct-hint">資金 ¥{{ setting.capital|intcomma }}・リスク {{ setting.risk_pct }}%・損切り {{ setting.default_stop_pct }}%／利確 {{ setting.default_target_pct }}%・片道コスト {{ setting.cost_pct }}%・ドル円 {{ fx|floatformat:2 }}{% if fx_date %}（{{ fx_date|date:"n/j" }}）{% endif %}</span></summary>
+      <summary>設定 <span class="ct-hint">資金 ${{ setting.capital|intcomma }}・リスク {{ setting.risk_pct }}%・損切り {{ setting.default_stop_pct }}%／利確 {{ setting.default_target_pct }}%・片道コスト {{ setting.cost_pct }}%</span></summary>
       <form method="post" class="ct-form-row">
         {% csrf_token %}<input type="hidden" name="form_id" value="setting">
-        <label>資金全体（円・手入力）<input type="number" name="capital" value="{{ setting.capital }}" step="10000"></label>
+        <label>資金全体（ドル・手入力）<input type="number" name="capital" value="{{ setting.capital }}" step="100"></label>
         <label>1回の損失上限（%）<input type="number" name="risk_pct" value="{{ setting.risk_pct }}" step="0.5" min="0.5" max="10"></label>
         <label>損切り幅の既定（%）<input type="number" name="default_stop_pct" value="{{ setting.default_stop_pct }}" step="0.5"></label>
         <label>利確幅の既定（%）<input type="number" name="default_target_pct" value="{{ setting.default_target_pct }}" step="0.5"></label>
@@ -182,13 +182,14 @@
       </form>
       <p class="ct-note">分岐勝率 ＝ 損切り幅 ÷（損切り幅＋利確幅）。コスト込みは 勝ち＝利確−2c・負け＝損切り＋2c で計算。
         現在の既定なら名目 {{ be.nominal|floatformat:0 }}%・コスト込み {{ be.with_cost|floatformat:0 }}%。
-        資金はポートフォリオと連動させず手入力（遊び・学習目的）。</p>
+        資金はポートフォリオと連動させず手入力（遊び・学習目的）。<b>為替は考えない</b>: 一度ドルに替えたら円に戻さず運用するので、
+        資金・損益・リスクはすべてドルのまま。戦略の精度だけを見る。</p>
     </details>
   </section>
 
   {{ stats.curve|json_script:"ct-curve-data" }}
   <script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";
-    window.CT = {fx: {{ fx }}, capital: {{ setting.capital }}, riskPct: {{ setting.risk_pct }}, cost: {{ setting.cost_pct }}};</script>
+    window.CT = {capital: {{ setting.capital }}, riskPct: {{ setting.risk_pct }}, cost: {{ setting.cost_pct }}};</script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script src="{% static 'diary/js/contra.js' %}?v={% now 'U' %}"></script>
 </main>

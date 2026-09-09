@@ -57,18 +57,18 @@
     const n = parseInt(shares.value, 10);
     if (!(p > 0 && sp > 0 && tp > 0)) { calc.textContent = '銘柄と価格を入れると、損切り線・利確線と許容株数を出します。'; return; }
     const unit = currency === 'USD' ? '$' : '¥';
-    const rate = currency === 'USD' ? window.CT.fx : 1;
+    // 為替は考えない（資金も損失も取引の通貨のまま）
     const stopPrice = p * (1 - sp / 100), targetPrice = p * (1 + tp / 100);
     const budget = window.CT.capital * window.CT.riskPct / 100;
-    const perShare = p * sp / 100 * rate;
+    const perShare = p * sp / 100;
     const maxN = Math.floor(budget / perShare);
     const c = window.CT.cost;
     const be = (sp + 2 * c) / ((sp + 2 * c) + (tp - 2 * c)) * 100;
     let s = `損切り線 ${unit}${stopPrice.toFixed(2)}（−${sp}%）／ 利確線 ${unit}${targetPrice.toFixed(2)}（+${tp}%）／ ` +
-            `分岐勝率 ${be.toFixed(0)}%（コスト込み）。許容株数 <b>${maxN}株</b>（1株あたりの最大損失 ¥${Math.round(perShare).toLocaleString()}・上限 ¥${Math.round(budget).toLocaleString()}）`;
+            `分岐勝率 ${be.toFixed(0)}%（コスト込み）。許容株数 <b>${maxN}株</b>（1株あたりの最大損失 ${unit}${perShare.toFixed(2)}・上限 ${unit}${Math.round(budget).toLocaleString()}）`;
     if (n > 0) {
       const risk = n * perShare;
-      s += `<br>この株数の最大損失 <b>¥${Math.round(risk).toLocaleString()}</b>（資金の ${(risk / window.CT.capital * 100).toFixed(2)}%）` +
+      s += `<br>この株数の最大損失 <b>${unit}${Math.round(risk).toLocaleString()}</b>（資金の ${(risk / window.CT.capital * 100).toFixed(2)}%）` +
            (n > maxN ? ' <span class="ct-stale">⚠ 上限超え。入れるなら裁量として記録されます</span>' : ' ✔ ルール内');
     } else {
       s += `<br><a href="#" id="ct-fill">${maxN}株を入れる</a>`;

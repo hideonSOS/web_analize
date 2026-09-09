@@ -215,18 +215,16 @@ def contra(request):
                 messages.error(request, '銘柄・約定価格・株数・損切り幅・利確幅をすべて入れてください。')
                 return redirect('diary:contra')
             currency = 'USD' if stock.country == 'US' else 'JPY'
-            fx_date, fx = C.latest_fx()
-            limit = C.max_shares(setting, price, sp, currency, fx)
+            limit = C.max_shares(setting, price, sp)      # 為替は考えない（取引の通貨のまま）
             t = Trade.objects.create(
                 stock=stock, stock_name=stock.name, ticker=stock.display_code, country=stock.country,
                 currency=currency, strategy='contra', entry_date=entry_date, entry_price=price,
                 shares=int(shares), stop_pct=sp, target_pct=tp,
                 stop_price=round(price * (1 - sp / 100), 4), target_price=round(price * (1 + tp / 100), 4),
                 entry_note=request.POST.get('entry_note', '').strip(),
-                fx_at_entry=fx if currency == 'USD' else None,
                 over_risk=int(shares) > limit['shares'],
             )
-            t.risk_jpy = C.plan_risk(t, fx)
+            t.risk_jpy = C.plan_risk(t)
             t.save(update_fields=['risk_jpy'])
             # 日記にも「買い」として残す（全部の記録を日記で読めるように）
             t.entry_diary = DiaryEntry.objects.create(
@@ -285,10 +283,9 @@ def contra(request):
             messages.success(request, '取引を削除しました（日記の自動記録も消しました）。')
             return redirect('diary:contra')
 
-    fx_date, fx = C.latest_fx()
     be = C.breakeven(setting.default_stop_pct, setting.default_target_pct, setting.cost_pct)
     return render(request, 'diary/contra.html', {
-        'setting': setting, 'fx': fx, 'fx_date': fx_date, 'be': be,
+        'setting': setting, 'be': be,
         'open_rows': C.open_rows(setting), 'stats': C.stats(setting),
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,
