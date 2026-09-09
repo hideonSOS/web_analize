@@ -273,6 +273,9 @@ def contra(request):
         # 円グラフ用（勝ち/負けの件数と、最低勝率＝コスト込みの分岐勝率）
         'donut': {'wins': st['wins'], 'losses': st['losses'], 'win_rate': st['win_rate'],
                   'min_rate': round(be['with_cost'])},
+        # 振り返り一覧の切り替えパネル（テンプレートで同じ描画を3回書かないため）
+        'reflect_panels': [('stop', st['reflect']['stop'], '損切り'), ('target', st['reflect']['target'], '利確'),
+                           ('other', st['reflect']['other'], '裁量・期限')],
         'open_rows': C.open_rows(setting), 'stats': st,
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,

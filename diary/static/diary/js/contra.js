@@ -43,3 +43,15 @@
   });
   window.addEventListener('resize', () => c.resize());
 })();
+
+/* 振り返り一覧の切り替え（損切り／利確／裁量・期限）。1つだけ表示 */
+(() => {
+  const tabs = document.getElementById('ct-reflect-tabs');
+  if (!tabs) return;
+  tabs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ct-tab');
+    if (!btn) return;
+    tabs.querySelectorAll('.ct-tab').forEach((b) => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.ct-reflect-col[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== btn.dataset.panel; });
+  });
+})();

@@ -130,43 +130,24 @@
       {% endfor %}
     </div>
     {% endif %}
-    <div class="ct-reflect-cols">
-      <div class="ct-reflect-col stop">
-        <h3>損切り <span class="ct-hint">{{ stats.reflect.stop|length }}件</span></h3>
-        {% for r in stats.reflect.stop %}
-        <div class="ct-reflect-item">
-          <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
-            <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="down">{{ r.net|floatformat:1 }}%</span></span></div>
-          <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
-          <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
-        </div>
-        {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
-      </div>
-      <div class="ct-reflect-col target">
-        <h3>利確 <span class="ct-hint">{{ stats.reflect.target|length }}件</span></h3>
-        {% for r in stats.reflect.target %}
-        <div class="ct-reflect-item">
-          <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
-            <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="up">+{{ r.net|floatformat:1 }}%</span></span></div>
-          <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
-          <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
-        </div>
-        {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
-      </div>
+    {% comment %} 一覧はボタンで切り替え（ユーザー要望 2026-09-09）。既定は損切り（負けを見るのが目的） {% endcomment %}
+    <div class="ct-tabs" id="ct-reflect-tabs">
+      <button type="button" class="ct-tab active" data-panel="stop">損切り <span>{{ stats.reflect.stop|length }}</span></button>
+      <button type="button" class="ct-tab" data-panel="target">利確 <span>{{ stats.reflect.target|length }}</span></button>
+      {% if stats.reflect.other %}<button type="button" class="ct-tab" data-panel="other">裁量・期限 <span>{{ stats.reflect.other|length }}</span></button>{% endif %}
     </div>
-    {% if stats.reflect.other %}
-    <div class="ct-reflect-col other">
-      <h3>裁量・期限で終えたもの <span class="ct-hint">{{ stats.reflect.other|length }}件・ルール外なので別枠</span></h3>
-      {% for r in stats.reflect.other %}
+    {% for key, items, label in reflect_panels %}
+    <div class="ct-reflect-col {{ key }}" data-panel="{{ key }}" {% if key != 'stop' %}hidden{% endif %}>
+      {% for r in items %}
       <div class="ct-reflect-item">
         <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
-          <span class="ct-sub">{{ r.t.get_exit_reason_display }}・{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{{ r.net|floatformat:1 }}%</span></span></div>
+          <span class="ct-sub">{% if key == 'other' %}{{ r.t.get_exit_reason_display }}・{% endif %}{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{% if r.net > 0 %}+{% endif %}{{ r.net|floatformat:1 }}%</span></span></div>
         <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
         <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
       </div>
-      {% endfor %}
+      {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
     </div>
-    {% endif %}
+    {% endfor %}
   </section>
   {% endif %}
 
