@@ -228,7 +228,7 @@
         searchInput.value = label(s);
         codeInput.value = s.code;  // マスタのPK（JP:数字 / US:"US-<ticker>"）
         setCurrency(s.country);    // 米国株なら入力単位を$へ（保存はドルのまま）
-        if (s.close !== null) priceInput.value = s.close;
+        if (s.close !== null) priceInput.value = (Math.round(s.close * 100) / 100).toFixed(2);   // step=0.01 に丸める
         updateAmount();
         list.hidden = true;
       });

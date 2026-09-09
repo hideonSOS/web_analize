@@ -41,7 +41,7 @@
     search.value = item.dataset.ticker;
     currency = item.dataset.country === 'US' ? 'USD' : 'JPY';
     unitEls.forEach((el) => { el.textContent = currency === 'USD' ? '$' : '円'; });
-    if (item.dataset.close && !price.value) price.value = item.dataset.close;
+    if (item.dataset.close && !price.value) price.value = (Math.round(parseFloat(item.dataset.close) * 100) / 100).toFixed(2);   // step=0.01 に丸める
     list.hidden = true;
     update();
   });
