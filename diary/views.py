@@ -180,14 +180,14 @@ def create(request):
     from . import contra as C
     from .models import ContraSetting
     if action == 'buy' and request.POST.get('track_contra'):
-        t = C.open_from_entry(entry, ContraSetting.get())
+        t = C.open_from_entry(entry, ContraSetting.get(), request.POST.get('risk_scenario', '').strip())
         if t:
             messages.success(request, f'{t.ticker} を短期トレードとして追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。'
                              + ('⚠️ 許容株数を超えています（裁量として記録）。' if t.over_risk else ''))
         else:
             messages.error(request, '短期トレードの追跡には銘柄・株価・株数が必要です（日記の記録は保存しました）。')
     elif action == 'sell':
-        t = C.close_from_entry(entry, request.POST.get('exit_reason', ''))
+        t = C.close_from_entry(entry, request.POST.get('exit_reason', ''), request.POST.get('exit_expected', ''))
         if t:
             net = t.pnl_pct_net(ContraSetting.get().cost_pct)
             messages.success(request, f'短期トレードの {t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {net:+.2f}%）。')
@@ -258,6 +258,12 @@ def contra(request):
 
         # ⚠️ エントリー／決済の入力は売買日記に統一した（2026-09-09）。ここには置かない。
         #   買い＋「短期トレードとして追跡」→ contra.open_from_entry、売り → contra.close_from_entry
+        if form_id == 'note':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='contra')
+            if C.add_note(t, request.POST.get('text', ''), request.POST.get('mood', '')):
+                messages.success(request, f'{t.ticker} にコメントを追記しました。')
+            return redirect('diary:contra')
+
         if form_id == 'refresh':
             try:
                 call_command('update_trade_bars')
@@ -277,6 +283,7 @@ def contra(request):
         'reflect_panels': [('stop', st['reflect']['stop'], '損切り'), ('target', st['reflect']['target'], '利確'),
                            ('other', st['reflect']['other'], '裁量・期限')],
         'open_rows': C.open_rows(setting), 'stats': st,
+        'moods': MOODS,   # 保有中のコメント追記フォーム用
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,
     })
@@ -356,13 +363,16 @@ def practice(request):
                 entry_date = datetime.strptime(request.POST.get('entry_date', ''), '%Y-%m-%d').date()
             except ValueError:
                 entry_date = _date.today()
-            reason = request.POST.get('reason', '').strip()
-            if stock is None or not price or price <= 0 or not shares or shares <= 0 or not reason:
-                messages.error(request, '銘柄・価格・株数・なぜ買ったか をすべて入れてください。')
+            # なぜ買ったかは「＋」で列挙した理由を1行1理由で持つ（旧 reason 1本も受ける）
+            reasons = [x.strip() for x in request.POST.getlist('reasons') if x.strip()]
+            reason = '\n'.join(reasons) or request.POST.get('reason', '').strip()
+            risk_scenario = request.POST.get('risk_scenario', '').strip()
+            if stock is None or not price or price <= 0 or not shares or shares <= 0 or not reason or not risk_scenario:
+                messages.error(request, '銘柄・価格・株数・なぜ買ったか・マイナスになる想定 をすべて入れてください。')
                 return redirect('diary:practice')
             tags = ','.join(t for t in request.POST.getlist('tags') if t in TAGS)
             mood = request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else ''
-            t = C.open_practice(setting, stock, price, int(shares), entry_date, reason, tags, mood)
+            t = C.open_practice(setting, stock, price, int(shares), entry_date, reason, tags, mood, risk_scenario)
             msg = f'{t.ticker} を {int(shares)}株 @{price:g} で買ったつもり。損切り {t.stop_price:g}／利確 {t.target_price:g}。'
             if t.over_risk:
                 messages.warning(request, msg + ' ⚠️ 許容株数を超えています（裁量として記録）。')
@@ -380,8 +390,15 @@ def practice(request):
             if not price or price <= 0:
                 messages.error(request, '決済価格を入れてください。')
                 return redirect('diary:practice')
-            C.close_trade(t, price, exit_date, request.POST.get('exit_reason', ''), request.POST.get('exit_note', '').strip())
+            C.close_trade(t, price, exit_date, request.POST.get('exit_reason', ''), request.POST.get('exit_note', '').strip(),
+                          request.POST.get('exit_expected', ''))
             messages.success(request, f'{t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {t.pnl_pct_net(setting.cost_pct):+.2f}%）。')
+            return redirect('diary:practice')
+
+        if form_id == 'note':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
+            if C.add_note(t, request.POST.get('text', ''), request.POST.get('mood', '')):
+                messages.success(request, f'{t.ticker} にコメントを追記しました。')
             return redirect('diary:practice')
 
         if form_id == 'delete':

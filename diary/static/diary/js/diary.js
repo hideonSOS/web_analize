@@ -152,6 +152,8 @@
   function applyTrackLock() {
     if (!trackBox || !window.CONTRA) return;
     const on = trackBox.checked;
+    const riskField = document.getElementById('dy-risk-field');
+    if (riskField) riskField.hidden = !on;
     [targetInput, stopInput].forEach((el) => { el.readOnly = on; el.classList.toggle('dy-locked', on); });
     [targetPct, stopPct].forEach((el) => { el.disabled = on; });
     if (on) {

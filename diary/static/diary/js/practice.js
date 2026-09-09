@@ -72,3 +72,16 @@
   }
   [price, shares].forEach((el) => el.addEventListener('input', update));
 })();
+
+/* なぜ買ったか: 「＋ 理由を追加」で入力欄を増やす（1行1理由） */
+(() => {
+  const list = document.getElementById('ct-reasons');
+  const btn = document.getElementById('ct-add-reason');
+  if (!list || !btn) return;
+  btn.addEventListener('click', () => {
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.name = 'reasons'; inp.placeholder = '例: サポートラインを見て判断';
+    list.appendChild(inp);
+    inp.focus();
+  });
+})();

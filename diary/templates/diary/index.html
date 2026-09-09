@@ -260,6 +260,8 @@
         <label class="dy-track-check"><input type="checkbox" name="track_contra" value="1" id="dy-track" />
           短期トレードとして追跡する（ルール固定: 利確 +{{ contra_setting.default_target_pct|floatformat:"-1" }}%／損切り −{{ contra_setting.default_stop_pct|floatformat:"-1" }}%）
           <span class="dy-track-hint" id="dy-track-hint">チェックすると目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）</span></label>
+        <label class="dy-field" id="dy-risk-field" hidden>マイナスになる想定（短期トレードの学習用）
+          <textarea name="risk_scenario" rows="2" placeholder="例: 決算の悪材料が続くとサポートを割って−5%に届く"></textarea></label>
       </div>
       {% comment %} 売りのとき: 保有中の短期取引があれば決済として扱う。理由は未選択なら価格から推定 {% endcomment %}
       <div id="dy-sell-extra" hidden>
@@ -268,6 +270,14 @@
           <div class="dy-radio-row">
             <label><input type="radio" name="exit_reason" value="" checked /> 価格から自動判定</label>
             {% for v, l in exit_choices %}<label><input type="radio" name="exit_reason" value="{{ v }}" /> {{ l }}</label>{% endfor %}
+          </div>
+        </div>
+        <div class="dy-field">
+          <span class="dy-field-label">損切り・マイナスは想定どおりだったか</span>
+          <div class="dy-radio-row">
+            <label><input type="radio" name="exit_expected" value="" checked /> 該当なし</label>
+            <label><input type="radio" name="exit_expected" value="expected" /> 想定内</label>
+            <label><input type="radio" name="exit_expected" value="unexpected" /> 想定外（寝耳に水）</label>
           </div>
         </div>
       </div>

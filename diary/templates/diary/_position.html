@@ -42,4 +42,23 @@
   {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → {{ close_hint }}</span>{% endif %}
   {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
 </div>
-{% if r.t.entry_note %}<p class="ct-note">なぜ買ったか: {{ r.t.entry_note|truncatechars:140 }}</p>{% endif %}
+{% comment %} なぜ買ったか（列挙）／マイナスになる想定／保有中のコメント（追記のみ）。2026-09-10 {% endcomment %}
+{% if r.reasons %}
+<div class="ct-reasons"><span class="k">なぜ買ったか</span>
+  <ul>{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul></div>
+{% endif %}
+{% if r.t.risk_scenario %}
+<div class="ct-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>
+{% endif %}
+<div class="ct-notes">
+  {% for n in r.notes %}
+  <div class="ct-note-item"><span class="ct-sub">{{ n.created_at|date:"n/j H:i" }}{% if n.mood %}・{{ n.mood }}{% endif %}</span> {{ n.text|linebreaksbr }}</div>
+  {% endfor %}
+  {% if r.notes_n > 5 %}<div class="ct-sub">ほか {{ r.notes_n|add:"-5" }}件（振り返りに全部出ます）</div>{% endif %}
+  <form method="post" class="ct-note-form">
+    {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
+    <input type="text" name="text" placeholder="コメントを追記（下がってショック・上がって高揚 など、今の気持ち）" required>
+    <select name="mood"><option value="">心理</option>{% for m in moods %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select>
+    <button class="ct-btn-sub" type="submit">追記</button>
+  </form>
+</div>

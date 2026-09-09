@@ -88,8 +88,14 @@
           <label>株数<input type="number" step="1" min="1" name="shares" id="ct-shares" required></label>
         </div>
         <p class="ct-calc" id="ct-calc">銘柄と価格を入れると、損切り線・利確線と許容株数を出します。</p>
-        <label class="ct-fld">なぜ買ったか（必須）
-          <textarea name="reason" rows="3" required placeholder="例: 決算で−18%。指数は平常。出来高が普段の5倍で投げが出きった"></textarea></label>
+        {% comment %} なぜ買ったかは「＋」で理由を列挙（1行1理由）。長文より箇条書きの方が振り返りやすい {% endcomment %}
+        <div class="ct-fld"><span>なぜ買ったか（必須・理由を列挙）</span>
+          <div id="ct-reasons" class="ct-reason-list">
+            <input type="text" name="reasons" placeholder="例: 下ヒゲがついた" required>
+          </div>
+          <button type="button" class="ct-btn-sub" id="ct-add-reason">＋ 理由を追加</button></div>
+        <label class="ct-fld">マイナスになる想定（必須）
+          <textarea name="risk_scenario" rows="2" required placeholder="例: 決算の悪材料が続くとサポートを割って−5%に届く。指数が崩れたら道連れ"></textarea></label>
         <div class="ct-form-row">
           <div class="ct-fld"><span>判断理由タグ</span>
             <div class="dy-check-row">{% for t in tags %}<label><input type="checkbox" name="tags" value="{{ t }}"> {{ t }}</label>{% endfor %}</div></div>
@@ -129,6 +135,12 @@
               {% for v, l in exit_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
             </select></label>
           </div>
+          <div class="ct-fld"><span>損切り・マイナスは想定どおりだったか</span>
+            <div class="dy-radio-row">
+              <label><input type="radio" name="exit_expected" value="" checked> 該当なし</label>
+              <label><input type="radio" name="exit_expected" value="expected"> 想定内</label>
+              <label><input type="radio" name="exit_expected" value="unexpected"> 想定外（寝耳に水）</label>
+            </div></div>
           <label class="ct-fld">復習コメント（必須）
             <textarea name="exit_note" rows="3" required placeholder="なぜこうなったか。買った理由は正しかったか。次に同じ場面が来たらどうするか"></textarea></label>
           <button class="ct-btn" type="submit">売却を記録</button>
@@ -161,13 +173,7 @@
     {% for key, items, label in reflect_panels %}
     <div class="ct-reflect-col {{ key }}" data-panel="{{ key }}" {% if key != 'stop' %}hidden{% endif %}>
       {% for r in items %}
-      <div class="ct-reflect-item">
-        <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
-          <span class="ct-sub">{% if key == 'other' %}{{ r.t.get_exit_reason_display }}・{% endif %}{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{% if r.net > 0 %}+{% endif %}{{ r.net|floatformat:1 }}%</span></span></div>
-        <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
-        <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}</div>
-        {% if r.exit_note %}<div class="ct-reflect-review"><span class="k">復習</span>{{ r.exit_note|linebreaksbr }}</div>{% endif %}
-      </div>
+      {% include 'diary/_reflect_item.html' %}
       {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
     </div>
     {% endfor %}

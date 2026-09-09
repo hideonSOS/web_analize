@@ -107,7 +107,9 @@ class Trade(models.Model):
     target_pct = models.FloatField()
     stop_price = models.FloatField()                    # エントリー時に確定（指値の基準）
     target_price = models.FloatField()
-    entry_note = models.TextField(blank=True)
+    entry_note = models.TextField(blank=True)               # なぜ買ったか（1行1理由で列挙）
+    # マイナスになるシナリオ想定（2026-09-10）。損切りのとき「想定内だったか、寝耳に水か」を学ぶため
+    risk_scenario = models.TextField(blank=True)
     fx_at_entry = models.FloatField(null=True, blank=True)   # 未使用（為替は考えない方針。互換のため残す）
     risk_jpy = models.FloatField(null=True, blank=True)      # 計画時の最大損失（取引の通貨。列名は歴史的事情）
     over_risk = models.BooleanField(default=False)          # 1〜2%ルールを超えて入った（裁量）
@@ -116,6 +118,9 @@ class Trade(models.Model):
     exit_price = models.FloatField(null=True, blank=True)
     exit_reason = models.CharField(max_length=10, blank=True, choices=EXIT)
     exit_note = models.TextField(blank=True)
+    # 決済（主に損切り）が想定どおりだったか。リスクシナリオと突き合わせて学ぶ
+    EXPECTED = [('expected', '想定内'), ('unexpected', '想定外')]
+    exit_expected = models.CharField(max_length=10, blank=True, choices=EXPECTED)
 
     entry_diary = models.ForeignKey(DiaryEntry, null=True, blank=True, on_delete=models.SET_NULL,
                                     related_name='+')
@@ -155,6 +160,18 @@ class Trade(models.Model):
         from datetime import date
         end = self.exit_date or date.today()
         return (end - self.entry_date).days
+
+
+class TradeNote(models.Model):
+    """保有中に書き足すコメント（下がってショック・上がって高揚 など。2026-09-10）。
+    日記の振り返りと同じ発想で、当時の心理を時系列で残す。編集はしない（追記のみ）"""
+    trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='notes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    text = models.TextField()
+    mood = models.CharField(max_length=20, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class PracticeMeta(models.Model):

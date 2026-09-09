@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from .models import ContraSetting, PracticeMeta, Trade, TradeBar
+from .models import ContraSetting, PracticeMeta, Trade, TradeBar, TradeNote
 
 # 「損切りは経費」の判定に必要な最低件数。これ未満は勝率が偶然で大きく振れるので断定しない
 # （10件で勝率±15pt程度は普通に動く。分岐勝率37%との差が出るまで待つ）
@@ -71,7 +71,7 @@ def plan_risk(trade: Trade) -> float:
 
 
 # --- 売買日記との連動（入力は日記に統一・ユーザー決定 2026-09-09） ----------------------
-def open_from_entry(entry, setting: ContraSetting) -> Trade | None:
+def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '') -> Trade | None:
     """日記の「買い」から短期取引を起こす（チェック「短期トレードとして追跡」）。
 
     損切り/利確は日記に入れた価格から%を逆算。無ければ設定の既定%で線を引く。
@@ -99,6 +99,7 @@ def open_from_entry(entry, setting: ContraSetting) -> Trade | None:
         stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
         stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
         entry_note=entry.reason, over_risk=int(entry.shares) > limit['shares'], entry_diary=entry,
+        risk_scenario=risk_scenario,
     )
     t.risk_jpy = plan_risk(t)
     t.save(update_fields=['risk_jpy'])
@@ -127,7 +128,7 @@ def auto_exit_reason(trade: Trade, price: float) -> str:
     return 'manual'
 
 
-def close_from_entry(entry, reason: str = '') -> Trade | None:
+def close_from_entry(entry, reason: str = '', expected: str = '') -> Trade | None:
     """日記の「売り」で、同じ銘柄の保有中の短期取引を決済する（古いものから1件）"""
     if entry.action != 'sell' or not entry.price or entry.stock is None:
         return None
@@ -139,6 +140,7 @@ def close_from_entry(entry, reason: str = '') -> Trade | None:
     t.exit_date, t.exit_price = entry.recorded_at.date(), price
     t.exit_reason = reason if reason in dict(Trade.EXIT) else auto_exit_reason(t, price)
     t.exit_note, t.exit_diary = entry.reason, entry
+    t.exit_expected = expected if expected in dict(Trade.EXPECTED) else ''
     t.save()
     entry.strategy, entry.trade = 'contra', t
     entry.save(update_fields=['strategy', 'trade'])
@@ -147,7 +149,7 @@ def close_from_entry(entry, reason: str = '') -> Trade | None:
 
 # --- 練習（仮想トレード・2026-09-10）。日記とはつながず、練習ページのフォームから直接起こす ----
 def open_practice(setting: ContraSetting, stock, price: float, shares: int, entry_date, reason: str,
-                  tags: str = '', mood: str = '') -> Trade:
+                  tags: str = '', mood: str = '', risk_scenario: str = '') -> Trade:
     """「買ったつもり」の取引を起こす。ルール（損切り/利確の%）は練習用の設定から"""
     from django.core.management import call_command
     stop_pct, target_pct = setting.default_stop_pct, setting.default_target_pct
@@ -158,7 +160,7 @@ def open_practice(setting: ContraSetting, stock, price: float, shares: int, entr
         entry_date=entry_date, entry_price=price, shares=int(shares),
         stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
         stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
-        entry_note=reason, over_risk=int(shares) > limit['shares'],
+        entry_note=reason, over_risk=int(shares) > limit['shares'], risk_scenario=risk_scenario,
     )
     t.risk_jpy = plan_risk(t)
     # 練習はタグ・心理を日記に持たないので exit_note の手前に置く（振り返り用）
@@ -173,13 +175,27 @@ def open_practice(setting: ContraSetting, stock, price: float, shares: int, entr
     return t
 
 
-def close_trade(t: Trade, price: float, exit_date, reason: str = '', note: str = '') -> Trade:
+def close_trade(t: Trade, price: float, exit_date, reason: str = '', note: str = '', expected: str = '') -> Trade:
     """取引を決済する（練習ページの決済フォーム用。理由が空なら価格から推定）"""
     t.exit_date, t.exit_price = exit_date, price
     t.exit_reason = reason if reason in dict(Trade.EXIT) else auto_exit_reason(t, price)
     t.exit_note = note
+    t.exit_expected = expected if expected in dict(Trade.EXPECTED) else ''
     t.save()
     return t
+
+
+def add_note(t: Trade, text: str, mood: str = '') -> TradeNote | None:
+    """保有中のコメントを追記（空なら何もしない）"""
+    text = (text or '').strip()
+    if not text:
+        return None
+    return TradeNote.objects.create(trade=t, text=text, mood=mood)
+
+
+def reasons_of(t: Trade) -> list[str]:
+    """なぜ買ったか（1行1理由）。旧データの長文は1要素になる"""
+    return [x.strip() for x in (t.entry_note or '').splitlines() if x.strip()]
 
 
 def untrack(entry) -> bool:
@@ -249,6 +265,8 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'days': (today - t.entry_date).days,
             'bars_n': len(bars),
             'risk': plan_risk(t),
+            'reasons': reasons_of(t),
+            'notes': list(t.notes.all()[:5]), 'notes_n': t.notes.count(),
             'unit': '$' if t.currency == 'USD' else '円',
             'stale': (last is None) or (today - last['date']).days > 4,
         })
@@ -359,6 +377,10 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
             'tags': [x for x in ((e.tags if e else (meta.tags if meta else ''))).split(',') if x and x != '短期'],
             'mood': e.mood if e else (meta.mood if meta else ''),
             'exit_note': t.exit_note,
+            'reasons': reasons_of(t) if not e else [x.strip() for x in e.reason.splitlines() if x.strip()],
+            'risk_scenario': t.risk_scenario,
+            'expected': t.exit_expected,
+            'notes': list(t.notes.all()),
             'unit': '$' if t.currency == 'USD' else '円',
         }
     reflect = {'stop': [], 'target': [], 'other': []}
