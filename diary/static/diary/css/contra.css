@@ -212,3 +212,9 @@
 .ct-paste-preview{ max-width:320px; max-height:200px; border:1px solid #334155; border-radius:6px; margin-top:6px; display:block; }
 .ct-note-img{ display:block; margin-top:4px; }
 .ct-note-img img{ max-width:360px; max-height:220px; border:1px solid #334155; border-radius:6px; }
+
+/* 掘り下げ（既定は閉じる）: なぜ買ったか・想定・コメント・スクリーンショット */
+.ct-drill{ margin-top:8px; border-top:1px dashed #1f2937; padding-top:6px; }
+.ct-drill > summary{ cursor:pointer; color:#87cefa; font-size:12px; list-style:none; user-select:none; }
+.ct-drill > summary::before{ content:'▸ '; color:#6b7280; } .ct-drill[open] > summary::before{ content:'▾ '; }
+.ct-drill .ct-notes{ border-top:none; }

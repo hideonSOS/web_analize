@@ -45,12 +45,22 @@
   {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → {{ close_hint }}</span>{% endif %}
   {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
 </div>
+{% comment %}
+  掘り下げ（ユーザー要望 2026-09-10）: 普段は 現在値・レンジバー・距離 だけ。なぜ買ったか・想定・
+  コメント・スクリーンショットは「なぜ買ったか・経過を見る」を押したときだけ開く（既定は閉じる）。
+  画像は loading="lazy" なので閉じている間は読み込まれない
+{% endcomment %}
+<details class="ct-drill">
+  <summary>なぜ買ったか・経過を見る <span class="ct-hint">コメント {{ r.timeline|length }}件{% if r.t.risk_scenario %}・想定あり{% endif %}</span></summary>
+  {% if r.t.risk_scenario %}
+  <div class="ct-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>
+  {% endif %}
 {% comment %} なぜ買ったか（列挙）／マイナスになる想定／保有中のコメント（追記のみ）。2026-09-10 {% endcomment %}
 {% comment %} 購入時の理由と購入後のコメントを区別せず時系列で（ユーザー方針 2026-09-10）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
 <div class="ct-notes">
   {% for n in r.timeline %}
   <div class="ct-note-item {{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}
-    {% if n.image %}<a class="ct-note-img" href="{% url 'diary:note_image' n.pk %}" target="_blank" title="クリックで原寸"><img src="{% url 'diary:note_image' n.pk %}" alt="チャート"></a>{% endif %}</div>
+    {% if n.image %}<a class="ct-note-img" href="{% url 'diary:note_image' n.pk %}" target="_blank" title="クリックで原寸"><img src="{% url 'diary:note_image' n.pk %}" alt="チャート" loading="lazy"></a>{% endif %}</div>
   {% endfor %}
   <form method="post" class="ct-note-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
@@ -63,3 +73,4 @@
     <img class="ct-paste-preview" alt="" hidden>
   </form>
 </div>
+</details>
