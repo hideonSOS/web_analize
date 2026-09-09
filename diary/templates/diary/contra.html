@@ -16,14 +16,43 @@
 
   {% for m in messages %}<div class="ct-msg ct-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
 
-  {% comment %}
-    ルール（ユーザー決定 2026-09-09・これ以外は書かない）: 利確 +10%／損切り −5%／最低勝率 40%。
-    最低勝率は片道コスト0.5%込みの分岐勝率（設定から計算。設定を変えれば追従）
-  {% endcomment %}
-  <section class="ct-rule">
-    <span class="ct-rule-item target">利確 <b>+{{ setting.default_target_pct|floatformat:"-1" }}%</b></span>
-    <span class="ct-rule-item stop">損切り <b>−{{ setting.default_stop_pct|floatformat:"-1" }}%</b></span>
-    <span class="ct-rule-item">最低勝率 <b>{{ be.with_cost|floatformat:0 }}%</b></span>
+  {% comment %} ---- 成績: 円グラフ（勝率 vs 最低勝率）＋判定＋決済一覧 ---- {% endcomment %}
+  <section class="ct-card">
+    <h2>成績 <span class="ct-hint">決済 {{ stats.n }}件</span></h2>
+    <div class="ct-result">
+      <div id="ct-donut" class="ct-donut"></div>
+      <div class="ct-result-text">
+        {% with x=stats.expense %}
+        <div class="ct-result-rate">勝率 <b>{% if stats.win_rate is not None %}{{ stats.win_rate|floatformat:0 }}%{% else %}—{% endif %}</b>
+          <span class="ct-sub">{{ stats.wins }}勝 {{ stats.losses }}敗・最低 {{ be.with_cost|floatformat:0 }}%</span></div>
+        <div class="ct-verdict-line ct-verdict-{{ x.verdict }}">
+          {% if x.verdict == 'ok' %}✔ 損切りは経費として成立
+          {% elif x.verdict == 'ng' %}✖ 損切りが経費になっていない
+          {% else %}⏳ 判定中（あと {{ x.need_more }}件）{% endif %}
+          {% if x.manual %}<span class="ct-stale">・裁量 {{ x.manual }}回</span>{% endif %}
+        </div>
+        {% endwith %}
+        {% if stats.curve %}<div class="ct-cum">累積 <b class="{% if stats.curve|last|last > 0 %}up{% elif stats.curve|last|last < 0 %}down{% endif %}">{{ stats.curve|last|last|floatformat:1 }}%</b><span class="ct-sub">コスト込み</span></div>{% endif %}
+      </div>
+    </div>
+    {% if stats.rows %}
+    <div class="dy-table-wrap">
+      <table class="dy-table">
+        <tr><th>決済日</th><th>銘柄</th><th>建値→決済</th><th>日数</th><th>理由</th><th>損益%</th><th>損益</th></tr>
+        {% for r in stats.rows %}
+        <tr class="{% if r.win %}ct-win{% else %}ct-lose{% endif %}">
+          <td>{{ r.t.exit_date|date:"Y/n/j" }}</td>
+          <td><b>{{ r.t.ticker }}</b></td>
+          <td>{{ r.t.entry_price|floatformat:2 }} → {{ r.t.exit_price|floatformat:2 }}</td>
+          <td>{{ r.t.days_held }}</td>
+          <td>{{ r.t.get_exit_reason_display }}</td>
+          <td class="ct-net"><b>{{ r.net|floatformat:1 }}%</b></td>
+          <td>{{ r.unit }}{{ r.amount|floatformat:0|intcomma }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
   </section>
 
   {% comment %} ---- 保有中（ザラ場で損切り線/利確線に触れたものが先頭） ---- {% endcomment %}
@@ -68,45 +97,6 @@
     {% endfor %}
   </section>
 
-  {% comment %} ---- 成績: 円グラフ（勝率 vs 最低勝率）＋判定＋決済一覧 ---- {% endcomment %}
-  <section class="ct-card">
-    <h2>成績 <span class="ct-hint">決済 {{ stats.n }}件</span></h2>
-    <div class="ct-result">
-      <div id="ct-donut" class="ct-donut"></div>
-      <div class="ct-result-text">
-        {% with x=stats.expense %}
-        <div class="ct-result-rate">勝率 <b>{% if stats.win_rate is not None %}{{ stats.win_rate|floatformat:0 }}%{% else %}—{% endif %}</b>
-          <span class="ct-sub">{{ stats.wins }}勝 {{ stats.losses }}敗・最低 {{ be.with_cost|floatformat:0 }}%</span></div>
-        <div class="ct-verdict-line ct-verdict-{{ x.verdict }}">
-          {% if x.verdict == 'ok' %}✔ 損切りは経費として成立
-          {% elif x.verdict == 'ng' %}✖ 損切りが経費になっていない
-          {% else %}⏳ 判定中（あと {{ x.need_more }}件）{% endif %}
-          {% if x.manual %}<span class="ct-stale">・裁量 {{ x.manual }}回</span>{% endif %}
-        </div>
-        {% endwith %}
-        {% if stats.curve %}<div class="ct-cum">累積 <b class="{% if stats.curve|last|last > 0 %}up{% elif stats.curve|last|last < 0 %}down{% endif %}">{{ stats.curve|last|last|floatformat:1 }}%</b><span class="ct-sub">コスト込み</span></div>{% endif %}
-      </div>
-    </div>
-    {% if stats.rows %}
-    <div class="dy-table-wrap">
-      <table class="dy-table">
-        <tr><th>決済日</th><th>銘柄</th><th>建値→決済</th><th>日数</th><th>理由</th><th>損益%</th><th>損益</th></tr>
-        {% for r in stats.rows %}
-        <tr class="{% if r.win %}ct-win{% else %}ct-lose{% endif %}">
-          <td>{{ r.t.exit_date|date:"Y/n/j" }}</td>
-          <td><b>{{ r.t.ticker }}</b></td>
-          <td>{{ r.t.entry_price|floatformat:2 }} → {{ r.t.exit_price|floatformat:2 }}</td>
-          <td>{{ r.t.days_held }}</td>
-          <td>{{ r.t.get_exit_reason_display }}</td>
-          <td class="ct-net"><b>{{ r.net|floatformat:1 }}%</b></td>
-          <td>{{ r.unit }}{{ r.amount|floatformat:0|intcomma }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </div>
-    {% endif %}
-  </section>
-
   {% comment %} ---- 設定（畳む） ---- {% endcomment %}
   <section class="ct-card">
     <details class="ct-details">
@@ -121,6 +111,16 @@
         <button class="ct-btn" type="submit">保存</button>
       </form>
     </details>
+  </section>
+
+  {% comment %}
+    ルール（ユーザー決定 2026-09-09・これ以外は書かない）。画面下に固定・少し透過（CSS .ct-rule）: 利確 +10%／損切り −5%／最低勝率 40%。
+    最低勝率は片道コスト0.5%込みの分岐勝率（設定から計算。設定を変えれば追従）
+  {% endcomment %}
+  <section class="ct-rule">
+    <span class="ct-rule-item target">利確 <b>+{{ setting.default_target_pct|floatformat:"-1" }}%</b></span>
+    <span class="ct-rule-item stop">損切り <b>−{{ setting.default_stop_pct|floatformat:"-1" }}%</b></span>
+    <span class="ct-rule-item">最低勝率 <b>{{ be.with_cost|floatformat:0 }}%</b></span>
   </section>
 
   {{ donut|json_script:"ct-donut-data" }}

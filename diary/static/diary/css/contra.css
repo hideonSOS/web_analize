@@ -17,7 +17,12 @@
 .ct-stale{ color:#f87171; }
 
 /* ---- ルール（ページ先頭・3つだけ） ---- */
-.ct-rule{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px 34px; border:2px solid #3b82f6; border-radius:12px; padding:14px 16px; margin-bottom:16px; background:linear-gradient(180deg, rgba(59,130,246,.12), rgba(59,130,246,.04)); font-size:15px; color:#e5e7eb; }
+/* 画面下に固定・少し透過（ユーザー要望 2026-09-09）。本文が隠れないよう .ct に下余白 */
+.ct{ padding-bottom:96px; }
+.ct-rule{ position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; flex-wrap:wrap; justify-content:center; gap:6px 34px;
+  border-top:2px solid rgba(59,130,246,.7); padding:10px 16px; margin:0;
+  background:rgba(11,18,32,.78); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  font-size:15px; color:#e5e7eb; opacity:.92; }
 .ct-rule-item b{ font-size:26px; color:#fff; font-variant-numeric:tabular-nums; margin-left:4px; }
 .ct-rule-item.target b{ color:#4ade80; } .ct-rule-item.stop b{ color:#f87171; }
 
