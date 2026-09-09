@@ -225,7 +225,9 @@ def shots_of(t: Trade) -> list[TradeNote]:
 
 
 def add_shot(t: Trade, image: str) -> TradeNote | None:
-    """購入時のスクリーンショットを後から保存する（購入時扱い・情報）"""
+    """購入時のスクリーンショットを後から保存する（購入時扱い・情報）。画像が無ければ何もしない"""
+    if not (image or '').startswith('data:image/'):
+        return None
     return add_note(t, '購入時のチャート', 'info', _entry_when(t), image=image)
 
 
