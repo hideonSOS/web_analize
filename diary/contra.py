@@ -40,7 +40,20 @@ def breakeven(stop_pct: float, target_pct: float, cost_pct: float) -> dict:
     lose = stop_pct + 2 * cost_pct
     win = target_pct - 2 * cost_pct
     with_cost = lose / (lose + win) if lose + win > 0 else 0
-    return {'nominal': nominal * 100, 'with_cost': with_cost * 100, 'win': win, 'lose': lose}
+    # 「何勝何敗でトントンか」を回数で示す（ユーザー要望 2026-09-09: 忘れないように明記）。
+    # 10回・20回あたりの分岐勝ち数は切り上げ（それ未満の勝ち数なら損）
+    import math as _m
+    def need(n):
+        return _m.ceil(n * with_cost - 1e-9)
+    examples = []
+    for n in (5, 10, 20):
+        w = need(n)
+        examples.append({'n': n, 'win': w, 'lose': n - w,
+                         'pnl': round(w * win - (n - w) * lose, 1),          # その勝敗での累積%
+                         'pnl_minus1': round((w - 1) * win - (n - w + 1) * lose, 1)})
+    return {'nominal': nominal * 100, 'with_cost': with_cost * 100, 'win': win, 'lose': lose,
+            'ratio': (win / lose) if lose else None,   # 1勝で何敗ぶん取り返せるか
+            'examples': examples}
 
 
 def max_shares(setting: ContraSetting, price: float, stop_pct: float) -> dict:

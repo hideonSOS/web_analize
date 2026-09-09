@@ -17,6 +17,25 @@
 
   {% for m in messages %}<div class="ct-msg ct-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
 
+  {% comment %}
+    ルールの明記（ユーザー要望 2026-09-09「忘れないように」）: 利確/損切りの幅、コスト、
+    そして「何勝何敗でトントンか」を回数で。数字は設定から計算（設定を変えれば追従）
+  {% endcomment %}
+  <section class="ct-rule">
+    <div class="ct-rule-main">
+      <span class="ct-rule-item target">利確 <b>+{{ setting.default_target_pct|floatformat:"-1" }}%</b></span>
+      <span class="ct-rule-item stop">損切り <b>−{{ setting.default_stop_pct|floatformat:"-1" }}%</b></span>
+      <span class="ct-rule-item">片道コスト {{ setting.cost_pct }}% → 実際は 勝ち <b>+{{ be.win|floatformat:1 }}%</b>／負け <b>−{{ be.lose|floatformat:1 }}%</b></span>
+      <span class="ct-rule-item">1回の損失は資金の <b>{{ setting.risk_pct }}%</b>（${{ risk_budget|floatformat:0|intcomma }}）まで</span>
+    </div>
+    <div class="ct-rule-sub">
+      <b>分岐勝率 {{ be.with_cost|floatformat:0 }}%</b>。1勝で {{ be.ratio|floatformat:1 }}敗ぶん取り返せる。
+      {% for ex in be.examples %}<span class="ct-rule-ex">{{ ex.n }}回なら <b>{{ ex.win }}勝{{ ex.lose }}敗</b>で {{ ex.pnl|floatformat:0 }}%{% if ex.pnl >= 0 %}（{{ ex.win|add:"-1" }}勝{{ ex.lose|add:"1" }}敗だと {{ ex.pnl_minus1|floatformat:0 }}%で損）{% endif %}</span>{% endfor %}
+      {% if stats.n %}<span class="ct-rule-now">現在 <b>{{ stats.wins }}勝{{ stats.losses }}敗</b>（累積 {% if stats.curve %}{{ stats.curve|last|last|floatformat:1 }}%{% endif %}）</span>{% endif %}
+    </div>
+    <div class="ct-rule-note">損切りは経費。「今回だけ見送る」をした時点で経費ではなくなる（裁量として記録される）。ルールの変更は下の設定でだけ行う。</div>
+  </section>
+
   {% comment %} ---- 保有中（今日やることが上に来る） ---- {% endcomment %}
   <section class="ct-card">
     <div class="ct-head">
