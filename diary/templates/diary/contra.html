@@ -136,7 +136,8 @@
         <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
           <span class="ct-sub">{% if key == 'other' %}{{ r.t.get_exit_reason_display }}・{% endif %}{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{% if r.net > 0 %}+{% endif %}{{ r.net|floatformat:1 }}%</span></span></div>
         <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
-        <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
+        <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}</div>
+        {% if r.exit_note %}<div class="ct-reflect-review"><span class="k">復習</span>{{ r.exit_note|linebreaksbr }}</div>{% endif %}
       </div>
       {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
     </div>

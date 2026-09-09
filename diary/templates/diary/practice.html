@@ -72,40 +72,6 @@
     {% endif %}
   </section>
 
-  {% comment %} ---- 保有中（買ったつもりの玉。決済はこのページで） ---- {% endcomment %}
-  <section class="ct-card">
-    <div class="ct-head">
-      <h2>保有中 <span class="ct-hint">{{ open_rows|length }}件・買ったつもりの玉</span></h2>
-      <form method="post" class="ct-inline">{% csrf_token %}<input type="hidden" name="form_id" value="refresh">
-        <button class="ct-btn-sub" type="submit">日足を更新</button></form>
-    </div>
-    {% for r in open_rows %}
-    <div class="ct-pos {% if r.touched_stop %}hit-stop{% elif r.touched_target %}hit-target{% endif %}">
-      {% include 'diary/_position.html' with close_hint='決済を記録' %}
-      <details class="ct-close">
-        <summary>決済を記録</summary>
-        <form method="post" class="ct-form-row">
-          {% csrf_token %}<input type="hidden" name="form_id" value="close"><input type="hidden" name="id" value="{{ r.t.id }}">
-          <label>日付<input type="date" name="exit_date" value="{{ today }}"></label>
-          <label>価格（{{ r.unit }}）<input type="number" step="0.01" name="exit_price"
-            value="{% if r.touched_stop %}{{ r.t.stop_price|floatformat:2 }}{% elif r.touched_target %}{{ r.t.target_price|floatformat:2 }}{% endif %}" required></label>
-          <label>理由<select name="exit_reason">
-            <option value="">価格から自動判定</option>
-            {% for v, l in exit_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
-          </select></label>
-          <label class="wide">メモ<input type="text" name="exit_note" placeholder="裁量なら理由を必ず"></label>
-          <button class="ct-btn" type="submit">決済</button>
-        </form>
-        <form method="post" class="ct-inline" onsubmit="return confirm('この練習取引を削除します。よろしいですか？');">
-          {% csrf_token %}<input type="hidden" name="form_id" value="delete"><input type="hidden" name="id" value="{{ r.t.id }}">
-          <button class="ct-btn-danger" type="submit">誤登録を削除</button></form>
-      </details>
-    </div>
-    {% empty %}
-    <p class="ct-empty">買ったつもりの玉はありません。下のフォームから始めます。</p>
-    {% endfor %}
-  </section>
-
   {% comment %} ---- 買ったつもりで記録（練習はここで直接入力。日記は使わない） ---- {% endcomment %}
   <section class="ct-card">
     <details class="ct-details" {% if not open_rows %}open{% endif %}>
@@ -135,6 +101,48 @@
     </details>
   </section>
 
+  {% comment %} ---- 保有中（買ったつもりの玉。決済はこのページで） ---- {% endcomment %}
+  <section class="ct-card">
+    <div class="ct-head">
+      <h2>保有中 <span class="ct-hint">{{ open_rows|length }}件・買ったつもりの玉</span></h2>
+      <form method="post" class="ct-inline">{% csrf_token %}<input type="hidden" name="form_id" value="refresh">
+        <button class="ct-btn-sub" type="submit">日足を更新</button></form>
+    </div>
+    {% for r in open_rows %}
+    <div class="ct-pos {% if r.touched_stop %}hit-stop{% elif r.touched_target %}hit-target{% endif %}">
+      {% include 'diary/_position.html' with close_hint='決済を記録' %}
+      {% comment %}
+        売却（決済）の手順を分かりやすく（ユーザー要望 2026-09-10）: 目立つボタンで開く。
+        復習コメントは必須（損切り・利確のたびに「なぜそうなったか・次にどう活かすか」を書く。
+        これが自分を知る教科書になる、というユーザーの方針）
+      {% endcomment %}
+      <details class="ct-close">
+        <summary class="ct-close-btn">売却を記録する（損切り・利確・早期利確）</summary>
+        <form method="post" class="ct-close-form">
+          {% csrf_token %}<input type="hidden" name="form_id" value="close"><input type="hidden" name="id" value="{{ r.t.id }}">
+          <div class="ct-form-row">
+            <label>売却日<input type="date" name="exit_date" value="{{ today }}"></label>
+            <label>売却価格（{{ r.unit }}）<input type="number" step="0.01" name="exit_price"
+              value="{% if r.touched_stop %}{{ r.t.stop_price|floatformat:2 }}{% elif r.touched_target %}{{ r.t.target_price|floatformat:2 }}{% endif %}" required></label>
+            <label>理由<select name="exit_reason">
+              <option value="">価格から自動判定</option>
+              {% for v, l in exit_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+            </select></label>
+          </div>
+          <label class="ct-fld">復習コメント（必須）
+            <textarea name="exit_note" rows="3" required placeholder="なぜこうなったか。買った理由は正しかったか。次に同じ場面が来たらどうするか"></textarea></label>
+          <button class="ct-btn" type="submit">売却を記録</button>
+        </form>
+        <form method="post" class="ct-inline" onsubmit="return confirm('この練習取引を削除します。よろしいですか？');">
+          {% csrf_token %}<input type="hidden" name="form_id" value="delete"><input type="hidden" name="id" value="{{ r.t.id }}">
+          <button class="ct-btn-danger" type="submit">誤登録を削除</button></form>
+      </details>
+    </div>
+    {% empty %}
+    <p class="ct-empty">買ったつもりの玉はありません。下のフォームから始めます。</p>
+    {% endfor %}
+  </section>
+
   {% comment %} ---- 振り返り（短期トレードと同じ。ボタンで切り替え） ---- {% endcomment %}
   {% if stats.n %}
   <section class="ct-card ct-reflect">
@@ -157,7 +165,8 @@
         <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
           <span class="ct-sub">{% if key == 'other' %}{{ r.t.get_exit_reason_display }}・{% endif %}{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{% if r.net > 0 %}+{% endif %}{{ r.net|floatformat:1 }}%</span></span></div>
         <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
-        <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
+        <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}</div>
+        {% if r.exit_note %}<div class="ct-reflect-review"><span class="k">復習</span>{{ r.exit_note|linebreaksbr }}</div>{% endif %}
       </div>
       {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
     </div>
