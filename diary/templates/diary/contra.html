@@ -83,33 +83,7 @@
     </div>
     {% for r in open_rows %}
     <div class="ct-pos {% if r.touched_stop %}hit-stop{% elif r.touched_target %}hit-target{% endif %}">
-      <div class="ct-pos-top">
-        <div class="ct-pos-name"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:28 }}
-          <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }} 建て・<b>{{ r.days }}日</b>経過・{{ r.t.shares }}株</span></div>
-        <div class="ct-pos-now">
-          {% if r.cur %}現在 <b>{{ r.unit }}{{ r.cur|floatformat:2 }}</b>
-            <span class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{{ r.change|floatformat:1 }}%</span>
-            <span class="ct-sub">{{ r.cur_date|date:"n/j" }} 終値{% if r.stale %}・<b class="ct-stale">古い</b>{% endif %}</span>
-          {% else %}<span class="ct-sub">日足なし（更新を押す）</span>{% endif %}
-        </div>
-      </div>
-      <div class="ct-range">
-        <span class="ct-range-stop">損切り {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}</span>
-        <div class="ct-track">
-          <span class="ct-mark-entry" style="left:{{ r.entry_pos|floatformat:1 }}%" title="建値 {{ r.t.entry_price }}">▲</span>
-          {% if r.pos is not None %}<span class="ct-mark-now" style="left:{{ r.pos|floatformat:1 }}%" title="現在 {{ r.cur }}">●</span>{% endif %}
-        </div>
-        <span class="ct-range-target">利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }}</span>
-      </div>
-      <div class="ct-pos-meta">
-        {% if r.cur %}
-          <span>損切りまで <b class="{% if r.to_stop < 1.5 %}down{% endif %}">{{ r.to_stop|floatformat:1 }}%</b></span>
-          <span>利確まで <b>{{ r.to_target|floatformat:1 }}%</b></span>
-          <span>含み <b class="{% if r.pnl_now > 0 %}up{% elif r.pnl_now < 0 %}down{% endif %}">{{ r.unit }}{{ r.pnl_now|floatformat:0|intcomma }}</b></span>
-        {% endif %}
-        {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → 売買日記で「売り」を記録</span>{% endif %}
-        {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → 売買日記で「売り」を記録</span>{% endif %}
-      </div>
+      {% include 'diary/_position.html' with close_hint='売買日記で「売り」を記録' %}
     </div>
     {% empty %}
     <p class="ct-empty">保有中の取引はありません。</p>

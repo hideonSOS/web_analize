@@ -1,0 +1,42 @@
+{% load humanize %}
+{% comment %}
+  保有中の1銘柄ブロック（短期トレードと練習で共用・2026-09-10）。見た目を必ず同じに保つため
+  両ページはこの include を使う。ページ固有の要素（練習の決済フォーム等）は include の後に置く。
+  レンジバー: 左端=損切り線、右端=利確線。▲建値、●現在値。目盛りは 損切り／0／利確の半分／利確。
+{% endcomment %}
+<div class="ct-pos-top">
+  <div class="ct-pos-name"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:28 }}
+    <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }} 建て・<b>{{ r.days }}日</b>経過・{{ r.t.shares }}株</span></div>
+  <div class="ct-pos-now">
+    {% if r.cur %}現在 <b>{{ r.unit }}{{ r.cur|floatformat:2 }}</b>
+      <span class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{% if r.change > 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
+      <span class="ct-sub">{{ r.cur_date|date:"n/j" }} 終値{% if r.stale %}・<b class="ct-stale">古い</b>{% endif %}</span>
+    {% else %}<span class="ct-sub">日足なし（更新を押す）</span>{% endif %}
+  </div>
+</div>
+<div class="ct-range">
+  <span class="ct-range-stop">損切り {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}</span>
+  <div class="ct-track-wrap">
+    <div class="ct-track">
+      {% for k in r.ticks %}<span class="ct-slit {{ k.kind }}" style="left:{{ k.pos|floatformat:1 }}%"></span>{% endfor %}
+      <span class="ct-mark-entry" style="left:{{ r.entry_pos|floatformat:1 }}%" title="建値 {{ r.t.entry_price }}">▲</span>
+      {% if r.pos is not None %}<span class="ct-mark-now" style="left:{{ r.pos|floatformat:1 }}%" title="現在 {{ r.cur }}">●</span>{% endif %}
+    </div>
+    <div class="ct-ticks">
+      {% for k in r.ticks %}<span class="ct-tick {{ k.kind }}" style="left:{{ k.pos|floatformat:1 }}%">{{ k.label }}</span>{% endfor %}
+    </div>
+  </div>
+  <span class="ct-range-target">利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }}</span>
+</div>
+<div class="ct-pos-meta">
+  {% if r.cur %}
+    {% if r.progress is not None %}<span>利確まで達成 <b class="up">{{ r.progress|floatformat:0 }}%</b></span>
+    {% elif r.drawdown is not None %}<span>損切りまで進行 <b class="down">{{ r.drawdown|floatformat:0 }}%</b></span>{% endif %}
+    <span>損切りまで <b class="{% if r.to_stop < 1.5 %}down{% endif %}">{{ r.to_stop|floatformat:1 }}%</b></span>
+    <span>利確まで <b>{{ r.to_target|floatformat:1 }}%</b></span>
+    <span>含み <b class="{% if r.pnl_now > 0 %}up{% elif r.pnl_now < 0 %}down{% endif %}">{{ r.unit }}{{ r.pnl_now|floatformat:0|intcomma }}</b></span>
+  {% endif %}
+  {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → {{ close_hint }}</span>{% endif %}
+  {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
+</div>
+{% if r.t.entry_note %}<p class="ct-note">なぜ買ったか: {{ r.t.entry_note|truncatechars:140 }}</p>{% endif %}

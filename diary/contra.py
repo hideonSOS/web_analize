@@ -224,6 +224,17 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'hi': hi, 'lo': lo,
             'touched_stop': touched_stop, 'touched_target': touched_target,
             'pos': pos, 'entry_pos': entry_pos,
+            # 目盛り（ユーザー要望 2026-09-10）: 損切り線／建値(0)／利確の半分／利確線 の位置とラベル。
+            # 「半分で降りるか」「＋に動いたときの達成率」を見るため。位置は損切り線〜利確線を 0〜100% として
+            'ticks': [
+                {'pos': 0, 'label': f'−{t.stop_pct:g}%', 'kind': 'stop'},
+                {'pos': entry_pos, 'label': '0', 'kind': 'entry'},
+                {'pos': entry_pos + (100 - entry_pos) / 2, 'label': f'+{t.target_pct / 2:g}%', 'kind': 'half'},
+                {'pos': 100, 'label': f'+{t.target_pct:g}%', 'kind': 'target'},
+            ],
+            # 達成率: 利確幅に対して今どこまで来たか（＋なら利確までの進み、−なら損切りへの進み）
+            'progress': (change / t.target_pct * 100) if change is not None and change >= 0 and t.target_pct else None,
+            'drawdown': (-change / t.stop_pct * 100) if change is not None and change < 0 and t.stop_pct else None,
             'days': (today - t.entry_date).days,
             'bars_n': len(bars),
             'risk': plan_risk(t),

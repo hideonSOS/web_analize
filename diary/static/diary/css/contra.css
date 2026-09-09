@@ -80,7 +80,19 @@
 .ct-range-target{ color:#86efac; }
 .ct-range i{ display:block; font-style:normal; color:#6b7280; font-size:10px; }
 .ct-track{ position:relative; height:22px; border-radius:6px; background:linear-gradient(90deg, rgba(239,68,68,.35), rgba(107,114,128,.15) 45%, rgba(107,114,128,.15) 55%, rgba(74,222,128,.35)); border:1px solid #334155; }
-.ct-mark-entry{ position:absolute; top:100%; transform:translate(-50%, -6px); color:#9ca3af; font-size:10px; line-height:1; }
+/* 目盛り（2026-09-10）: 損切り／0／利確の半分／利確 にスリットとラベル。半分で降りるか・達成率を見るため */
+.ct-track-wrap{ position:relative; padding-bottom:16px; }
+.ct-slit{ position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.35); transform:translateX(-50%); }
+.ct-slit.entry{ width:2px; background:rgba(255,255,255,.7); }
+.ct-slit.half{ background:rgba(250,204,21,.6); }
+.ct-slit.stop, .ct-slit.target{ display:none; }   /* 両端はバーの縁そのもの */
+.ct-ticks{ position:absolute; left:0; right:0; top:100%; margin-top:-14px; height:14px; font-size:10px; color:#9ca3af; }
+.ct-tick{ position:absolute; transform:translateX(-50%); white-space:nowrap; }
+.ct-tick.stop{ transform:none; left:0 !important; color:#fca5a5; }
+.ct-tick.target{ transform:translateX(-100%); color:#86efac; }
+.ct-tick.entry{ color:#e5e7eb; font-weight:700; }
+.ct-tick.half{ color:#fcd34d; }
+.ct-mark-entry{ position:absolute; top:100%; transform:translate(-50%, -6px); color:#9ca3af; font-size:10px; line-height:1; display:none; }
 .ct-mark-now{ position:absolute; top:50%; transform:translate(-50%, -50%); color:#fff; font-size:16px; line-height:1; text-shadow:0 0 4px #000, 0 0 8px #1e90ff; }
 .ct-pos-meta{ display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:#9ca3af; margin-top:10px; }
 .ct-pos-meta b{ color:#e5e7eb; }
