@@ -185,12 +185,64 @@ def close_trade(t: Trade, price: float, exit_date, reason: str = '', note: str =
     return t
 
 
-def add_note(t: Trade, text: str, mood: str = '') -> TradeNote | None:
-    """保有中のコメントを追記（空なら何もしない）"""
+def add_note(t: Trade, text: str, kind: str = '') -> TradeNote | None:
+    """保有中のコメントを追記（空なら何もしない）。kind は good（好材料）/bad（悪材料）"""
     text = (text or '').strip()
     if not text:
         return None
-    return TradeNote.objects.create(trade=t, text=text, mood=mood)
+    return TradeNote.objects.create(trade=t, text=text, kind=kind if kind in dict(TradeNote.KINDS) else '')
+
+
+AFTER_EXIT_DAYS = 30     # 売却後に日足を追い続ける日数（update_trade_bars も同じ値を見る）
+
+
+def after_exit_rows(strategy: str = 'contra', limit: int = 30, today: date | None = None) -> list[dict]:
+    """売却した取引の「その後」（ユーザー要望 2026-09-10: 損切り・利確に関わらず追跡して学ぶ）。
+
+    売却日より後の日足から 現在値・売却後の高値/安値・売却価格からの騰落 を出し、
+    「損切り後に反発した」「利確後さらに上げた」などの一言を付ける。日足は売却後 AFTER_EXIT_DAYS 日まで
+    update_trade_bars が取り続ける（それ以降は最後に取れた値のまま）
+    """
+    today = today or date.today()
+    rows = []
+    qs = Trade.objects.filter(strategy=strategy, exit_date__isnull=False).order_by('-exit_date', '-id')[:limit]
+    for t in qs:
+        after = list(t.bars.filter(date__gt=t.exit_date).order_by('date').values('date', 'high', 'low', 'close'))
+        last = after[-1] if after else None
+        cur = last['close'] if last else None
+        hi = max(b['high'] for b in after) if after else None
+        lo = min(b['low'] for b in after) if after else None
+        chg = (cur / t.exit_price - 1) * 100 if cur and t.exit_price else None
+        hi_chg = (hi / t.exit_price - 1) * 100 if hi and t.exit_price else None
+        lo_chg = (lo / t.exit_price - 1) * 100 if lo and t.exit_price else None
+        # 一言（学び）: 売った判断がどう転んだか
+        word, tone = '', ''
+        if chg is not None:
+            if t.exit_reason == 'stop':
+                if hi_chg is not None and hi_chg >= t.stop_pct:
+                    word, tone = f'損切り後に反発（高値 +{hi_chg:.1f}%）。切り所が早かったか', 'warn'
+                elif chg <= -t.stop_pct / 2:
+                    word, tone = f'損切り後さらに下落（{chg:+.1f}%）。切って正解', 'ok'
+                else:
+                    word, tone = f'損切り後は横ばい（{chg:+.1f}%）', ''
+            elif t.exit_reason in ('target', 'early'):
+                if hi_chg is not None and hi_chg >= 5:
+                    word, tone = f'売却後さらに上昇（高値 +{hi_chg:.1f}%）。伸ばせた', 'warn'
+                elif lo_chg is not None and lo_chg <= -5:
+                    word, tone = f'売却後に反落（安値 {lo_chg:+.1f}%）。降りて正解', 'ok'
+                else:
+                    word, tone = f'売却後は小動き（{chg:+.1f}%）', ''
+            else:
+                word = f'売却後 {chg:+.1f}%'
+        rows.append({
+            't': t, 'cur': cur, 'cur_date': last['date'] if last else None,
+            'chg': chg, 'hi': hi, 'lo': lo, 'hi_chg': hi_chg, 'lo_chg': lo_chg,
+            'days_after': (today - t.exit_date).days, 'tracking': (today - t.exit_date).days <= AFTER_EXIT_DAYS,
+            'word': word, 'tone': tone,
+            'net': t.pnl_pct_net(ContraSetting.get('practice' if strategy == 'practice' else 'contra').cost_pct),
+            'unit': '$' if t.currency == 'USD' else '円',
+        })
+    return rows
 
 
 def reasons_of(t: Trade) -> list[str]:
@@ -234,6 +286,13 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
         bars = list(t.bars.order_by('date').values('date', 'open', 'high', 'low', 'close'))
         last = bars[-1] if bars else None
         cur = last['close'] if last else None
+        # ⚠️ 建てた当日は日足がまだ無い（米国の引け前）。現在値マーカーが消えて「反映されていない」と
+        # 見えた実例（2026-09-10 GOOG）。日足が無いときは株価マスタの終値（Stock.close）で代用する
+        fallback = False
+        if cur is None and t.stock is not None and t.stock.close:
+            cur = float(t.stock.close)
+            last = {'date': t.stock.price_date, 'high': cur, 'low': cur, 'close': cur}
+            fallback = True
         hi = max(b['high'] for b in bars) if bars else None
         lo = min(b['low'] for b in bars) if bars else None
         touched_stop = bool(bars) and lo <= t.stop_price
@@ -268,7 +327,8 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'reasons': reasons_of(t),
             'notes': list(t.notes.all()[:5]), 'notes_n': t.notes.count(),
             'unit': '$' if t.currency == 'USD' else '円',
-            'stale': (last is None) or (today - last['date']).days > 4,
+            'stale': (last is None or last['date'] is None) or (today - last['date']).days > 4,
+            'fallback': fallback,      # 株価マスタの終値で代用中（日足が来れば自動で切り替わる）
         })
     # 触れたものを先頭に（今日やることが上に来る）
     rows.sort(key=lambda r: (not (r['touched_stop'] or r['touched_target']), r['t'].entry_date))

@@ -260,7 +260,7 @@ def contra(request):
         #   買い＋「短期トレードとして追跡」→ contra.open_from_entry、売り → contra.close_from_entry
         if form_id == 'note':
             t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='contra')
-            if C.add_note(t, request.POST.get('text', ''), request.POST.get('mood', '')):
+            if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', '')):
                 messages.success(request, f'{t.ticker} にコメントを追記しました。')
             return redirect('diary:contra')
 
@@ -283,6 +283,7 @@ def contra(request):
         'reflect_panels': [('stop', st['reflect']['stop'], '損切り'), ('target', st['reflect']['target'], '利確'),
                            ('other', st['reflect']['other'], '裁量・期限')],
         'open_rows': C.open_rows(setting), 'stats': st,
+        'after_rows': C.after_exit_rows('contra'),
         'moods': MOODS,   # 保有中のコメント追記フォーム用
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,
@@ -397,7 +398,7 @@ def practice(request):
 
         if form_id == 'note':
             t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
-            if C.add_note(t, request.POST.get('text', ''), request.POST.get('mood', '')):
+            if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', '')):
                 messages.success(request, f'{t.ticker} にコメントを追記しました。')
             return redirect('diary:practice')
 
@@ -424,6 +425,7 @@ def practice(request):
         'reflect_panels': [('stop', st['reflect']['stop'], '損切り'), ('target', st['reflect']['target'], '利確'),
                            ('other', st['reflect']['other'], '裁量・期限')],
         'open_rows': C.open_rows(setting, strategy='practice'),
+        'after_rows': C.after_exit_rows('practice'),
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,
         'tags': TAGS, 'moods': MOODS,

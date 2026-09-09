@@ -64,7 +64,13 @@ class Command(BaseCommand):
         parser.add_argument('--trade', type=int, default=0, help='Trade の id を1件だけ')
 
     def handle(self, *args, **options):
-        qs = Trade.objects.filter(exit_date__isnull=True)
+        # 保有中＋売却後 AFTER_EXIT_DAYS 日以内（「その後」を学ぶため。ユーザー要望 2026-09-10）
+        from datetime import timedelta as _td
+
+        from django.db.models import Q
+
+        from diary.contra import AFTER_EXIT_DAYS
+        qs = Trade.objects.filter(Q(exit_date__isnull=True) | Q(exit_date__gte=date.today() - _td(days=AFTER_EXIT_DAYS)))
         if options['trade']:
             qs = Trade.objects.filter(id=options['trade'])
         ok = ng = 0

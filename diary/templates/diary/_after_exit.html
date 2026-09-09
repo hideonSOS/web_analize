@@ -1,0 +1,24 @@
+{% load humanize %}
+{% comment %}
+  売却後の追跡（両ページ共用・2026-09-10）: 損切り・利確に関わらず、売った後の値動きを追って学ぶ。
+  売却後 30 日は日足を取り続ける（update_trade_bars）。一言は contra.after_exit_rows が付ける
+{% endcomment %}
+<section class="ct-card ct-after">
+  <h2>売却後の追跡 <span class="ct-hint">損切り・利確に関わらず、売った後どう動いたか（売却後30日まで日足を追う）</span></h2>
+  {% for a in after_rows %}
+  <div class="ct-after-item tone-{{ a.tone }}">
+    <div class="ct-after-head"><b>{{ a.t.ticker }}</b> {{ a.t.stock_name|truncatechars:22 }}
+      <span class="ct-sub">{{ a.t.exit_date|date:"n/j" }} {{ a.t.get_exit_reason_display }} {{ a.unit }}{{ a.t.exit_price|floatformat:2 }}
+        （<span class="{% if a.net > 0 %}up{% else %}down{% endif %}">{% if a.net > 0 %}+{% endif %}{{ a.net|floatformat:1 }}%</span>）・売却後 {{ a.days_after }}日{% if not a.tracking %}・追跡終了{% endif %}</span></div>
+    {% if a.cur %}
+    <div class="ct-after-body">
+      <span>現在 <b>{{ a.unit }}{{ a.cur|floatformat:2 }}</b> <b class="{% if a.chg > 0 %}up{% elif a.chg < 0 %}down{% endif %}">{% if a.chg > 0 %}+{% endif %}{{ a.chg|floatformat:1 }}%</b><span class="ct-sub">売却価格比・{{ a.cur_date|date:"n/j" }}</span></span>
+      <span>売却後の高値 <b class="up">+{{ a.hi_chg|floatformat:1 }}%</b>／安値 <b class="down">{{ a.lo_chg|floatformat:1 }}%</b></span>
+      {% if a.word %}<span class="ct-after-word">{{ a.word }}</span>{% endif %}
+    </div>
+    {% else %}<div class="ct-sub">売却後の日足はまだありません（「日足を更新」で取れます）</div>{% endif %}
+  </div>
+  {% empty %}
+  <p class="ct-empty">売却した取引はまだありません。</p>
+  {% endfor %}
+</section>

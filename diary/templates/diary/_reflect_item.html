@@ -15,7 +15,7 @@
   {% endif %}
   <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}</div>
   {% if r.notes %}
-  <div class="ct-reflect-notes">{% for n in r.notes reversed %}<div><span class="ct-sub">{{ n.created_at|date:"n/j" }}{% if n.mood %}・{{ n.mood }}{% endif %}</span> {{ n.text }}</div>{% endfor %}</div>
+  <div class="ct-reflect-notes">{% for n in r.notes reversed %}<div class="{{ n.kind }}"><span class="ct-sub">{{ n.created_at|date:"n/j" }}</span>{% if n.kind %}<span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display }}</span>{% endif %} {{ n.text }}</div>{% endfor %}</div>
   {% endif %}
   {% if r.exit_note %}<div class="ct-reflect-review"><span class="k">復習</span>{{ r.exit_note|linebreaksbr }}</div>{% endif %}
 </div>

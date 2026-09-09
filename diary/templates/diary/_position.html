@@ -10,7 +10,7 @@
   <div class="ct-pos-now">
     {% if r.cur %}現在 <b>{{ r.unit }}{{ r.cur|floatformat:2 }}</b>
       <span class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{% if r.change > 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
-      <span class="ct-sub">{{ r.cur_date|date:"n/j" }} 終値{% if r.stale %}・<b class="ct-stale">古い</b>{% endif %}</span>
+      <span class="ct-sub">{{ r.cur_date|date:"n/j" }} {% if r.fallback %}終値（日足待ち・株価マスタ）{% else %}終値{% endif %}{% if r.stale %}・<b class="ct-stale">古い</b>{% endif %}</span>
     {% else %}<span class="ct-sub">日足なし（更新を押す）</span>{% endif %}
   </div>
 </div>
@@ -55,13 +55,13 @@
 {% endif %}
 <div class="ct-notes">
   {% for n in r.notes %}
-  <div class="ct-note-item"><span class="ct-sub">{{ n.created_at|date:"n/j H:i" }}{% if n.mood %}・{{ n.mood }}{% endif %}</span> {{ n.text|linebreaksbr }}</div>
+  <div class="ct-note-item {{ n.kind }}"><span class="ct-sub">{{ n.created_at|date:"n/j H:i" }}</span>{% if n.kind %}<span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display }}</span>{% endif %} {{ n.text|linebreaksbr }}</div>
   {% endfor %}
   {% if r.notes_n > 5 %}<div class="ct-sub">ほか {{ r.notes_n|add:"-5" }}件（振り返りに全部出ます）</div>{% endif %}
   <form method="post" class="ct-note-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
-    <input type="text" name="text" placeholder="コメントを追記（下がってショック・上がって高揚 など、今の気持ち）" required>
-    <select name="mood"><option value="">心理</option>{% for m in moods %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select>
+    <input type="text" name="text" placeholder="コメントを追記（材料・値動き・今の気持ち）" required>
+    <select name="kind"><option value="">材料の種類</option><option value="good">好材料</option><option value="bad">悪材料</option></select>
     <button class="ct-btn-sub" type="submit">追記</button>
   </form>
 </div>
