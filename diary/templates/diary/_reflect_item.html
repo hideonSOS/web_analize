@@ -8,7 +8,7 @@
     <span class="ct-sub">{% if key == 'other' %}{{ r.t.get_exit_reason_display }}・{% endif %}{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{% if r.net > 0 %}+{% endif %}{{ r.net|floatformat:1 }}%</span></span></div>
   {% comment %} 理由とコメントは同じ時系列（古い順）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
   {% if r.timeline %}
-  <div class="ct-reflect-notes">{% for n in r.timeline %}<div class="{{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text }}</div>{% endfor %}</div>
+  <div class="ct-reflect-notes">{% for n in r.timeline %}<div class="{{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text }}{% if n.image %} <a class="ct-note-img" href="{% url 'diary:note_image' n.pk %}" target="_blank"><img src="{% url 'diary:note_image' n.pk %}" alt="チャート"></a>{% endif %}</div>{% endfor %}</div>
   {% elif r.reasons %}<ul class="ct-reflect-reasons">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
   {% if r.risk_scenario %}
   <div class="ct-reflect-risk"><span class="k">想定</span>{{ r.risk_scenario|linebreaksbr }}

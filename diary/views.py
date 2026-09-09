@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -260,7 +260,7 @@ def contra(request):
         #   買い＋「短期トレードとして追跡」→ contra.open_from_entry、売り → contra.close_from_entry
         if form_id == 'note':
             t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='contra')
-            if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', '')):
+            if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', ''), image=request.POST.get('image', '')):
                 messages.success(request, f'{t.ticker} にコメントを追記しました。')
             return redirect('diary:contra')
 
@@ -377,7 +377,7 @@ def practice(request):
             tags = ','.join(t for t in request.POST.getlist('tags') if t in TAGS)
             mood = request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else ''
             t = C.open_practice(setting, stock, price, int(shares), entry_date, reason, tags, mood, risk_scenario,
-                                reasons=pairs or None)
+                                reasons=pairs or None, chart_image=request.POST.get('chart_image', ''))
             msg = f'{t.ticker} を {int(shares)}株 @{price:g} で買ったつもり。損切り {t.stop_price:g}／利確 {t.target_price:g}。'
             if t.over_risk:
                 messages.warning(request, msg + ' ⚠️ 許容株数を超えています（裁量として記録）。')
@@ -402,7 +402,7 @@ def practice(request):
 
         if form_id == 'note':
             t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
-            if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', '')):
+            if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', ''), image=request.POST.get('image', '')):
                 messages.success(request, f'{t.ticker} にコメントを追記しました。')
             return redirect('diary:practice')
 
@@ -434,3 +434,21 @@ def practice(request):
         'risk_budget': setting.capital * setting.risk_pct / 100,
         'tags': TAGS, 'moods': MOODS,
     })
+
+
+def note_image(request, pk):
+    """コメントに貼ったチャート画像を返す（data URL を復号）。ログイン必須（ミドルウェアが守る）。
+    /media/ を使わないのは nginx が認証なしで配信するため（CLAUDE.md 参照）"""
+    import base64
+
+    from django.http import HttpResponse
+
+    from .models import TradeNote
+    n = get_object_or_404(TradeNote, pk=pk)
+    if not n.image.startswith('data:image/'):
+        raise Http404
+    head, data = n.image.split(',', 1)
+    mime = head[5:].split(';')[0]
+    resp = HttpResponse(base64.b64decode(data), content_type=mime)
+    resp['Cache-Control'] = 'private, max-age=86400'
+    return resp

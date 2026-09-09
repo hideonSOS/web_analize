@@ -56,3 +56,39 @@
     document.querySelectorAll('.ct-reflect-col[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== btn.dataset.panel; });
   });
 })();
+
+/* 画像の貼り付け（Ctrl+V）: .ct-paste にフォーカスして貼ると、同じフォーム内の .ct-paste-data に
+   data URL（1200px 幅・JPEG 0.85 に縮小）を入れ、.ct-paste-preview に表示する。
+   フォーム内のテキスト欄に貼っても拾う。サーバーは data URL をそのまま DB に持つ */
+(() => {
+  const MAX_W = 1200;
+  function handle(file, form) {
+    const data = form.querySelector('.ct-paste-data');
+    const prev = form.querySelector('.ct-paste-preview');
+    const zone = form.querySelector('.ct-paste');
+    if (!data) return;
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, MAX_W / img.width);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const url = cv.toDataURL('image/jpeg', 0.85);
+      data.value = url;
+      if (prev) { prev.src = url; prev.hidden = false; }
+      if (zone) zone.textContent = '✔ 画像を貼り付けました（送信で保存）。貼り直すにはもう一度 Ctrl+V';
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  }
+  document.addEventListener('paste', (e) => {
+    const form = (e.target && e.target.closest) ? e.target.closest('form') : null;
+    if (!form || !form.querySelector('.ct-paste-data')) return;
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for (const it of items) {
+      if (it.type && it.type.startsWith('image/')) { e.preventDefault(); handle(it.getAsFile(), form); return; }
+    }
+  });
+  // 貼り付け欄はクリックでフォーカス（tabindex 付き）。Enter/Space でも何もしない
+  document.querySelectorAll('.ct-paste').forEach((z) => z.addEventListener('click', () => z.focus()));
+})();

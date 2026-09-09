@@ -95,6 +95,10 @@
               <select name="reason_kinds"><option value="info">情報</option><option value="good">好材料</option><option value="bad">悪材料</option></select></div>
           </div>
           <button type="button" class="ct-btn-sub" id="ct-add-reason">＋ 理由を追加</button></div>
+        <div class="ct-fld"><span>購入時のチャート（任意・スクリーンショットを Ctrl+V）</span>
+          <div class="ct-paste" tabindex="0" title="ここをクリックして Ctrl+V">📋 ここをクリックして Ctrl+V で貼り付け</div>
+          <input type="hidden" name="chart_image" class="ct-paste-data">
+          <img class="ct-paste-preview" alt="" hidden></div>
         <label class="ct-fld">マイナスになる想定（必須）
           <textarea name="risk_scenario" rows="2" required placeholder="例: 決算の悪材料が続くとサポートを割って−5%に届く。指数が崩れたら道連れ"></textarea></label>
         <div class="ct-form-row">

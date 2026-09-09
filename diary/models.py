@@ -173,6 +173,9 @@ class TradeNote(models.Model):
     mood = models.CharField(max_length=20, blank=True)      # 旧: 心理（未使用）
     kind = models.CharField(max_length=10, blank=True, choices=KINDS)   # 好材料=緑／悪材料=赤／情報=白（2026-09-10）
     at_entry = models.BooleanField(default=False)   # 購入時の理由（左端に日付ではなく「購入時」と出す）
+    # チャートのスクリーンショット（2026-09-10）。ブラウザで Ctrl+V → canvas で縮小 → data URL を
+    # そのまま DB に持つ（/media/ は nginx が認証なしで配信するため使わない。1枚 数十〜数百KB）
+    image = models.TextField(blank=True)
 
     class Meta:
         ordering = ['-created_at']

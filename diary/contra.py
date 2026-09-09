@@ -152,7 +152,8 @@ def close_from_entry(entry, reason: str = '', expected: str = '') -> Trade | Non
 
 # --- 練習（仮想トレード・2026-09-10）。日記とはつながず、練習ページのフォームから直接起こす ----
 def open_practice(setting: ContraSetting, stock, price: float, shares: int, entry_date, reason: str,
-                  tags: str = '', mood: str = '', risk_scenario: str = '', reasons=None) -> Trade:
+                  tags: str = '', mood: str = '', risk_scenario: str = '', reasons=None,
+                  chart_image: str = '') -> Trade:
     """「買ったつもり」の取引を起こす。ルール（損切り/利確の%）は練習用の設定から"""
     from django.core.management import call_command
     stop_pct, target_pct = setting.default_stop_pct, setting.default_target_pct
@@ -175,6 +176,8 @@ def open_practice(setting: ContraSetting, stock, price: float, shares: int, entr
     when = _entry_when(t)
     for text, kind in (reasons or [(x, 'info') for x in reasons_of(t)]):
         add_note(t, text, kind, when)
+    if chart_image:
+        add_note(t, '購入時のチャート', 'info', when, image=chart_image)
     try:
         call_command('update_trade_bars', trade=t.id)
     except Exception:   # noqa: BLE001
@@ -192,14 +195,18 @@ def close_trade(t: Trade, price: float, exit_date, reason: str = '', note: str =
     return t
 
 
-def add_note(t: Trade, text: str, kind: str = '', when=None) -> TradeNote | None:
-    """コメントを追記（空なら何もしない）。kind は good/bad/info。when を渡すとその日時にする
+MAX_IMAGE_CHARS = 2_500_000     # data URL の上限（約1.8MB）。ブラウザ側で 1200px 幅・JPEG に縮小してから送る
+
+
+def add_note(t: Trade, text: str, kind: str = '', when=None, image: str = '') -> TradeNote | None:
+    """コメントを追記（文字も画像も無ければ何もしない）。kind は good/bad/info。when を渡すとその日時にする
     （購入時の理由を建て日で入れるため。auto_now_add なので create 後に update で書く）"""
     text = (text or '').strip()
-    if not text:
+    image = image if (image or '').startswith('data:image/') and len(image) <= MAX_IMAGE_CHARS else ''
+    if not text and not image:
         return None
-    n = TradeNote.objects.create(trade=t, text=text, kind=kind if kind in dict(TradeNote.KINDS) else 'info',
-                                 at_entry=when is not None)
+    n = TradeNote.objects.create(trade=t, text=text or 'チャート', kind=kind if kind in dict(TradeNote.KINDS) else 'info',
+                                 at_entry=when is not None, image=image)
     if when is not None:
         TradeNote.objects.filter(pk=n.pk).update(created_at=when)
         n.created_at = when
@@ -208,13 +215,13 @@ def add_note(t: Trade, text: str, kind: str = '', when=None) -> TradeNote | None
 
 def timeline(t: Trade) -> list[TradeNote]:
     """購入時の理由と購入後のコメントを区別せず、古い順に並べる（ユーザー方針: 同じ土俵で評価）"""
-    return list(t.notes.order_by('created_at', 'id'))
+    return list(t.notes.order_by('-at_entry', 'created_at', 'id'))
 
 
 def _entry_when(t: Trade):
     from datetime import datetime, time
     from django.utils import timezone
-    return timezone.make_aware(datetime.combine(t.entry_date, time(9, 0)))
+    return timezone.make_aware(datetime.combine(t.entry_date, time(0, 0)))
 
 
 AFTER_EXIT_DAYS = 30     # 売却後に日足を追い続ける日数（update_trade_bars も同じ値を見る）
