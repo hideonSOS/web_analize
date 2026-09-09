@@ -91,7 +91,8 @@
         {% comment %} なぜ買ったかは「＋」で理由を列挙（1行1理由）。長文より箇条書きの方が振り返りやすい {% endcomment %}
         <div class="ct-fld"><span>なぜ買ったか（必須・理由を列挙）</span>
           <div id="ct-reasons" class="ct-reason-list">
-            <input type="text" name="reasons" placeholder="例: 下ヒゲがついた" required>
+            <div class="ct-reason-row"><input type="text" name="reasons" placeholder="例: 下ヒゲがついた" required>
+              <select name="reason_kinds"><option value="info">情報</option><option value="good">好材料</option><option value="bad">悪材料</option></select></div>
           </div>
           <button type="button" class="ct-btn-sub" id="ct-add-reason">＋ 理由を追加</button></div>
         <label class="ct-fld">マイナスになる想定（必須）

@@ -109,6 +109,9 @@ def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '') -> T
         tags.append('短期')          # 日記の一覧で短期トレードと分かるように
     entry.tags = ','.join(tags)
     entry.save(update_fields=['strategy', 'trade', 'tags'])
+    when = _entry_when(t)
+    for text in reasons_of(t):
+        add_note(t, text, 'info', when)
     try:
         call_command('update_trade_bars', trade=t.id)
     except Exception:   # noqa: BLE001
@@ -149,7 +152,7 @@ def close_from_entry(entry, reason: str = '', expected: str = '') -> Trade | Non
 
 # --- 練習（仮想トレード・2026-09-10）。日記とはつながず、練習ページのフォームから直接起こす ----
 def open_practice(setting: ContraSetting, stock, price: float, shares: int, entry_date, reason: str,
-                  tags: str = '', mood: str = '', risk_scenario: str = '') -> Trade:
+                  tags: str = '', mood: str = '', risk_scenario: str = '', reasons=None) -> Trade:
     """「買ったつもり」の取引を起こす。ルール（損切り/利確の%）は練習用の設定から"""
     from django.core.management import call_command
     stop_pct, target_pct = setting.default_stop_pct, setting.default_target_pct
@@ -168,6 +171,10 @@ def open_practice(setting: ContraSetting, stock, price: float, shares: int, entr
     t.save(update_fields=['risk_jpy'])
     if tags or mood:
         PracticeMeta.objects.update_or_create(trade=t, defaults={'tags': tags, 'mood': mood})
+    # 購入時の理由（種別付き）を時系列の先頭に置く。reasons=[(text, kind), ...]
+    when = _entry_when(t)
+    for text, kind in (reasons or [(x, 'info') for x in reasons_of(t)]):
+        add_note(t, text, kind, when)
     try:
         call_command('update_trade_bars', trade=t.id)
     except Exception:   # noqa: BLE001
@@ -185,12 +192,29 @@ def close_trade(t: Trade, price: float, exit_date, reason: str = '', note: str =
     return t
 
 
-def add_note(t: Trade, text: str, kind: str = '') -> TradeNote | None:
-    """保有中のコメントを追記（空なら何もしない）。kind は good（好材料）/bad（悪材料）"""
+def add_note(t: Trade, text: str, kind: str = '', when=None) -> TradeNote | None:
+    """コメントを追記（空なら何もしない）。kind は good/bad/info。when を渡すとその日時にする
+    （購入時の理由を建て日で入れるため。auto_now_add なので create 後に update で書く）"""
     text = (text or '').strip()
     if not text:
         return None
-    return TradeNote.objects.create(trade=t, text=text, kind=kind if kind in dict(TradeNote.KINDS) else '')
+    n = TradeNote.objects.create(trade=t, text=text, kind=kind if kind in dict(TradeNote.KINDS) else 'info',
+                                 at_entry=when is not None)
+    if when is not None:
+        TradeNote.objects.filter(pk=n.pk).update(created_at=when)
+        n.created_at = when
+    return n
+
+
+def timeline(t: Trade) -> list[TradeNote]:
+    """購入時の理由と購入後のコメントを区別せず、古い順に並べる（ユーザー方針: 同じ土俵で評価）"""
+    return list(t.notes.order_by('created_at', 'id'))
+
+
+def _entry_when(t: Trade):
+    from datetime import datetime, time
+    from django.utils import timezone
+    return timezone.make_aware(datetime.combine(t.entry_date, time(9, 0)))
 
 
 AFTER_EXIT_DAYS = 30     # 売却後に日足を追い続ける日数（update_trade_bars も同じ値を見る）
@@ -325,7 +349,7 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'bars_n': len(bars),
             'risk': plan_risk(t),
             'reasons': reasons_of(t),
-            'notes': list(t.notes.all()[:5]), 'notes_n': t.notes.count(),
+            'timeline': timeline(t),
             'unit': '$' if t.currency == 'USD' else '円',
             'stale': (last is None or last['date'] is None) or (today - last['date']).days > 4,
             'fallback': fallback,      # 株価マスタの終値で代用中（日足が来れば自動で切り替わる）
@@ -440,7 +464,7 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
             'reasons': reasons_of(t) if not e else [x.strip() for x in e.reason.splitlines() if x.strip()],
             'risk_scenario': t.risk_scenario,
             'expected': t.exit_expected,
-            'notes': list(t.notes.all()),
+            'timeline': timeline(t),
             'unit': '$' if t.currency == 'USD' else '円',
         }
     reflect = {'stop': [], 'target': [], 'other': []}

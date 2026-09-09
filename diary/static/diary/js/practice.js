@@ -79,9 +79,12 @@
   const btn = document.getElementById('ct-add-reason');
   if (!list || !btn) return;
   btn.addEventListener('click', () => {
-    const inp = document.createElement('input');
-    inp.type = 'text'; inp.name = 'reasons'; inp.placeholder = '例: サポートラインを見て判断';
-    list.appendChild(inp);
-    inp.focus();
+    // 理由1行＋種別（情報/好材料/悪材料）。購入後のコメントと同じ土俵で時系列に並ぶ
+    const row = document.createElement('div');
+    row.className = 'ct-reason-row';
+    row.innerHTML = '<input type="text" name="reasons" placeholder="例: サポートラインを見て判断">' +
+      '<select name="reason_kinds"><option value="info">情報</option><option value="good">好材料</option><option value="bad">悪材料</option></select>';
+    list.appendChild(row);
+    row.querySelector('input').focus();
   });
 })();

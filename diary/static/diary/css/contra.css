@@ -183,10 +183,20 @@
 
 /* コメントの材料種別: 好材料=白／悪材料=赤（2026-09-10） */
 .ct-note-item.bad, .ct-reflect-notes .bad{ color:#fca5a5; }
-.ct-note-item.good, .ct-reflect-notes .good{ color:#f3f4f6; }
+.ct-note-item.good, .ct-reflect-notes .good{ color:#86efac; }
+.ct-note-item.info, .ct-reflect-notes .info, .ct-note-item, .ct-reflect-notes div{ color:#f3f4f6; }
+.ct-note-item.bad, .ct-reflect-notes .bad{ color:#fca5a5; }
+.ct-note-item.good, .ct-reflect-notes .good{ color:#86efac; }
 .ct-note-kind{ display:inline-block; font-size:10px; border-radius:4px; padding:0 6px; margin:0 6px 0 4px; font-weight:700; }
-.ct-note-kind.good{ background:#e5e7eb; color:#111827; }
+.ct-note-kind.good{ background:#1e5c2f; color:#bbf7d0; }
 .ct-note-kind.bad{ background:#7c2d2d; color:#fecaca; }
+.ct-note-kind.info, .ct-note-kind{ background:#e5e7eb; color:#111827; }
+.ct-note-kind.good{ background:#1e5c2f; color:#bbf7d0; }
+.ct-note-kind.bad{ background:#7c2d2d; color:#fecaca; }
+.ct-when{ display:inline-block; min-width:36px; }
+.ct-reason-row{ display:flex; gap:6px; }
+.ct-reason-row input{ flex:1 1 auto; }
+.ct-reason-row select{ width:auto; }
 /* 売却後の追跡 */
 .ct-after-item{ border:1px solid #1f2937; border-left:3px solid #334155; border-radius:8px; padding:8px 10px; margin-bottom:8px; background:#0f172a; }
 .ct-after-item.tone-ok{ border-left-color:#1e5c2f; } .ct-after-item.tone-warn{ border-left-color:#7c5a1e; }

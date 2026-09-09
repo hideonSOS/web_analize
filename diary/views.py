@@ -365,7 +365,10 @@ def practice(request):
             except ValueError:
                 entry_date = _date.today()
             # なぜ買ったかは「＋」で列挙した理由を1行1理由で持つ（旧 reason 1本も受ける）
-            reasons = [x.strip() for x in request.POST.getlist('reasons') if x.strip()]
+            kinds = request.POST.getlist('reason_kinds')
+            pairs = [(x.strip(), (kinds[i] if i < len(kinds) else 'info'))
+                     for i, x in enumerate(request.POST.getlist('reasons')) if x.strip()]
+            reasons = [x for x, _ in pairs]
             reason = '\n'.join(reasons) or request.POST.get('reason', '').strip()
             risk_scenario = request.POST.get('risk_scenario', '').strip()
             if stock is None or not price or price <= 0 or not shares or shares <= 0 or not reason or not risk_scenario:
@@ -373,7 +376,8 @@ def practice(request):
                 return redirect('diary:practice')
             tags = ','.join(t for t in request.POST.getlist('tags') if t in TAGS)
             mood = request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else ''
-            t = C.open_practice(setting, stock, price, int(shares), entry_date, reason, tags, mood, risk_scenario)
+            t = C.open_practice(setting, stock, price, int(shares), entry_date, reason, tags, mood, risk_scenario,
+                                reasons=pairs or None)
             msg = f'{t.ticker} を {int(shares)}株 @{price:g} で買ったつもり。損切り {t.stop_price:g}／利確 {t.target_price:g}。'
             if t.over_risk:
                 messages.warning(request, msg + ' ⚠️ 許容株数を超えています（裁量として記録）。')

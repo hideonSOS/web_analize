@@ -46,22 +46,15 @@
   {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
 </div>
 {% comment %} なぜ買ったか（列挙）／マイナスになる想定／保有中のコメント（追記のみ）。2026-09-10 {% endcomment %}
-{% if r.reasons %}
-<div class="ct-reasons"><span class="k">なぜ買ったか</span>
-  <ul>{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul></div>
-{% endif %}
-{% if r.t.risk_scenario %}
-<div class="ct-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>
-{% endif %}
+{% comment %} 購入時の理由と購入後のコメントを区別せず時系列で（ユーザー方針 2026-09-10）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
 <div class="ct-notes">
-  {% for n in r.notes %}
-  <div class="ct-note-item {{ n.kind }}"><span class="ct-sub">{{ n.created_at|date:"n/j H:i" }}</span>{% if n.kind %}<span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display }}</span>{% endif %} {{ n.text|linebreaksbr }}</div>
+  {% for n in r.timeline %}
+  <div class="ct-note-item {{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
   {% endfor %}
-  {% if r.notes_n > 5 %}<div class="ct-sub">ほか {{ r.notes_n|add:"-5" }}件（振り返りに全部出ます）</div>{% endif %}
   <form method="post" class="ct-note-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
     <input type="text" name="text" placeholder="コメントを追記（材料・値動き・今の気持ち）" required>
-    <select name="kind"><option value="">材料の種類</option><option value="good">好材料</option><option value="bad">悪材料</option></select>
+    <select name="kind"><option value="info">情報</option><option value="good">好材料</option><option value="bad">悪材料</option></select>
     <button class="ct-btn-sub" type="submit">追記</button>
   </form>
 </div>

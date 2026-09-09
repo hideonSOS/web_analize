@@ -165,12 +165,14 @@ class Trade(models.Model):
 class TradeNote(models.Model):
     """保有中に書き足すコメント（下がってショック・上がって高揚 など。2026-09-10）。
     日記の振り返りと同じ発想で、当時の心理を時系列で残す。編集はしない（追記のみ）"""
-    KINDS = [('good', '好材料'), ('bad', '悪材料')]
+    # 好材料=緑／悪材料=赤／情報=白。購入時の理由も同じ表に入れて時系列で並べる（2026-09-10）
+    KINDS = [('good', '好材料'), ('bad', '悪材料'), ('info', '情報')]
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='notes')
     created_at = models.DateTimeField(auto_now_add=True)
     text = models.TextField()
     mood = models.CharField(max_length=20, blank=True)      # 旧: 心理（未使用）
-    kind = models.CharField(max_length=10, blank=True, choices=KINDS)   # 好材料=白／悪材料=赤（2026-09-10）
+    kind = models.CharField(max_length=10, blank=True, choices=KINDS)   # 好材料=緑／悪材料=赤／情報=白（2026-09-10）
+    at_entry = models.BooleanField(default=False)   # 購入時の理由（左端に日付ではなく「購入時」と出す）
 
     class Meta:
         ordering = ['-created_at']
