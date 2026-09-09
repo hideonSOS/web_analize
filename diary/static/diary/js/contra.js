@@ -38,7 +38,8 @@
         style: { text: rate == null ? '—' : `${rate}%`, fill: rate == null ? '#6b7280' : (ok ? '#4ade80' : '#f87171'),
                  fontSize: 30, fontWeight: 700, textAlign: 'center' } },
       { type: 'text', left: 'center', top: '60%',
-        style: { text: n ? `${d.wins}勝 ${d.losses}敗` : 'まだ決済なし', fill: '#9ca3af', fontSize: 12, textAlign: 'center' } },
+        // 勝率はルール決済（利確・損切り）だけ。早期利確しか無いときはその旨を出す
+        style: { text: n ? `${d.wins}勝 ${d.losses}敗` : (d.early ? `早期利確 ${d.early}件のみ` : 'まだ決済なし'), fill: '#9ca3af', fontSize: 12, textAlign: 'center' } },
     ],
   });
   window.addEventListener('resize', () => c.resize());

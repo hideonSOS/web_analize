@@ -24,7 +24,12 @@
       <div class="ct-result-text">
         {% with x=stats.expense %}
         <div class="ct-result-rate">勝率 <b>{% if stats.win_rate is not None %}{{ stats.win_rate|floatformat:0 }}%{% else %}—{% endif %}</b>
-          <span class="ct-sub">{{ stats.wins }}勝 {{ stats.losses }}敗・最低 {{ be.with_cost|floatformat:0 }}%</span></div>
+          <span class="ct-sub">{{ stats.wins }}勝 {{ stats.losses }}敗（利確・損切りだけ）・最低 {{ be.with_cost|floatformat:0 }}%</span></div>
+        {% comment %} 早期利確（+10%に届く前に利益で降りた）は勝率に入れない。損益だけトータルに積算 {% endcomment %}
+        {% if stats.total.early.n %}
+        <div class="ct-early">早期利確 <b>{{ stats.total.early.n }}件</b> +{{ stats.total.early.pct|floatformat:1 }}%
+          <span class="ct-sub">勝率には入れず、損益だけ積算</span></div>
+        {% endif %}
         <div class="ct-verdict-line ct-verdict-{{ x.verdict }}">
           {% if x.verdict == 'ok' %}✔ 損切りは経費として成立
           {% elif x.verdict == 'ng' %}✖ 損切りが経費になっていない
@@ -42,6 +47,7 @@
           <div class="ct-total-sub">
             <span class="up">利確 +{{ tt.target.pct|floatformat:1 }}%（{{ tt.target.n }}件・{{ tt.unit }}{{ tt.target.amount|floatformat:0|intcomma }}）</span>
             <span class="down">損切り {{ tt.stop.pct|floatformat:1 }}%（{{ tt.stop.n }}件・{{ tt.unit }}{{ tt.stop.amount|floatformat:0|intcomma }}）</span>
+            {% if tt.early.n %}<span class="up">早期利確 +{{ tt.early.pct|floatformat:1 }}%（{{ tt.early.n }}件・{{ tt.unit }}{{ tt.early.amount|floatformat:0|intcomma }}）</span>{% endif %}
             {% if tt.other.n %}<span class="ct-stale">裁量・期限 {% if tt.other.pct > 0 %}+{% endif %}{{ tt.other.pct|floatformat:1 }}%（{{ tt.other.n }}件）</span>{% endif %}
           </div>
         </div>

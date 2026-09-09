@@ -84,7 +84,8 @@ class Trade(models.Model):
     ドルなので、円換算して混ぜない）。1〜2%ルールも同じ通貨で判定する（為替は考えない方針）。
     """
     STRATEGY = [('contra', '短期'), ('long', '長期'), ('div', '配当')]
-    EXIT = [('stop', '損切り'), ('target', '利確'), ('manual', '裁量'), ('time', '期限')]
+    # early=早期利確: +10% に届く前に利益で降りた（勝率には入れず、損益だけ積算。ユーザー決定 2026-09-09）
+    EXIT = [('stop', '損切り'), ('target', '利確'), ('early', '早期利確'), ('manual', '裁量'), ('time', '期限')]
 
     stock = models.ForeignKey(Stock, null=True, blank=True, on_delete=models.SET_NULL)
     stock_name = models.CharField(max_length=100)

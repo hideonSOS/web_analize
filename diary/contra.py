@@ -116,11 +116,14 @@ def open_from_entry(entry, setting: ContraSetting) -> Trade | None:
 
 
 def auto_exit_reason(trade: Trade, price: float) -> str:
-    """決済価格から理由を推定（損切り線以下=損切り・利確線以上=利確・それ以外=裁量）"""
+    """決済価格から理由を推定。
+    損切り線以下=損切り／利確線以上=利確／建値より上で利確線未満=早期利確／それ以外（損失側の裁量）=裁量"""
     if price <= trade.stop_price:
         return 'stop'
     if price >= trade.target_price:
         return 'target'
+    if price > trade.entry_price:
+        return 'early'
     return 'manual'
 
 
@@ -195,7 +198,12 @@ def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
 
 
 def stats(setting: ContraSetting) -> dict:
-    """決済済み（短期）の成績。勝ち＝コスト込みで損益がプラス"""
+    """決済済み（短期）の成績。
+
+    勝率は**ルール決済（利確・損切り）だけ**で数える（ユーザー決定 2026-09-09）。
+    +10% に届く前に +5〜6% で降りた「早期利確」は、+10% を前提にした分岐勝率と競合するので
+    勝ち負けの数には入れない。ただし損益はトータルに積算する。裁量・期限も同じ扱い
+    """
     c = setting.cost_pct
     closed = list(Trade.objects.filter(strategy='contra', exit_date__isnull=False).order_by('exit_date', 'id'))
     rows, cum, curve = [], 0.0, []
@@ -208,18 +216,21 @@ def stats(setting: ContraSetting) -> dict:
         cum += net
         curve.append([t.exit_date.strftime('%Y-%m-%d'), round(cum, 2)])
         is_win = net > 0
-        wins += is_win
-        losses += (not is_win)
-        (win_pcts if is_win else loss_pcts).append(net)
-        streak = streak + 1 if not is_win else 0
-        max_streak = max(max_streak, streak)
+        # ⚠️ 勝率に入れるのはルール決済だけ（利確線に達した／損切り線で切った）
+        if t.exit_reason in ('target', 'stop'):
+            wins += is_win
+            losses += (not is_win)
+            (win_pcts if is_win else loss_pcts).append(net)
+            streak = streak + 1 if not is_win else 0
+            max_streak = max(max_streak, streak)
         if t.exit_reason in by_reason:
             by_reason[t.exit_reason]['n'] += 1
             by_reason[t.exit_reason]['sum'] += net
         rows.append({'t': t, 'net': net, 'gross': t.pnl_pct, 'amount': t.pnl_amount,
                      'win': is_win, 'unit': '$' if t.currency == 'USD' else '円'})
     n = len(closed)
-    win_rate = wins / n * 100 if n else None
+    rule_n = wins + losses                       # 勝率の分母＝ルール決済の件数
+    win_rate = wins / rule_n * 100 if rule_n else None
     be = breakeven(setting.default_stop_pct, setting.default_target_pct, c)
 
     # --- トータル（ユーザー要望 2026-09-09: 利確と損切りの＋−を積算して表示） ---------------
@@ -232,11 +243,12 @@ def stats(setting: ContraSetting) -> dict:
     total = {'pct': 0.0, 'amount': 0.0, 'n': n,
              'target': {'pct': 0.0, 'amount': 0.0, 'n': 0},
              'stop': {'pct': 0.0, 'amount': 0.0, 'n': 0},
+             'early': {'pct': 0.0, 'amount': 0.0, 'n': 0},
              'other': {'pct': 0.0, 'amount': 0.0, 'n': 0}}
     for t in closed:
         net = t.pnl_pct_net(c)
         amt = _amount_net(t)
-        key = t.exit_reason if t.exit_reason in ('target', 'stop') else 'other'
+        key = t.exit_reason if t.exit_reason in ('target', 'stop', 'early') else 'other'
         total['pct'] += net
         total['amount'] += amt
         total[key]['pct'] += net
@@ -245,7 +257,7 @@ def stats(setting: ContraSetting) -> dict:
     total['unit'] = '$'   # 米国株前提（日本株が混ざると通貨が混ざる。混ざったら分けて出すこと）
     avg_win = sum(win_pcts) / len(win_pcts) if win_pcts else 0
     avg_loss = sum(loss_pcts) / len(loss_pcts) if loss_pcts else 0
-    expectancy = (sum(win_pcts) + sum(loss_pcts)) / n if n else None
+    expectancy = (sum(win_pcts) + sum(loss_pcts)) / rule_n if rule_n else None
 
     # --- 損切りが「経費」として成立しているか（合意したルールの2条件） ---------------
     # ①勝率 > 分岐勝率（コスト込み） ②1回の損失が資金の risk_pct 以内
@@ -258,14 +270,15 @@ def stats(setting: ContraSetting) -> dict:
             big_losses.append({'t': t, 'amount': -amt})
     over_risk_n = sum(1 for t in closed if t.over_risk)
     stops = by_reason['stop']['n']
-    cond1 = None if n < EXPENSE_MIN_N else (win_rate > be['with_cost'])
+    cond1 = None if rule_n < EXPENSE_MIN_N else (win_rate > be['with_cost'])
     cond2 = not big_losses
     # 期待値（コスト込み・1取引あたり）がプラスかも併記。①と同じ意味だが金額の重みが入る
     verdict = ('pending' if cond1 is None else
                'ok' if (cond1 and cond2) else 'ng')
     expense = {
         'verdict': verdict,                       # pending / ok / ng
-        'min_n': EXPENSE_MIN_N, 'need_more': max(0, EXPENSE_MIN_N - n),
+        'min_n': EXPENSE_MIN_N, 'need_more': max(0, EXPENSE_MIN_N - rule_n),
+        'rule_n': rule_n, 'early': by_reason['early'],
         'cond1': cond1, 'cond2': cond2,
         'win_rate': win_rate, 'breakeven': be['with_cost'],
         'stops': stops, 'stops_pct': by_reason['stop']['sum'],   # 損切りの回数と合計%（=経費の総額）
@@ -293,7 +306,7 @@ def stats(setting: ContraSetting) -> dict:
     for r in rows:
         t = r['t']
         rr = _reflect_row(t, r['net'])
-        key = t.exit_reason if t.exit_reason in ('stop', 'target') else 'other'
+        key = t.exit_reason if t.exit_reason in ('stop', 'target') else ('target' if t.exit_reason == 'early' else 'other')
         reflect[key].append(rr)
         for tag in rr['tags']:
             d = tag_stats.setdefault(tag, {'tag': tag, 'wins': 0, 'losses': 0, 'sum': 0.0})
@@ -312,7 +325,7 @@ def stats(setting: ContraSetting) -> dict:
         'total': total,
         'reflect': reflect,
         'expense': expense,
-        'n': n, 'wins': wins, 'losses': losses, 'win_rate': win_rate,
+        'n': n, 'rule_n': rule_n, 'wins': wins, 'losses': losses, 'win_rate': win_rate,
         'breakeven': be, 'above_breakeven': (win_rate is not None and win_rate > be['with_cost']),
         'expectancy': expectancy, 'avg_win': avg_win, 'avg_loss': avg_loss,
         'max_loss_streak': max_streak,
