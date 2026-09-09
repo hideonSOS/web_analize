@@ -55,7 +55,13 @@ class DiaryEntry(models.Model):
 
 
 class ContraSetting(models.Model):
-    """短期トレードの設定（1行のシングルトン）。資金は手入力（遊び・学習目的、ユーザー方針）"""
+    """短期トレード／練習の設定（kind ごとに1行）。資金は手入力（遊び・学習目的、ユーザー方針）
+
+    kind='contra' が短期トレード（実際の取引）、'practice' が練習（仮想・2026-09-10）。
+    練習は「買ったつもり」でルールを追う先輩直伝の練習法で、日記とは一切つながない
+    """
+    KINDS = [('contra', '短期'), ('practice', '練習')]
+    kind = models.CharField(max_length=10, choices=KINDS, default='contra', unique=True)
     # ⚠️ 為替は考えない（ユーザー決定 2026-09-09）。一度ドルに替えたら円に戻さず運用するので、
     # 資金も損益も取引の通貨（米国株ならドル）のまま扱う。戦略そのものの精度を見るのが目的
     capital = models.IntegerField(default=10_000, help_text='資金全体（取引の通貨のまま。米国株ならドル）。1〜2%ルールの分母')
@@ -71,8 +77,8 @@ class ContraSetting(models.Model):
         return '短期設定'
 
     @classmethod
-    def get(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+    def get(cls, kind='contra'):
+        obj, _ = cls.objects.get_or_create(kind=kind)
         return obj
 
 
@@ -83,7 +89,7 @@ class Trade(models.Model):
     エントリー時に確定して持つ。価格は銘柄の通貨のまま（米国株はドル。指値を入れる基準が
     ドルなので、円換算して混ぜない）。1〜2%ルールも同じ通貨で判定する（為替は考えない方針）。
     """
-    STRATEGY = [('contra', '短期'), ('long', '長期'), ('div', '配当')]
+    STRATEGY = [('contra', '短期'), ('practice', '練習'), ('long', '長期'), ('div', '配当')]
     # early=早期利確: +10% に届く前に利益で降りた（勝率には入れず、損益だけ積算。ユーザー決定 2026-09-09）
     EXIT = [('stop', '損切り'), ('target', '利確'), ('early', '早期利確'), ('manual', '裁量'), ('time', '期限')]
 
@@ -149,6 +155,13 @@ class Trade(models.Model):
         from datetime import date
         end = self.exit_date or date.today()
         return (end - self.entry_date).days
+
+
+class PracticeMeta(models.Model):
+    """練習取引の判断タグ・心理（日記を使わないので取引に直付け・2026-09-10）"""
+    trade = models.OneToOneField(Trade, on_delete=models.CASCADE, related_name='practice_meta')
+    tags = models.CharField(max_length=200, blank=True)
+    mood = models.CharField(max_length=20, blank=True)
 
 
 class TradeBar(models.Model):

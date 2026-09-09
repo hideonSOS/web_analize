@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from .models import ContraSetting, Trade, TradeBar
+from .models import ContraSetting, PracticeMeta, Trade, TradeBar
 
 # 「損切りは経費」の判定に必要な最低件数。これ未満は勝率が偶然で大きく振れるので断定しない
 # （10件で勝率±15pt程度は普通に動く。分岐勝率37%との差が出るまで待つ）
@@ -145,6 +145,43 @@ def close_from_entry(entry, reason: str = '') -> Trade | None:
     return t
 
 
+# --- 練習（仮想トレード・2026-09-10）。日記とはつながず、練習ページのフォームから直接起こす ----
+def open_practice(setting: ContraSetting, stock, price: float, shares: int, entry_date, reason: str,
+                  tags: str = '', mood: str = '') -> Trade:
+    """「買ったつもり」の取引を起こす。ルール（損切り/利確の%）は練習用の設定から"""
+    from django.core.management import call_command
+    stop_pct, target_pct = setting.default_stop_pct, setting.default_target_pct
+    limit = max_shares(setting, price, stop_pct)
+    t = Trade.objects.create(
+        stock=stock, stock_name=stock.name, ticker=stock.display_code, country=stock.country,
+        currency='USD' if stock.country == 'US' else 'JPY', strategy='practice',
+        entry_date=entry_date, entry_price=price, shares=int(shares),
+        stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
+        stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
+        entry_note=reason, over_risk=int(shares) > limit['shares'],
+    )
+    t.risk_jpy = plan_risk(t)
+    # 練習はタグ・心理を日記に持たないので exit_note の手前に置く（振り返り用）
+    t.exit_note = ''
+    t.save(update_fields=['risk_jpy'])
+    if tags or mood:
+        PracticeMeta.objects.update_or_create(trade=t, defaults={'tags': tags, 'mood': mood})
+    try:
+        call_command('update_trade_bars', trade=t.id)
+    except Exception:   # noqa: BLE001
+        pass
+    return t
+
+
+def close_trade(t: Trade, price: float, exit_date, reason: str = '', note: str = '') -> Trade:
+    """取引を決済する（練習ページの決済フォーム用。理由が空なら価格から推定）"""
+    t.exit_date, t.exit_price = exit_date, price
+    t.exit_reason = reason if reason in dict(Trade.EXIT) else auto_exit_reason(t, price)
+    t.exit_note = note
+    t.save()
+    return t
+
+
 def untrack(entry) -> bool:
     """追跡をやめる（未決済の取引だけ）。日記の行は残す"""
     t = entry.trade
@@ -157,11 +194,12 @@ def untrack(entry) -> bool:
     return True
 
 
-def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
+def open_rows(setting: ContraSetting, today: date | None = None, strategy: str = 'contra') -> list[dict]:
     """保有中の取引を UI 用に。現在値・損切り/利確までの距離・ザラ場で触れたか・経過日数"""
     today = today or date.today()
     rows = []
-    for t in Trade.objects.filter(exit_date__isnull=True).select_related('stock').order_by('entry_date'):
+    for t in (Trade.objects.filter(exit_date__isnull=True, strategy=strategy)
+              .select_related('stock').order_by('entry_date')):
         bars = list(t.bars.order_by('date').values('date', 'open', 'high', 'low', 'close'))
         last = bars[-1] if bars else None
         cur = last['close'] if last else None
@@ -197,7 +235,7 @@ def open_rows(setting: ContraSetting, today: date | None = None) -> list[dict]:
     return rows
 
 
-def stats(setting: ContraSetting) -> dict:
+def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
     """決済済み（短期）の成績。
 
     勝率は**ルール決済（利確・損切り）だけ**で数える（ユーザー決定 2026-09-09）。
@@ -205,7 +243,7 @@ def stats(setting: ContraSetting) -> dict:
     勝ち負けの数には入れない。ただし損益はトータルに積算する。裁量・期限も同じ扱い
     """
     c = setting.cost_pct
-    closed = list(Trade.objects.filter(strategy='contra', exit_date__isnull=False).order_by('exit_date', 'id'))
+    closed = list(Trade.objects.filter(strategy=strategy, exit_date__isnull=False).order_by('exit_date', 'id'))
     rows, cum, curve = [], 0.0, []
     wins = losses = 0
     streak = max_streak = 0
@@ -292,11 +330,12 @@ def stats(setting: ContraSetting) -> dict:
     #     自分の癖を客観視する）。判断理由・タグ・心理はエントリー時の日記から取る
     def _reflect_row(t, net):
         e = t.entry_diary
+        meta = getattr(t, 'practice_meta', None) if t.strategy == 'practice' else None
         return {
             't': t, 'net': net,
             'reason': (e.reason if e else t.entry_note) or '',
-            'tags': [x for x in (e.tags if e else '').split(',') if x and x != '短期'],
-            'mood': e.mood if e else '',
+            'tags': [x for x in ((e.tags if e else (meta.tags if meta else ''))).split(',') if x and x != '短期'],
+            'mood': e.mood if e else (meta.mood if meta else ''),
             'exit_note': t.exit_note,
             'unit': '$' if t.currency == 'USD' else '円',
         }

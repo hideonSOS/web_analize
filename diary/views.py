@@ -75,7 +75,7 @@ def index(request):
         'sell': all_entries.filter(action='sell').count(),
     }
     from .models import ContraSetting, Trade
-    open_trades_n = Trade.objects.filter(exit_date__isnull=True).count()
+    open_trades_n = Trade.objects.filter(exit_date__isnull=True, strategy='contra').count()
 
     context = {
         'rows': rows,
@@ -309,3 +309,105 @@ def delete(request, pk):
             t.save()
     entry.delete()
     return redirect('diary:index')
+
+
+def practice(request):
+    """練習（仮想トレード・2026-09-10）。先輩直伝の「買ったつもりで追う」練習法。
+
+    短期トレードと同じレイアウト（勝率の円グラフ・保有中のレンジバー・振り返り・固定ルールバー）だが
+    売買日記とは一切つながない。軍資金・銘柄・なぜ買ったかをこのページで直接入力し、決済もここで行う。
+    データは Trade.strategy='practice' と ContraSetting.kind='practice' で完全に分離
+    """
+    from datetime import date as _date
+
+    from django.contrib import messages
+    from django.core.management import call_command
+
+    from . import contra as C
+    from .models import ContraSetting, PracticeMeta, Trade
+
+    setting = ContraSetting.get('practice')
+
+    if request.method == 'POST':
+        form_id = request.POST.get('form_id', '')
+
+        def _f(name, default=None):
+            try:
+                return float(str(request.POST.get(name, '')).replace(',', ''))
+            except ValueError:
+                return default
+
+        if form_id == 'setting':
+            cap = _f('capital'); risk = _f('risk_pct'); sp = _f('default_stop_pct')
+            tp = _f('default_target_pct'); cost = _f('cost_pct')
+            if None in (cap, risk, sp, tp, cost) or cap <= 0 or not (0 < risk <= 10) or sp <= 0 or tp <= 0:
+                messages.error(request, '設定の値を確認してください（軍資金>0・リスク0〜10%・幅>0）。')
+            else:
+                setting.capital, setting.risk_pct = int(cap), risk
+                setting.default_stop_pct, setting.default_target_pct, setting.cost_pct = sp, tp, cost
+                setting.save()
+                messages.success(request, '練習の設定を保存しました。')
+            return redirect('diary:practice')
+
+        if form_id == 'open':
+            stock = Stock.objects.filter(code=request.POST.get('stock_code', '').strip()).first()
+            price, shares = _f('entry_price'), _f('shares')
+            try:
+                entry_date = datetime.strptime(request.POST.get('entry_date', ''), '%Y-%m-%d').date()
+            except ValueError:
+                entry_date = _date.today()
+            reason = request.POST.get('reason', '').strip()
+            if stock is None or not price or price <= 0 or not shares or shares <= 0 or not reason:
+                messages.error(request, '銘柄・価格・株数・なぜ買ったか をすべて入れてください。')
+                return redirect('diary:practice')
+            tags = ','.join(t for t in request.POST.getlist('tags') if t in TAGS)
+            mood = request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else ''
+            t = C.open_practice(setting, stock, price, int(shares), entry_date, reason, tags, mood)
+            msg = f'{t.ticker} を {int(shares)}株 @{price:g} で買ったつもり。損切り {t.stop_price:g}／利確 {t.target_price:g}。'
+            if t.over_risk:
+                messages.warning(request, msg + ' ⚠️ 許容株数を超えています（裁量として記録）。')
+            else:
+                messages.success(request, msg)
+            return redirect('diary:practice')
+
+        if form_id == 'close':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
+            price = _f('exit_price')
+            try:
+                exit_date = datetime.strptime(request.POST.get('exit_date', ''), '%Y-%m-%d').date()
+            except ValueError:
+                exit_date = _date.today()
+            if not price or price <= 0:
+                messages.error(request, '決済価格を入れてください。')
+                return redirect('diary:practice')
+            C.close_trade(t, price, exit_date, request.POST.get('exit_reason', ''), request.POST.get('exit_note', '').strip())
+            messages.success(request, f'{t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {t.pnl_pct_net(setting.cost_pct):+.2f}%）。')
+            return redirect('diary:practice')
+
+        if form_id == 'delete':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
+            t.delete()
+            messages.success(request, '練習の取引を削除しました。')
+            return redirect('diary:practice')
+
+        if form_id == 'refresh':
+            try:
+                call_command('update_trade_bars')
+                messages.success(request, '日足を更新しました。')
+            except Exception as e:   # noqa: BLE001
+                messages.error(request, f'更新に失敗: {e}')
+            return redirect('diary:practice')
+
+    be = C.breakeven(setting.default_stop_pct, setting.default_target_pct, setting.cost_pct)
+    st = C.stats(setting, strategy='practice')
+    return render(request, 'diary/practice.html', {
+        'setting': setting, 'be': be, 'stats': st,
+        'donut': {'wins': st['wins'], 'losses': st['losses'], 'win_rate': st['win_rate'],
+                  'min_rate': round(be['with_cost']), 'early': st['total']['early']['n']},
+        'reflect_panels': [('stop', st['reflect']['stop'], '損切り'), ('target', st['reflect']['target'], '利確'),
+                           ('other', st['reflect']['other'], '裁量・期限')],
+        'open_rows': C.open_rows(setting, strategy='practice'),
+        'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
+        'risk_budget': setting.capital * setting.risk_pct / 100,
+        'tags': TAGS, 'moods': MOODS,
+    })
