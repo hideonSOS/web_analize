@@ -62,7 +62,9 @@ class ContraSetting(models.Model):
     risk_pct = models.FloatField(default=2.0, help_text='1回の損失の上限（資金の%）')
     default_stop_pct = models.FloatField(default=5.0, help_text='損切り幅の既定（%）')
     default_target_pct = models.FloatField(default=10.0, help_text='利確幅の既定（%）')
-    cost_pct = models.FloatField(default=0.5, help_text='片道の手数料・スリッページ（%）。ユーザー指定 0.5')
+    # moomoo証券ベーシックコースの米国株手数料 = 約定金額の 0.12%（税込 0.132%）・上限 22 米ドル
+    # （2026-09-09 実測・ユーザー指定「moomoo に近しい値」）。上限は未考慮（$16,700 超の注文で効く）
+    cost_pct = models.FloatField(default=0.132, help_text='片道の手数料（%）。moomoo ベーシック 税込 0.132%')
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
