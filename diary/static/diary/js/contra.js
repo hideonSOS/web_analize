@@ -1,104 +1,45 @@
-/* 短期トレード: 銘柄検索（売買日記と同じ JSON）・許容株数の逆算・累積損益チャート */
+/* 短期トレード: 成績の円グラフ（勝率 vs 最低勝率）。入力は売買日記側なのでここには無い */
 (() => {
-  // ---- 銘柄検索 -----------------------------------------------------------
-  const search = document.getElementById('ct-search');
-  const list = document.getElementById('ct-list');
-  const codeInput = document.getElementById('ct-code');
-  const price = document.getElementById('ct-price');
-  const stop = document.getElementById('ct-stop');
-  const target = document.getElementById('ct-target');
-  const shares = document.getElementById('ct-shares');
-  const calc = document.getElementById('ct-calc');
-  const unitEls = document.querySelectorAll('.ct-unit');
-  let stocks = [], loaded = false, currency = 'USD';
-
-  function load() {
-    if (loaded || !window.DIARY_STOCK_OPTIONS_URL) return;
-    loaded = true;
-    fetch(window.DIARY_STOCK_OPTIONS_URL).then((r) => r.json()).then((d) => {
-      stocks = d.stocks || [];
-      if (document.activeElement === search) show(search.value);
-    }).catch(() => { loaded = false; });
-  }
-  function show(q) {
-    q = (q || '').trim().toLowerCase();
-    if (!q || !list) { if (list) list.hidden = true; return; }
-    const hits = [];
-    for (const s of stocks) {
-      const t = (s.ticker || '').toLowerCase(), n = (s.name || '').toLowerCase();
-      if (t.startsWith(q) || n.includes(q)) { hits.push(s); if (hits.length >= 12) break; }
-    }
-    list.innerHTML = hits.map((s) =>
-      `<div class="dy-stock-item" data-code="${s.code}" data-ticker="${s.ticker}" data-close="${s.close ?? ''}" data-country="${s.country}">` +
-      `<b>${s.ticker}</b> ${s.name}${s.close ? ` <span>${s.country === 'US' ? '$' : '¥'}${s.close}</span>` : ''}</div>`).join('');
-    list.hidden = hits.length === 0;
-  }
-  if (search) {
-    search.addEventListener('focus', load);
-    search.addEventListener('input', () => show(search.value));
-    list.addEventListener('click', (e) => {
-      const item = e.target.closest('.dy-stock-item');
-      if (!item) return;
-      codeInput.value = item.dataset.code;
-      search.value = `${item.dataset.ticker}`;
-      currency = item.dataset.country === 'US' ? 'USD' : 'JPY';
-      unitEls.forEach((el) => { el.textContent = currency === 'USD' ? '$' : '円'; });
-      if (item.dataset.close && !price.value) price.value = item.dataset.close;
-      list.hidden = true;
-      update();
-    });
-    document.addEventListener('click', (e) => { if (!list.contains(e.target) && e.target !== search) list.hidden = true; });
-  }
-
-  // ---- 許容株数（1〜2%ルール）と損切り線・利確線 ---------------------------
-  function update() {
-    if (!calc) return;
-    const p = parseFloat(price.value), sp = parseFloat(stop.value), tp = parseFloat(target.value);
-    const n = parseInt(shares.value, 10);
-    if (!(p > 0 && sp > 0 && tp > 0)) { calc.textContent = '銘柄と価格を入れると、損切り線・利確線と許容株数を出します。'; return; }
-    const unit = currency === 'USD' ? '$' : '¥';
-    // 為替は考えない（資金も損失も取引の通貨のまま）
-    const stopPrice = p * (1 - sp / 100), targetPrice = p * (1 + tp / 100);
-    const budget = window.CT.capital * window.CT.riskPct / 100;
-    const perShare = p * sp / 100;
-    const maxN = Math.floor(budget / perShare);
-    const c = window.CT.cost;
-    const be = (sp + 2 * c) / ((sp + 2 * c) + (tp - 2 * c)) * 100;
-    let s = `損切り線 ${unit}${stopPrice.toFixed(2)}（−${sp}%）／ 利確線 ${unit}${targetPrice.toFixed(2)}（+${tp}%）／ ` +
-            `分岐勝率 ${be.toFixed(0)}%（コスト込み）。許容株数 <b>${maxN}株</b>（1株あたりの最大損失 ${unit}${perShare.toFixed(2)}・上限 ${unit}${Math.round(budget).toLocaleString()}）`;
-    if (n > 0) {
-      const risk = n * perShare;
-      s += `<br>この株数の最大損失 <b>${unit}${Math.round(risk).toLocaleString()}</b>（資金の ${(risk / window.CT.capital * 100).toFixed(2)}%）` +
-           (n > maxN ? ' <span class="ct-stale">⚠ 上限超え。入れるなら裁量として記録されます</span>' : ' ✔ ルール内');
-    } else {
-      s += `<br><a href="#" id="ct-fill">${maxN}株を入れる</a>`;
-    }
-    calc.innerHTML = s;
-    const fill = document.getElementById('ct-fill');
-    if (fill) fill.addEventListener('click', (e) => { e.preventDefault(); shares.value = maxN; update(); });
-  }
-  [price, stop, target, shares].forEach((el) => el && el.addEventListener('input', update));
-
-  // ---- 累積損益（コスト込み%） ---------------------------------------------
-  const dataEl = document.getElementById('ct-curve-data');
-  const dom = document.getElementById('ct-curve');
-  if (dataEl && dom && typeof echarts !== 'undefined') {
-    const curve = JSON.parse(dataEl.textContent);
-    if (curve.length) {
-      const c = echarts.init(dom);
-      c.setOption({
-        backgroundColor: 'transparent',
-        grid: { left: 48, right: 16, top: 24, bottom: 28 },
-        tooltip: { trigger: 'axis', backgroundColor: '#111827', borderColor: '#374151', textStyle: { color: '#e5e7eb', fontSize: 12 },
-                   valueFormatter: (v) => (v == null ? '-' : v.toFixed(2) + '%') },
-        xAxis: { type: 'category', data: curve.map((r) => r[0]), axisLabel: { color: '#9ca3af', fontSize: 10 } },
-        yAxis: { type: 'value', axisLabel: { color: '#9ca3af', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#1f2937' } } },
-        series: [{ name: '累積損益（コスト込み）', type: 'line', step: 'end', showSymbol: true, symbolSize: 6,
-                   data: curve.map((r) => r[1]), lineStyle: { color: '#34d399', width: 2 },
-                   areaStyle: { color: 'rgba(52,211,153,.08)' },
-                   markLine: { silent: true, symbol: 'none', lineStyle: { color: '#6b7280', type: 'dashed' }, data: [{ yAxis: 0 }] } }],
-      });
-      window.addEventListener('resize', () => c.resize());
-    }
-  }
+  const dataEl = document.getElementById('ct-donut-data');
+  const dom = document.getElementById('ct-donut');
+  if (!dataEl || !dom || typeof echarts === 'undefined') return;
+  const d = JSON.parse(dataEl.textContent);
+  const n = (d.wins || 0) + (d.losses || 0);
+  const rate = d.win_rate == null ? null : Math.round(d.win_rate);
+  const ok = rate != null && rate >= d.min_rate;
+  const c = echarts.init(dom);
+  c.setOption({
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'item', backgroundColor: '#111827', borderColor: '#374151',
+               textStyle: { color: '#e5e7eb', fontSize: 12 }, formatter: (p) => `${p.name} ${p.value}件` },
+    series: [
+      {
+        // 勝ち/負けのドーナツ。中央に勝率
+        type: 'pie', radius: ['62%', '88%'], center: ['50%', '50%'],
+        avoidLabelOverlap: false, label: { show: false }, labelLine: { show: false },
+        itemStyle: { borderColor: '#0b1220', borderWidth: 3 },
+        data: n ? [
+          { name: '勝ち', value: d.wins, itemStyle: { color: '#4ade80' } },
+          { name: '負け', value: d.losses, itemStyle: { color: '#f87171' } },
+        ] : [{ name: '未決済', value: 1, itemStyle: { color: '#1f2937' } }],
+      },
+      {
+        // 最低勝率（分岐勝率）の目印: 外側の細いリングを 0〜min_rate% だけ塗る
+        type: 'pie', radius: ['92%', '96%'], center: ['50%', '50%'], silent: true,
+        label: { show: false }, labelLine: { show: false }, startAngle: 90,
+        data: [
+          { value: d.min_rate, itemStyle: { color: '#facc15' } },
+          { value: 100 - d.min_rate, itemStyle: { color: 'rgba(255,255,255,.06)' } },
+        ],
+      },
+    ],
+    graphic: [
+      { type: 'text', left: 'center', top: '38%',
+        style: { text: rate == null ? '—' : `${rate}%`, fill: rate == null ? '#6b7280' : (ok ? '#4ade80' : '#f87171'),
+                 fontSize: 30, fontWeight: 700, textAlign: 'center' } },
+      { type: 'text', left: 'center', top: '60%',
+        style: { text: n ? `${d.wins}勝 ${d.losses}敗` : 'まだ決済なし', fill: '#9ca3af', fontSize: 12, textAlign: 'center' } },
+    ],
+  });
+  window.addEventListener('resize', () => c.resize());
 })();

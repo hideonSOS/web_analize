@@ -267,9 +267,13 @@ def contra(request):
             return redirect('diary:contra')
 
     be = C.breakeven(setting.default_stop_pct, setting.default_target_pct, setting.cost_pct)
+    st = C.stats(setting)
     return render(request, 'diary/contra.html', {
         'setting': setting, 'be': be,
-        'open_rows': C.open_rows(setting), 'stats': C.stats(setting),
+        # 円グラフ用（勝ち/負けの件数と、最低勝率＝コスト込みの分岐勝率）
+        'donut': {'wins': st['wins'], 'losses': st['losses'], 'win_rate': st['win_rate'],
+                  'min_rate': round(be['with_cost'])},
+        'open_rows': C.open_rows(setting), 'stats': st,
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,
     })

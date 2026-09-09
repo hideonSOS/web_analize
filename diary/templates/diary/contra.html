@@ -11,37 +11,27 @@
 {% block content %}
 <main class="dy ct">
   <h1 class="dy-title">短期トレード</h1>
-  <p class="dy-lead">売買日記の下位機能。「短期トレードとして追跡」にチェックした買いを、損切り・利確ラインで機械的に追う。
-    損切りは経費。判定はザラ場（日足の安値・高値）。
+  <p class="dy-lead">売買日記で「短期トレードとして追跡する」にチェックした買いを、ルールで機械的に追う。
     ／ <a class="ct-link" href="{% url 'diary:index' %}">← 売買日記</a></p>
 
   {% for m in messages %}<div class="ct-msg ct-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
 
   {% comment %}
-    ルールの明記（ユーザー要望 2026-09-09「忘れないように」）: 利確/損切りの幅、コスト、
-    そして「何勝何敗でトントンか」を回数で。数字は設定から計算（設定を変えれば追従）
+    ルール（ユーザー決定 2026-09-09・これ以外は書かない）: 利確 +10%／損切り −5%／最低勝率 40%。
+    最低勝率は片道コスト0.5%込みの分岐勝率（設定から計算。設定を変えれば追従）
   {% endcomment %}
   <section class="ct-rule">
-    <div class="ct-rule-main">
-      <span class="ct-rule-item target">利確 <b>+{{ setting.default_target_pct|floatformat:"-1" }}%</b></span>
-      <span class="ct-rule-item stop">損切り <b>−{{ setting.default_stop_pct|floatformat:"-1" }}%</b></span>
-      <span class="ct-rule-item">片道コスト {{ setting.cost_pct }}% → 実際は 勝ち <b>+{{ be.win|floatformat:1 }}%</b>／負け <b>−{{ be.lose|floatformat:1 }}%</b></span>
-      <span class="ct-rule-item">1回の損失は資金の <b>{{ setting.risk_pct }}%</b>（${{ risk_budget|floatformat:0|intcomma }}）まで</span>
-    </div>
-    <div class="ct-rule-sub">
-      <b>分岐勝率 {{ be.with_cost|floatformat:0 }}%</b>。1勝で {{ be.ratio|floatformat:1 }}敗ぶん取り返せる。
-      {% for ex in be.examples %}<span class="ct-rule-ex">{{ ex.n }}回なら <b>{{ ex.win }}勝{{ ex.lose }}敗</b>で {{ ex.pnl|floatformat:0 }}%{% if ex.pnl >= 0 %}（{{ ex.win|add:"-1" }}勝{{ ex.lose|add:"1" }}敗だと {{ ex.pnl_minus1|floatformat:0 }}%で損）{% endif %}</span>{% endfor %}
-      {% if stats.n %}<span class="ct-rule-now">現在 <b>{{ stats.wins }}勝{{ stats.losses }}敗</b>（累積 {% if stats.curve %}{{ stats.curve|last|last|floatformat:1 }}%{% endif %}）</span>{% endif %}
-    </div>
-    <div class="ct-rule-note">損切りは経費。「今回だけ見送る」をした時点で経費ではなくなる（裁量として記録される）。ルールの変更は下の設定でだけ行う。</div>
+    <span class="ct-rule-item target">利確 <b>+{{ setting.default_target_pct|floatformat:"-1" }}%</b></span>
+    <span class="ct-rule-item stop">損切り <b>−{{ setting.default_stop_pct|floatformat:"-1" }}%</b></span>
+    <span class="ct-rule-item">最低勝率 <b>{{ be.with_cost|floatformat:0 }}%</b></span>
   </section>
 
-  {% comment %} ---- 保有中（今日やることが上に来る） ---- {% endcomment %}
+  {% comment %} ---- 保有中（ザラ場で損切り線/利確線に触れたものが先頭） ---- {% endcomment %}
   <section class="ct-card">
     <div class="ct-head">
-      <h2>保有中 <span class="ct-hint">{{ open_rows|length }}件・損切り線と利確線の間のどこにいるか</span></h2>
+      <h2>保有中 <span class="ct-hint">{{ open_rows|length }}件・決済は売買日記で「売り」を記録</span></h2>
       <form method="post" class="ct-inline">{% csrf_token %}<input type="hidden" name="form_id" value="refresh">
-        <button class="ct-btn-sub" type="submit">日足を更新（yfinance・数秒）</button></form>
+        <button class="ct-btn-sub" type="submit">日足を更新</button></form>
     </div>
     {% for r in open_rows %}
     <div class="ct-pos {% if r.touched_stop %}hit-stop{% elif r.touched_target %}hit-target{% endif %}">
@@ -55,129 +45,85 @@
           {% else %}<span class="ct-sub">日足なし（更新を押す）</span>{% endif %}
         </div>
       </div>
-      {% comment %}
-        レンジバー: 左端=損切り線、右端=利確線。▲=建値、●=現在値。安値/高値の到達は帯の色で示す
-      {% endcomment %}
       <div class="ct-range">
-        <span class="ct-range-stop">損切り {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}<i>−{{ r.t.stop_pct|floatformat:1 }}%</i></span>
+        <span class="ct-range-stop">損切り {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}</span>
         <div class="ct-track">
-          <div class="ct-track-fill"></div>
           <span class="ct-mark-entry" style="left:{{ r.entry_pos|floatformat:1 }}%" title="建値 {{ r.t.entry_price }}">▲</span>
           {% if r.pos is not None %}<span class="ct-mark-now" style="left:{{ r.pos|floatformat:1 }}%" title="現在 {{ r.cur }}">●</span>{% endif %}
         </div>
-        <span class="ct-range-target">利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }}<i>+{{ r.t.target_pct|floatformat:1 }}%</i></span>
+        <span class="ct-range-target">利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }}</span>
       </div>
       <div class="ct-pos-meta">
         {% if r.cur %}
           <span>損切りまで <b class="{% if r.to_stop < 1.5 %}down{% endif %}">{{ r.to_stop|floatformat:1 }}%</b></span>
           <span>利確まで <b>{{ r.to_target|floatformat:1 }}%</b></span>
           <span>含み <b class="{% if r.pnl_now > 0 %}up{% elif r.pnl_now < 0 %}down{% endif %}">{{ r.unit }}{{ r.pnl_now|floatformat:0|intcomma }}</b></span>
-          <span>期間安値 {{ r.lo|floatformat:2 }} ／ 高値 {{ r.hi|floatformat:2 }}</span>
         {% endif %}
-        <span>計画リスク {{ r.unit }}{{ r.risk|floatformat:0|intcomma }}{% if r.t.over_risk %} <b class="ct-stale">上限超え（裁量）</b>{% endif %}</span>
-        {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた（指値は約定しているはず → 決済を記録）</span>{% endif %}
-        {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた（→ 決済を記録）</span>{% endif %}
+        {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → 売買日記で「売り」を記録</span>{% endif %}
+        {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → 売買日記で「売り」を記録</span>{% endif %}
       </div>
-      {% comment %} 入力は売買日記に統一。決済は日記で「売り」を記録すると自動で反映される {% endcomment %}
-      <p class="ct-note">決済は <a class="ct-link" href="{% url 'diary:index' %}">売買日記</a> で「売り」を記録すると自動で反映されます（理由は選択、未選択なら約定価格から判定）。
-        追跡をやめるには日記のチェックを外します。</p>
-      {% if r.t.entry_note %}<p class="ct-note">{{ r.t.entry_note|truncatechars:120 }}</p>{% endif %}
     </div>
     {% empty %}
-    <p class="ct-empty">保有中の取引はありません。売買日記で「買い」を記録し「短期トレードとして追跡する」にチェックすると、ここに現れます。</p>
+    <p class="ct-empty">保有中の取引はありません。</p>
     {% endfor %}
   </section>
 
-  {% comment %} 新規エントリーの入力は売買日記に統一した（2026-09-09）。ここには置かない {% endcomment %}
-  <section class="ct-card ct-howto">
-    <b>記録の仕方</b>: 売買日記で「買い」を記録し「短期トレードとして追跡する」にチェック → ここに現れます。
-    決済は日記で「売り」を記録。許容株数（資金 ${{ setting.capital|intcomma }} × {{ setting.risk_pct }}% ＝ ${{ risk_budget|floatformat:0|intcomma }} まで）を
-    超えた株数は裁量として記録されます。<a class="ct-link" href="{% url 'diary:index' %}">売買日記へ →</a>
-  </section>
-
-  {% comment %} ---- 成績 ---- {% endcomment %}
+  {% comment %} ---- 成績: 円グラフ（勝率 vs 最低勝率）＋判定＋決済一覧 ---- {% endcomment %}
   <section class="ct-card">
-    <h2>成績 <span class="ct-hint">決済済み {{ stats.n }}件・勝ち＝コスト込みで損益プラス</span></h2>
-    {% comment %}
-      損切りが「経費」として成立しているかの判定（ユーザー要望 2026-09-09）。
-      合意したルールの2条件: ①勝率 > 分岐勝率（コスト込み） ②1回の損失が資金のリスク%以内。
-      件数が MIN_N 未満は偶然で勝率が振れるので「判定中」にして断定しない
-    {% endcomment %}
-    {% with x=stats.expense %}
-    <div class="ct-verdict ct-verdict-{{ x.verdict }}">
-      <div class="ct-verdict-head">
-        {% if x.verdict == 'ok' %}✔ 損切りは<b>経費</b>として成立しています
-        {% elif x.verdict == 'ng' %}✖ 損切りが<b>経費になっていません</b>（負けです）
-        {% else %}⏳ 判定中 <span class="ct-hint">あと {{ x.need_more }}件決済すると判定します（{{ x.min_n }}件未満は勝率が偶然で振れるため）</span>{% endif %}
+    <h2>成績 <span class="ct-hint">決済 {{ stats.n }}件</span></h2>
+    <div class="ct-result">
+      <div id="ct-donut" class="ct-donut"></div>
+      <div class="ct-result-text">
+        {% with x=stats.expense %}
+        <div class="ct-result-rate">勝率 <b>{% if stats.win_rate is not None %}{{ stats.win_rate|floatformat:0 }}%{% else %}—{% endif %}</b>
+          <span class="ct-sub">{{ stats.wins }}勝 {{ stats.losses }}敗・最低 {{ be.with_cost|floatformat:0 }}%</span></div>
+        <div class="ct-verdict-line ct-verdict-{{ x.verdict }}">
+          {% if x.verdict == 'ok' %}✔ 損切りは経費として成立
+          {% elif x.verdict == 'ng' %}✖ 損切りが経費になっていない
+          {% else %}⏳ 判定中（あと {{ x.need_more }}件）{% endif %}
+          {% if x.manual %}<span class="ct-stale">・裁量 {{ x.manual }}回</span>{% endif %}
+        </div>
+        {% endwith %}
+        {% if stats.curve %}<div class="ct-cum">累積 <b class="{% if stats.curve|last|last > 0 %}up{% elif stats.curve|last|last < 0 %}down{% endif %}">{{ stats.curve|last|last|floatformat:1 }}%</b><span class="ct-sub">コスト込み</span></div>{% endif %}
       </div>
-      <ul class="ct-verdict-list">
-        <li class="{% if x.cond1 %}ok{% elif x.cond1 is not None %}ng{% endif %}">
-          ① 勝率 {% if x.win_rate is not None %}<b>{{ x.win_rate|floatformat:0 }}%</b>{% else %}—{% endif %}
-          {% if x.cond1 %}＞{% elif x.cond1 is not None %}≦{% else %}vs{% endif %} 分岐勝率 <b>{{ x.breakeven|floatformat:0 }}%</b>
-          <span class="ct-hint">{{ stats.wins }}勝{{ stats.losses }}敗。1勝あたり {{ x.allowed_losses|floatformat:1 }}敗まで許される{% if x.losses_per_win is not None %}（現在 {{ x.losses_per_win|floatformat:1 }}敗）{% endif %}</span></li>
-        <li class="{% if x.cond2 %}ok{% else %}ng{% endif %}">
-          ② 1回の損失が資金の {{ setting.risk_pct }}%（${{ x.limit_amt|floatformat:0|intcomma }}）以内
-          {% if x.cond2 %}<b>守れている</b>{% else %}<b>超えた取引 {{ x.big_losses|length }}件</b>{% endif %}
-          {% if x.over_risk_n %}<span class="ct-hint">上限超えで入った取引 {{ x.over_risk_n }}件（裁量）</span>{% endif %}</li>
-        <li>損切り {{ x.stops }}回・合計 {{ x.stops_pct|floatformat:1 }}%
-          {% if x.manual %}／ <b class="ct-stale">裁量介入 {{ x.manual }}回</b>（見送った時点で経費ではなくなる）{% endif %}</li>
-      </ul>
     </div>
-    {% endwith %}
-    <div class="ct-kpis">
-      <div class="ct-kpi"><span class="k">勝率</span><b class="{% if stats.above_breakeven %}up{% elif stats.win_rate is not None %}down{% endif %}">{% if stats.win_rate is not None %}{{ stats.win_rate|floatformat:0 }}%{% else %}—{% endif %}</b><span class="s">{{ stats.wins }}勝 {{ stats.losses }}敗</span></div>
-      <div class="ct-kpi"><span class="k">分岐勝率（コスト込み）</span><b>{{ stats.breakeven.with_cost|floatformat:0 }}%</b><span class="s">名目 {{ stats.breakeven.nominal|floatformat:0 }}%・1勝あたり {{ stats.allowed_losses|floatformat:1 }}敗まで</span></div>
-      <div class="ct-kpi"><span class="k">1取引の期待値</span><b class="{% if stats.expectancy > 0 %}up{% elif stats.expectancy is not None %}down{% endif %}">{% if stats.expectancy is not None %}{{ stats.expectancy|floatformat:2 }}%{% else %}—{% endif %}</b><span class="s">平均勝ち {{ stats.avg_win|floatformat:1 }}% ／ 負け {{ stats.avg_loss|floatformat:1 }}%</span></div>
-      <div class="ct-kpi"><span class="k">裁量介入</span><b class="{% if stats.manual.n %}down{% endif %}">{{ stats.manual.n }}回</b><span class="s">合計 {{ stats.manual.sum|floatformat:1 }}%・最大連敗 {{ stats.max_loss_streak }}</span></div>
-    </div>
-    {% if stats.curve %}<div id="ct-curve" class="ct-chart"></div>{% endif %}
     {% if stats.rows %}
     <div class="dy-table-wrap">
       <table class="dy-table">
-        <tr><th>決済日</th><th>銘柄</th><th>建値→決済</th><th>日数</th><th>理由</th><th>粗利%</th><th>コスト込み%</th><th>損益</th><th>メモ</th></tr>
+        <tr><th>決済日</th><th>銘柄</th><th>建値→決済</th><th>日数</th><th>理由</th><th>損益%</th><th>損益</th></tr>
         {% for r in stats.rows %}
         <tr class="{% if r.win %}ct-win{% else %}ct-lose{% endif %}">
           <td>{{ r.t.exit_date|date:"Y/n/j" }}</td>
-          <td><b>{{ r.t.ticker }}</b> <span class="ct-sub">{{ r.t.stock_name|truncatechars:16 }}</span></td>
+          <td><b>{{ r.t.ticker }}</b></td>
           <td>{{ r.t.entry_price|floatformat:2 }} → {{ r.t.exit_price|floatformat:2 }}</td>
           <td>{{ r.t.days_held }}</td>
-          <td>{{ r.t.get_exit_reason_display }}{% if r.t.exit_reason == 'manual' %} <b class="ct-stale">裁量</b>{% endif %}</td>
-          <td>{{ r.gross|floatformat:2 }}%</td>
-          <td><b>{{ r.net|floatformat:2 }}%</b></td>
+          <td>{{ r.t.get_exit_reason_display }}</td>
+          <td class="ct-net"><b>{{ r.net|floatformat:1 }}%</b></td>
           <td>{{ r.unit }}{{ r.amount|floatformat:0|intcomma }}</td>
-          <td class="ct-sub">{{ r.t.exit_note|truncatechars:30 }}</td>
         </tr>
         {% endfor %}
       </table>
     </div>
-    {% else %}
-    <p class="ct-empty">まだ決済した取引がありません。</p>
     {% endif %}
   </section>
 
-  {% comment %} ---- 設定 ---- {% endcomment %}
+  {% comment %} ---- 設定（畳む） ---- {% endcomment %}
   <section class="ct-card">
     <details class="ct-details">
-      <summary>設定 <span class="ct-hint">資金 ${{ setting.capital|intcomma }}・リスク {{ setting.risk_pct }}%・損切り {{ setting.default_stop_pct }}%／利確 {{ setting.default_target_pct }}%・片道コスト {{ setting.cost_pct }}%</span></summary>
+      <summary>設定 <span class="ct-hint">資金 ${{ setting.capital|intcomma }}・損失上限 {{ setting.risk_pct }}%・コスト {{ setting.cost_pct }}%</span></summary>
       <form method="post" class="ct-form-row">
         {% csrf_token %}<input type="hidden" name="form_id" value="setting">
-        <label>資金全体（ドル・手入力）<input type="number" name="capital" value="{{ setting.capital }}" step="100"></label>
+        <label>資金（ドル）<input type="number" name="capital" value="{{ setting.capital }}" step="100"></label>
         <label>1回の損失上限（%）<input type="number" name="risk_pct" value="{{ setting.risk_pct }}" step="0.5" min="0.5" max="10"></label>
-        <label>損切り幅の既定（%）<input type="number" name="default_stop_pct" value="{{ setting.default_stop_pct }}" step="0.5"></label>
-        <label>利確幅の既定（%）<input type="number" name="default_target_pct" value="{{ setting.default_target_pct }}" step="0.5"></label>
+        <label>損切り（%）<input type="number" name="default_stop_pct" value="{{ setting.default_stop_pct }}" step="0.5"></label>
+        <label>利確（%）<input type="number" name="default_target_pct" value="{{ setting.default_target_pct }}" step="0.5"></label>
         <label>片道コスト（%）<input type="number" name="cost_pct" value="{{ setting.cost_pct }}" step="0.05"></label>
         <button class="ct-btn" type="submit">保存</button>
       </form>
-      <p class="ct-note">分岐勝率 ＝ 損切り幅 ÷（損切り幅＋利確幅）。コスト込みは 勝ち＝利確−2c・負け＝損切り＋2c で計算。
-        現在の既定なら名目 {{ be.nominal|floatformat:0 }}%・コスト込み {{ be.with_cost|floatformat:0 }}%。
-        資金はポートフォリオと連動させず手入力（遊び・学習目的）。<b>為替は考えない</b>: 一度ドルに替えたら円に戻さず運用するので、
-        資金・損益・リスクはすべてドルのまま。戦略の精度だけを見る。</p>
     </details>
   </section>
 
-  {{ stats.curve|json_script:"ct-curve-data" }}
-  <script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";
-    window.CT = {capital: {{ setting.capital }}, riskPct: {{ setting.risk_pct }}, cost: {{ setting.cost_pct }}};</script>
+  {{ donut|json_script:"ct-donut-data" }}
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <script src="{% static 'diary/js/contra.js' %}?v={% now 'U' %}"></script>
 </main>
