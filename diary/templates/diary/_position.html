@@ -17,10 +17,13 @@
 <div class="ct-range">
   <span class="ct-range-stop">損切り {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}</span>
   <div class="ct-track-wrap">
+    {% comment %} 現在値: バーの上に ▼ と騰落%、バーを貫くシアンのスリット（ユーザー要望 2026-09-10） {% endcomment %}
+    {% if r.pos is not None %}
+    <div class="ct-now-label" style="left:{{ r.pos|floatformat:1 }}%"><span class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{% if r.change > 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>▼</div>
+    {% endif %}
     <div class="ct-track">
       {% for k in r.ticks %}<span class="ct-slit {{ k.kind }}" style="left:{{ k.pos|floatformat:1 }}%"></span>{% endfor %}
-      <span class="ct-mark-entry" style="left:{{ r.entry_pos|floatformat:1 }}%" title="建値 {{ r.t.entry_price }}">▲</span>
-      {% if r.pos is not None %}<span class="ct-mark-now" style="left:{{ r.pos|floatformat:1 }}%" title="現在 {{ r.cur }}">●</span>{% endif %}
+      {% if r.pos is not None %}<span class="ct-now-slit" style="left:{{ r.pos|floatformat:1 }}%" title="現在 {{ r.cur }}"></span>{% endif %}
     </div>
     <div class="ct-ticks">
       {% for k in r.ticks %}<span class="ct-tick {{ k.kind }}" style="left:{{ k.pos|floatformat:1 }}%">{{ k.label }}</span>{% endfor %}

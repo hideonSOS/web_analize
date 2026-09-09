@@ -194,6 +194,21 @@ def untrack(entry) -> bool:
     return True
 
 
+def _ticks(stop_pct: float, target_pct: float) -> list[dict]:
+    """レンジバーの目盛り。位置は 損切り線=0% 〜 利確線=100%。
+    主目盛り: 損切り／0（建値）／利確の半分／利確。副目盛り: 損切りの半分／利確の 1/4・3/4"""
+    span = stop_pct + target_pct
+    if span <= 0:
+        return []
+    def pos(pct):   # 建値からの% → バー上の位置%
+        return (pct + stop_pct) / span * 100
+    def lab(pct):
+        return '0' if pct == 0 else (f'+{pct:g}%' if pct > 0 else f'−{-pct:g}%')
+    items = [(-stop_pct, 'stop'), (-stop_pct / 2, 'minor'), (0, 'entry'),
+             (target_pct / 4, 'minor'), (target_pct / 2, 'half'), (target_pct * 3 / 4, 'minor'), (target_pct, 'target')]
+    return [{'pos': pos(p), 'label': lab(p), 'kind': k} for p, k in items]
+
+
 def open_rows(setting: ContraSetting, today: date | None = None, strategy: str = 'contra') -> list[dict]:
     """保有中の取引を UI 用に。現在値・損切り/利確までの距離・ザラ場で触れたか・経過日数"""
     today = today or date.today()
@@ -226,12 +241,8 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'pos': pos, 'entry_pos': entry_pos,
             # 目盛り（ユーザー要望 2026-09-10）: 損切り線／建値(0)／利確の半分／利確線 の位置とラベル。
             # 「半分で降りるか」「＋に動いたときの達成率」を見るため。位置は損切り線〜利確線を 0〜100% として
-            'ticks': [
-                {'pos': 0, 'label': f'−{t.stop_pct:g}%', 'kind': 'stop'},
-                {'pos': entry_pos, 'label': '0', 'kind': 'entry'},
-                {'pos': entry_pos + (100 - entry_pos) / 2, 'label': f'+{t.target_pct / 2:g}%', 'kind': 'half'},
-                {'pos': 100, 'label': f'+{t.target_pct:g}%', 'kind': 'target'},
-            ],
+            # 刻みは 損切り／その半分／0／利確の 1/4・1/2・3/4／利確（ユーザー要望: −2.5・+2.5・+7.5 も）
+            'ticks': _ticks(t.stop_pct, t.target_pct),
             # 達成率: 利確幅に対して今どこまで来たか（＋なら利確までの進み、−なら損切りへの進み）
             'progress': (change / t.target_pct * 100) if change is not None and change >= 0 and t.target_pct else None,
             'drawdown': (-change / t.stop_pct * 100) if change is not None and change < 0 and t.stop_pct else None,

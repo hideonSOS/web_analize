@@ -81,7 +81,13 @@
 .ct-range i{ display:block; font-style:normal; color:#6b7280; font-size:10px; }
 .ct-track{ position:relative; height:22px; border-radius:6px; background:linear-gradient(90deg, rgba(239,68,68,.35), rgba(107,114,128,.15) 45%, rgba(107,114,128,.15) 55%, rgba(74,222,128,.35)); border:1px solid #334155; }
 /* 目盛り（2026-09-10）: 損切り／0／利確の半分／利確 にスリットとラベル。半分で降りるか・達成率を見るため */
-.ct-track-wrap{ position:relative; padding-bottom:16px; }
+.ct-track-wrap{ position:relative; padding-top:18px; padding-bottom:16px; }
+/* 現在値（シアン）: バーの上の ▼＋騰落%、バーを貫くスリット */
+.ct-now-label{ position:absolute; top:0; transform:translateX(-50%); font-size:10px; line-height:1; color:#22d3ee; white-space:nowrap; text-align:center; }
+.ct-now-label span{ display:block; font-weight:700; margin-bottom:1px; }
+.ct-now-slit{ position:absolute; top:-3px; bottom:-3px; width:3px; background:#22d3ee; transform:translateX(-50%); border-radius:2px; box-shadow:0 0 6px rgba(34,211,238,.9); }
+.ct-slit.minor{ background:rgba(255,255,255,.18); }
+.ct-tick.minor{ color:#6b7280; font-size:9px; }
 .ct-slit{ position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.35); transform:translateX(-50%); }
 .ct-slit.entry{ width:2px; background:rgba(255,255,255,.7); }
 .ct-slit.half{ background:rgba(250,204,21,.6); }
@@ -93,7 +99,7 @@
 .ct-tick.entry{ color:#e5e7eb; font-weight:700; }
 .ct-tick.half{ color:#fcd34d; }
 .ct-mark-entry{ position:absolute; top:100%; transform:translate(-50%, -6px); color:#9ca3af; font-size:10px; line-height:1; display:none; }
-.ct-mark-now{ position:absolute; top:50%; transform:translate(-50%, -50%); color:#fff; font-size:16px; line-height:1; text-shadow:0 0 4px #000, 0 0 8px #1e90ff; }
+/* 旧 ●マーカーは廃止（シアンのスリット＋▼に置き換え 2026-09-10） */
 .ct-pos-meta{ display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:#9ca3af; margin-top:10px; }
 .ct-pos-meta b{ color:#e5e7eb; }
 .ct-flag{ flex-basis:100%; font-weight:700; }
