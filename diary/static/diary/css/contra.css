@@ -81,10 +81,16 @@
 .ct-range i{ display:block; font-style:normal; color:#6b7280; font-size:10px; }
 .ct-track{ position:relative; height:22px; border-radius:6px; background:linear-gradient(90deg, rgba(239,68,68,.35), rgba(107,114,128,.15) 45%, rgba(107,114,128,.15) 55%, rgba(74,222,128,.35)); border:1px solid #334155; }
 /* 目盛り（2026-09-10）: 損切り／0／利確の半分／利確 にスリットとラベル。半分で降りるか・達成率を見るため */
-.ct-track-wrap{ position:relative; padding-top:18px; padding-bottom:16px; }
-/* 現在値（シアン）: バーの上の ▼＋騰落%、バーを貫くスリット */
-.ct-now-label{ position:absolute; top:0; transform:translateX(-50%); font-size:10px; line-height:1; color:#22d3ee; white-space:nowrap; text-align:center; }
-.ct-now-label span{ display:block; font-weight:700; margin-bottom:1px; }
+.ct-track-wrap{ position:relative; padding-top:40px; padding-bottom:16px; }
+/* 現在値（シアン）: バーの上に「現在 $○○ +x%」のピルと大きな ▼、バーを貫くスリット（2026-09-10 目立つように） */
+.ct-now-label{ position:absolute; top:0; transform:translateX(-50%); line-height:1; color:#22d3ee; white-space:nowrap; text-align:center; display:flex; flex-direction:column; align-items:center; z-index:2; }
+.ct-now-pill{ display:inline-block; background:#0e7490; color:#fff; border:1px solid #22d3ee; border-radius:12px; padding:3px 9px; font-size:11px; font-weight:700; box-shadow:0 0 8px rgba(34,211,238,.5); }
+.ct-now-pill b{ margin-left:5px; }
+.ct-now-pill b.up{ color:#bbf7d0; } .ct-now-pill b.down{ color:#fecaca; }
+.ct-now-tri{ font-size:18px; line-height:.9; color:#22d3ee; text-shadow:0 0 6px rgba(34,211,238,.9); margin-top:-1px; }
+/* 端に寄ったときピルがはみ出さないように */
+.ct-now-label.edge-l{ transform:translateX(-12px); align-items:flex-start; }
+.ct-now-label.edge-r{ transform:translateX(calc(-100% + 12px)); align-items:flex-end; }
 .ct-now-slit{ position:absolute; top:-3px; bottom:-3px; width:3px; background:#22d3ee; transform:translateX(-50%); border-radius:2px; box-shadow:0 0 6px rgba(34,211,238,.9); }
 .ct-slit.minor{ background:rgba(255,255,255,.18); }
 .ct-tick.minor{ color:#6b7280; font-size:9px; }
