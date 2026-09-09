@@ -253,7 +253,41 @@ def stats(setting: ContraSetting) -> dict:
         'allowed_losses': (be['win'] / be['lose']) if be['lose'] else None,
         'losses_per_win': (losses / wins) if wins else None,
     }
+    # --- 振り返り用の一覧（ユーザー要望 2026-09-09: 損切り／利確ごとに銘柄と判断理由を並べ、
+    #     自分の癖を客観視する）。判断理由・タグ・心理はエントリー時の日記から取る
+    def _reflect_row(t, net):
+        e = t.entry_diary
+        return {
+            't': t, 'net': net,
+            'reason': (e.reason if e else t.entry_note) or '',
+            'tags': [x for x in (e.tags if e else '').split(',') if x and x != '短期'],
+            'mood': e.mood if e else '',
+            'exit_note': t.exit_note,
+            'unit': '$' if t.currency == 'USD' else '円',
+        }
+    reflect = {'stop': [], 'target': [], 'other': []}
+    tag_stats = {}
+    mood_stats = {}
+    for r in rows:
+        t = r['t']
+        rr = _reflect_row(t, r['net'])
+        key = t.exit_reason if t.exit_reason in ('stop', 'target') else 'other'
+        reflect[key].append(rr)
+        for tag in rr['tags']:
+            d = tag_stats.setdefault(tag, {'tag': tag, 'wins': 0, 'losses': 0, 'sum': 0.0})
+            d['wins' if r['win'] else 'losses'] += 1
+            d['sum'] += r['net']
+        if rr['mood']:
+            d = mood_stats.setdefault(rr['mood'], {'mood': rr['mood'], 'wins': 0, 'losses': 0, 'sum': 0.0})
+            d['wins' if r['win'] else 'losses'] += 1
+            d['sum'] += r['net']
+    for k in reflect:
+        reflect[k].reverse()          # 新しい順
+    reflect['tags'] = sorted(tag_stats.values(), key=lambda d: -(d['wins'] + d['losses']))
+    reflect['moods'] = sorted(mood_stats.values(), key=lambda d: -(d['wins'] + d['losses']))
+
     return {
+        'reflect': reflect,
         'expense': expense,
         'n': n, 'wins': wins, 'losses': losses, 'win_rate': win_rate,
         'breakeven': be, 'above_breakeven': (win_rate is not None and win_rate > be['with_cost']),

@@ -36,6 +36,23 @@
 .ct-cum b{ font-size:18px; }
 .ct-win .ct-net{ color:#4ade80; } .ct-lose .ct-net{ color:#f87171; }
 
+/* ---- 振り返り: 損切り／利確ごとの銘柄と判断理由 ---- */
+.ct-reflect-stats{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.ct-reflect-chip{ border:1px solid #334155; border-radius:14px; padding:3px 10px; font-size:12px; color:#cbd5e1; background:#0f172a; }
+.ct-reflect-chip b{ color:#fff; margin:0 4px; }
+.ct-reflect-chip.up{ border-color:#1e5c2f; } .ct-reflect-chip.down{ border-color:#7c2d2d; }
+.ct-reflect-chip.mood{ border-style:dashed; }
+.ct-reflect-cols{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:760px){ .ct-reflect-cols{ grid-template-columns:1fr; } }
+.ct-reflect-col h3{ font-size:14px; margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid #1f2937; }
+.ct-reflect-col.stop h3{ color:#f87171; } .ct-reflect-col.target h3{ color:#4ade80; } .ct-reflect-col.other h3{ color:#fcd34d; margin-top:14px; }
+.ct-reflect-item{ border:1px solid #1f2937; border-radius:8px; padding:8px 10px; margin-bottom:8px; background:#0f172a; }
+.ct-reflect-head{ font-size:13px; color:#e5e7eb; }
+.ct-reflect-head b{ color:#fff; }
+.ct-reflect-reason{ font-size:12.5px; color:#cbd5e1; line-height:1.7; margin:6px 0 4px; white-space:pre-wrap; }
+.ct-reflect-meta{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:11px; }
+.ct-reflect-meta .dy-tag{ font-size:10px; }
+
 /* ---- 保有中: 1件1ブロック ---- */
 .ct-pos{ border:1px solid #1f2937; border-radius:10px; padding:10px 12px; margin-bottom:10px; background:#0f172a; }
 .ct-pos.hit-stop{ border-color:#7c2d2d; box-shadow:0 0 0 1px rgba(239,68,68,.25) inset; }

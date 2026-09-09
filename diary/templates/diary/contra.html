@@ -114,6 +114,63 @@
   </section>
 
   {% comment %}
+    振り返り（ユーザー要望 2026-09-09）: 損切り／利確ごとに 銘柄・エントリー時の判断理由・タグ・心理 を
+    並べ、自分の癖を客観視する。判断理由は日記の記録（後から編集しない）から
+  {% endcomment %}
+  {% if stats.n %}
+  <section class="ct-card ct-reflect">
+    <h2>振り返り <span class="ct-hint">何を理由に入って、どう終わったか。自分の癖を見る</span></h2>
+    {% if stats.reflect.tags or stats.reflect.moods %}
+    <div class="ct-reflect-stats">
+      {% for d in stats.reflect.tags %}
+      <span class="ct-reflect-chip {% if d.sum > 0 %}up{% elif d.sum < 0 %}down{% endif %}">{{ d.tag }} <b>{{ d.wins }}勝{{ d.losses }}敗</b> {{ d.sum|floatformat:1 }}%</span>
+      {% endfor %}
+      {% for d in stats.reflect.moods %}
+      <span class="ct-reflect-chip mood {% if d.sum > 0 %}up{% elif d.sum < 0 %}down{% endif %}">心理: {{ d.mood }} <b>{{ d.wins }}勝{{ d.losses }}敗</b> {{ d.sum|floatformat:1 }}%</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="ct-reflect-cols">
+      <div class="ct-reflect-col stop">
+        <h3>損切り <span class="ct-hint">{{ stats.reflect.stop|length }}件</span></h3>
+        {% for r in stats.reflect.stop %}
+        <div class="ct-reflect-item">
+          <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
+            <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="down">{{ r.net|floatformat:1 }}%</span></span></div>
+          <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
+          <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
+        </div>
+        {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
+      </div>
+      <div class="ct-reflect-col target">
+        <h3>利確 <span class="ct-hint">{{ stats.reflect.target|length }}件</span></h3>
+        {% for r in stats.reflect.target %}
+        <div class="ct-reflect-item">
+          <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
+            <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="up">+{{ r.net|floatformat:1 }}%</span></span></div>
+          <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
+          <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
+        </div>
+        {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}
+      </div>
+    </div>
+    {% if stats.reflect.other %}
+    <div class="ct-reflect-col other">
+      <h3>裁量・期限で終えたもの <span class="ct-hint">{{ stats.reflect.other|length }}件・ルール外なので別枠</span></h3>
+      {% for r in stats.reflect.other %}
+      <div class="ct-reflect-item">
+        <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
+          <span class="ct-sub">{{ r.t.get_exit_reason_display }}・{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{{ r.net|floatformat:1 }}%</span></span></div>
+        <div class="ct-reflect-reason">{{ r.reason|linebreaksbr }}</div>
+        <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}{% if r.exit_note %}<span class="ct-sub">決済: {{ r.exit_note|truncatechars:60 }}</span>{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% comment %}
     ルール（ユーザー決定 2026-09-09・これ以外は書かない）。画面下に固定・少し透過（CSS .ct-rule）: 利確 +10%／損切り −5%／最低勝率 40%。
     最低勝率は片道コスト0.5%込みの分岐勝率（設定から計算。設定を変えれば追従）
   {% endcomment %}
