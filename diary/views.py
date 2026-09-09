@@ -258,6 +258,14 @@ def contra(request):
 
         # ⚠️ エントリー／決済の入力は売買日記に統一した（2026-09-09）。ここには置かない。
         #   買い＋「短期トレードとして追跡」→ contra.open_from_entry、売り → contra.close_from_entry
+        if form_id == 'shot':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='contra')
+            if C.add_shot(t, request.POST.get('image', '')):
+                messages.success(request, f'{t.ticker} の購入時スクリーンショットを保存しました。')
+            else:
+                messages.error(request, '画像が貼り付けられていません（貼り付け欄をクリックして Ctrl+V）。')
+            return redirect('diary:contra')
+
         if form_id == 'note':
             t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='contra')
             if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', ''), image=request.POST.get('image', '')):
@@ -398,6 +406,14 @@ def practice(request):
             C.close_trade(t, price, exit_date, request.POST.get('exit_reason', ''), request.POST.get('exit_note', '').strip(),
                           request.POST.get('exit_expected', ''))
             messages.success(request, f'{t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {t.pnl_pct_net(setting.cost_pct):+.2f}%）。')
+            return redirect('diary:practice')
+
+        if form_id == 'shot':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
+            if C.add_shot(t, request.POST.get('image', '')):
+                messages.success(request, f'{t.ticker} の購入時スクリーンショットを保存しました。')
+            else:
+                messages.error(request, '画像が貼り付けられていません（貼り付け欄をクリックして Ctrl+V）。')
             return redirect('diary:practice')
 
         if form_id == 'note':

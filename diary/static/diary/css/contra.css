@@ -218,3 +218,8 @@
 .ct-drill > summary{ cursor:pointer; color:#87cefa; font-size:12px; list-style:none; user-select:none; }
 .ct-drill > summary::before{ content:'▸ '; color:#6b7280; } .ct-drill[open] > summary::before{ content:'▾ '; }
 .ct-drill .ct-notes{ border-top:none; }
+
+/* 購入時のスクリーンショット（掘り下げの最上部） */
+.ct-shots{ margin:6px 0 8px; }
+.ct-shots .k{ display:inline-block; font-size:10px; color:#9ca3af; border:1px solid #334155; border-radius:4px; padding:0 6px; margin-bottom:4px; }
+.ct-shot-form .ct-btn{ margin-top:6px; font-size:12px; padding:6px 12px; }

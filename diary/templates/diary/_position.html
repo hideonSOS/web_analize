@@ -51,7 +51,22 @@
   画像は loading="lazy" なので閉じている間は読み込まれない
 {% endcomment %}
 <details class="ct-drill">
-  <summary>なぜ買ったか・経過を見る <span class="ct-hint">コメント {{ r.timeline|length }}件{% if r.t.risk_scenario %}・想定あり{% endif %}</span></summary>
+  <summary>なぜ買ったか・経過を見る <span class="ct-hint">コメント {{ r.timeline|length }}件{% if r.shots %}・スクショあり{% endif %}{% if r.t.risk_scenario %}・想定あり{% endif %}</span></summary>
+  {% comment %} 購入時のスクリーンショット（最上部）。無ければ貼り付け欄＋保存ボタン（ユーザー要望 2026-09-10） {% endcomment %}
+  <div class="ct-shots">
+    <span class="k">購入時のスクリーンショット</span>
+    {% for n in r.shots %}
+    <a class="ct-note-img" href="{% url 'diary:note_image' n.pk %}" target="_blank" title="クリックで原寸"><img src="{% url 'diary:note_image' n.pk %}" alt="購入時のチャート" loading="lazy"></a>
+    {% empty %}
+    <form method="post" class="ct-shot-form">
+      {% csrf_token %}<input type="hidden" name="form_id" value="shot"><input type="hidden" name="id" value="{{ r.t.id }}">
+      <div class="ct-paste" tabindex="0" title="ここをクリックして Ctrl+V">📋 ここをクリックして Ctrl+V で貼り付け</div>
+      <input type="hidden" name="image" class="ct-paste-data">
+      <img class="ct-paste-preview" alt="" hidden>
+      <button class="ct-btn" type="submit">スクリーンショットを保存</button>
+    </form>
+    {% endfor %}
+  </div>
   {% if r.t.risk_scenario %}
   <div class="ct-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>
   {% endif %}
@@ -59,18 +74,13 @@
 {% comment %} 購入時の理由と購入後のコメントを区別せず時系列で（ユーザー方針 2026-09-10）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
 <div class="ct-notes">
   {% for n in r.timeline %}
-  <div class="ct-note-item {{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}
-    {% if n.image %}<a class="ct-note-img" href="{% url 'diary:note_image' n.pk %}" target="_blank" title="クリックで原寸"><img src="{% url 'diary:note_image' n.pk %}" alt="チャート" loading="lazy"></a>{% endif %}</div>
+  <div class="ct-note-item {{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
   {% endfor %}
   <form method="post" class="ct-note-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
-    <input type="text" name="text" placeholder="コメントを追記（材料・値動き・今の気持ち）。画像は Ctrl+V で貼り付け">
+    <input type="text" name="text" placeholder="コメントを追記（材料・値動き・今の気持ち）" required>
     <select name="kind"><option value="info">情報</option><option value="good">好材料</option><option value="bad">悪材料</option></select>
     <button class="ct-btn-sub" type="submit">追記</button>
-    {% comment %} チャートの貼り付け（Ctrl+V）: contra.js の ct-paste が画像を縮小して hidden に data URL を入れる {% endcomment %}
-    <div class="ct-paste" tabindex="0" title="ここをクリックして Ctrl+V">📋 画像を貼り付け（Ctrl+V）</div>
-    <input type="hidden" name="image" class="ct-paste-data">
-    <img class="ct-paste-preview" alt="" hidden>
   </form>
 </div>
 </details>

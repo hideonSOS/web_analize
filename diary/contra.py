@@ -214,8 +214,19 @@ def add_note(t: Trade, text: str, kind: str = '', when=None, image: str = '') ->
 
 
 def timeline(t: Trade) -> list[TradeNote]:
-    """購入時の理由と購入後のコメントを区別せず、古い順に並べる（ユーザー方針: 同じ土俵で評価）"""
-    return list(t.notes.order_by('-at_entry', 'created_at', 'id'))
+    """購入時の理由と購入後のコメントを区別せず、古い順に並べる（ユーザー方針: 同じ土俵で評価）。
+    購入時のスクリーンショット（at_entry かつ image）は別扱い（shots_of）なので含めない"""
+    return [n for n in t.notes.order_by('-at_entry', 'created_at', 'id') if not (n.at_entry and n.image)]
+
+
+def shots_of(t: Trade) -> list[TradeNote]:
+    """購入時のスクリーンショット（掘り下げの最上部に出す）"""
+    return list(t.notes.filter(at_entry=True).exclude(image='').order_by('created_at', 'id'))
+
+
+def add_shot(t: Trade, image: str) -> TradeNote | None:
+    """購入時のスクリーンショットを後から保存する（購入時扱い・情報）"""
+    return add_note(t, '購入時のチャート', 'info', _entry_when(t), image=image)
 
 
 def _entry_when(t: Trade):
@@ -356,7 +367,7 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'bars_n': len(bars),
             'risk': plan_risk(t),
             'reasons': reasons_of(t),
-            'timeline': timeline(t),
+            'timeline': timeline(t), 'shots': shots_of(t),
             'unit': '$' if t.currency == 'USD' else '円',
             'stale': (last is None or last['date'] is None) or (today - last['date']).days > 4,
             'fallback': fallback,      # 株価マスタの終値で代用中（日足が来れば自動で切り替わる）
@@ -471,7 +482,7 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
             'reasons': reasons_of(t) if not e else [x.strip() for x in e.reason.splitlines() if x.strip()],
             'risk_scenario': t.risk_scenario,
             'expected': t.exit_expected,
-            'timeline': timeline(t),
+            'timeline': timeline(t), 'shots': shots_of(t),
             'unit': '$' if t.currency == 'USD' else '円',
         }
     reflect = {'stop': [], 'target': [], 'other': []}
