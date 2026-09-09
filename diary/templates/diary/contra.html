@@ -32,7 +32,20 @@
           {% if x.manual %}<span class="ct-stale">・裁量 {{ x.manual }}回</span>{% endif %}
         </div>
         {% endwith %}
-        {% if stats.curve %}<div class="ct-cum">累積 <b class="{% if stats.curve|last|last > 0 %}up{% elif stats.curve|last|last < 0 %}down{% endif %}">{{ stats.curve|last|last|floatformat:1 }}%</b><span class="ct-sub">コスト込み</span></div>{% endif %}
+        {% comment %} トータル（利確と損切りの＋−を積算。コスト込み・為替は考えない） {% endcomment %}
+        {% with tt=stats.total %}
+        <div class="ct-total">
+          <div class="ct-total-main">トータル
+            <b class="{% if tt.pct > 0 %}up{% elif tt.pct < 0 %}down{% endif %}">{% if tt.pct > 0 %}+{% endif %}{{ tt.pct|floatformat:1 }}%</b>
+            <span class="ct-total-amt {% if tt.amount > 0 %}up{% elif tt.amount < 0 %}down{% endif %}">{% if tt.amount > 0 %}+{% endif %}{{ tt.unit }}{{ tt.amount|floatformat:0|intcomma }}</span>
+            <span class="ct-sub">コスト込み・{{ tt.n }}件</span></div>
+          <div class="ct-total-sub">
+            <span class="up">利確 +{{ tt.target.pct|floatformat:1 }}%（{{ tt.target.n }}件・{{ tt.unit }}{{ tt.target.amount|floatformat:0|intcomma }}）</span>
+            <span class="down">損切り {{ tt.stop.pct|floatformat:1 }}%（{{ tt.stop.n }}件・{{ tt.unit }}{{ tt.stop.amount|floatformat:0|intcomma }}）</span>
+            {% if tt.other.n %}<span class="ct-stale">裁量・期限 {% if tt.other.pct > 0 %}+{% endif %}{{ tt.other.pct|floatformat:1 }}%（{{ tt.other.n }}件）</span>{% endif %}
+          </div>
+        </div>
+        {% endwith %}
       </div>
     </div>
     {% if stats.rows %}

@@ -34,6 +34,12 @@
 .ct-verdict-line{ font-weight:700; }
 .ct-verdict-ok{ color:#86efac; } .ct-verdict-ng{ color:#fca5a5; } .ct-verdict-pending{ color:#fcd34d; }
 .ct-cum b{ font-size:18px; }
+/* トータル損益（利確＋損切りの積算） */
+.ct-total{ border:1px solid #334155; border-radius:10px; padding:8px 12px; background:#0f172a; }
+.ct-total-main{ font-size:14px; color:#e5e7eb; display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; }
+.ct-total-main b{ font-size:24px; font-variant-numeric:tabular-nums; }
+.ct-total-amt{ font-size:15px; font-weight:700; }
+.ct-total-sub{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; margin-top:4px; }
 .ct-win .ct-net{ color:#4ade80; } .ct-lose .ct-net{ color:#f87171; }
 
 /* ---- 振り返り: 損切り／利確ごとの銘柄と判断理由 ---- */

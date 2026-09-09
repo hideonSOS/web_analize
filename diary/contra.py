@@ -221,6 +221,28 @@ def stats(setting: ContraSetting) -> dict:
     n = len(closed)
     win_rate = wins / n * 100 if n else None
     be = breakeven(setting.default_stop_pct, setting.default_target_pct, c)
+
+    # --- トータル（ユーザー要望 2026-09-09: 利確と損切りの＋−を積算して表示） ---------------
+    # % は各取引のコスト込み損益の単純合計。金額は 取引の通貨のまま（為替は考えない方針）で
+    # コスト＝約定金額×片道%を買い・売りの両方で引く。理由別（利確／損切り／裁量・期限）にも分ける
+    def _amount_net(t):
+        gross = (t.exit_price - t.entry_price) * t.shares
+        cost = (t.entry_price + t.exit_price) * t.shares * c / 100
+        return gross - cost
+    total = {'pct': 0.0, 'amount': 0.0, 'n': n,
+             'target': {'pct': 0.0, 'amount': 0.0, 'n': 0},
+             'stop': {'pct': 0.0, 'amount': 0.0, 'n': 0},
+             'other': {'pct': 0.0, 'amount': 0.0, 'n': 0}}
+    for t in closed:
+        net = t.pnl_pct_net(c)
+        amt = _amount_net(t)
+        key = t.exit_reason if t.exit_reason in ('target', 'stop') else 'other'
+        total['pct'] += net
+        total['amount'] += amt
+        total[key]['pct'] += net
+        total[key]['amount'] += amt
+        total[key]['n'] += 1
+    total['unit'] = '$'   # 米国株前提（日本株が混ざると通貨が混ざる。混ざったら分けて出すこと）
     avg_win = sum(win_pcts) / len(win_pcts) if win_pcts else 0
     avg_loss = sum(loss_pcts) / len(loss_pcts) if loss_pcts else 0
     expectancy = (sum(win_pcts) + sum(loss_pcts)) / n if n else None
@@ -287,6 +309,7 @@ def stats(setting: ContraSetting) -> dict:
     reflect['moods'] = sorted(mood_stats.values(), key=lambda d: -(d['wins'] + d['losses']))
 
     return {
+        'total': total,
         'reflect': reflect,
         'expense': expense,
         'n': n, 'wins': wins, 'losses': losses, 'win_rate': win_rate,
