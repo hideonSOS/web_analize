@@ -72,6 +72,8 @@
     {% endif %}
   </section>
 
+  {% include 'diary/_simulator.html' with sim_key='practice' %}
+
   {% comment %} ---- 買ったつもりで記録（練習はここで直接入力。日記は使わない） ---- {% endcomment %}
   <section class="ct-card">
     <details class="ct-details" {% if not open_rows %}open{% endif %}>

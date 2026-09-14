@@ -92,3 +92,58 @@
   // 貼り付け欄はクリックでフォーカス（tabindex 付き）。Enter/Space でも何もしない
   document.querySelectorAll('.ct-paste').forEach((z) => z.addEventListener('click', () => z.focus()));
 })();
+
+/* 損切り・利確シミュレーター（2026-09-14）: 金額を入れると、ページのルール（data 属性）で
+   損切り／利確したときの金額を出す。コストは片道 c% を往復（2c）で引く（contra.breakeven と同じ定義）。
+   保存はしない（最後の入力だけ localStorage に覚える。短期と練習で別キー） */
+(() => {
+  const root = document.getElementById('ct-sim');
+  const input = document.getElementById('ct-sim-amount');
+  if (!root || !input) return;
+  const stop = parseFloat(root.dataset.stop) / 100, target = parseFloat(root.dataset.target) / 100;
+  const cost = parseFloat(root.dataset.cost) / 100, capital = parseFloat(root.dataset.capital) || 0;
+  const riskPct = parseFloat(root.dataset.risk) || 0;
+  const key = 'ct-sim-amount:' + (root.dataset.key || 'contra');
+  const $ = (id) => document.getElementById(id);
+  const money = (v, sign) => (sign ? (v < 0 ? '−' : '+') : '') + '$' + Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+  function render() {
+    const a = parseFloat(input.value);
+    const vis = $('ct-sim-vis');
+    if (!(a > 0)) { vis.hidden = true; return; }
+    vis.hidden = false;
+    const loss = a * (stop + 2 * cost);         // 損切り: 値幅＋往復コスト
+    const gain = a * (target - 2 * cost);       // 利確: 値幅−往復コスト
+    $('ct-sim-loss').textContent = money(-loss, true);
+    $('ct-sim-loss-after').textContent = '残り ' + money(a - loss);
+    $('ct-sim-entry').textContent = money(a);
+    $('ct-sim-gain').textContent = money(gain, true);
+    $('ct-sim-gain-after').textContent = '合計 ' + money(a + gain);
+    // 棒の幅は金額に比例（左=失う額、右=得る額）
+    const total = loss + gain;
+    $('ct-sim-seg-stop').style.width = (loss / total * 100).toFixed(1) + '%';
+    $('ct-sim-seg-target').style.width = (gain / total * 100).toFixed(1) + '%';
+    $('ct-sim-seg-stop-l').textContent = money(-loss, true);
+    $('ct-sim-seg-target-l').textContent = money(gain, true);
+    $('ct-sim-ratio').textContent = (gain / loss).toFixed(1);
+    // 軍資金のリスク%との突き合わせ（1〜2%ルール）
+    const budget = capital * riskPct / 100;
+    $('ct-sim-cap').textContent = capital.toLocaleString('en-US');
+    $('ct-sim-risk-pct').textContent = riskPct;
+    $('ct-sim-budget').textContent = money(budget);
+    const ratio = budget > 0 ? loss / budget : 0;
+    const v = $('ct-sim-verdict');
+    if (budget <= 0) { v.textContent = '軍資金が未設定'; v.className = ''; }
+    else if (ratio <= 1) { v.textContent = '上限内 ✔'; v.className = 'up'; }
+    else { v.textContent = '上限を超える ✖（' + money(Math.floor(budget / (stop + 2 * cost))) + ' まで）'; v.className = 'down'; }
+    const g = $('ct-sim-gauge');
+    g.style.width = Math.min(100, ratio * 100).toFixed(1) + '%';
+    g.className = 'ct-sim-gauge-fill' + (ratio > 1 ? ' over' : (ratio > 0.8 ? ' warn' : ''));
+    $('ct-sim-gauge-l').textContent = budget > 0 ? '損失上限の ' + Math.round(ratio * 100) + '%' : '';
+    try { localStorage.setItem(key, String(a)); } catch (_) { /* 保存できなくても動く */ }
+  }
+  input.addEventListener('input', render);
+  root.querySelectorAll('.ct-sim-q').forEach((b) => b.addEventListener('click', () => { input.value = b.dataset.v; render(); }));
+  try { const saved = localStorage.getItem(key); if (saved) input.value = saved; } catch (_) { /* noop */ }
+  render();
+})();

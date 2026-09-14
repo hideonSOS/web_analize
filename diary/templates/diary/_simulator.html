@@ -1,0 +1,42 @@
+{% load humanize %}
+{% comment %}
+  損切り・利確シミュレーター（ユーザー要望 2026-09-14）。短期トレードと練習の両ページで include。
+  金額を入れるだけで、そのページのルール（損切り%／利確%／片道コスト）で
+  「損切りしたらいくら失う・利確したらいくら得る」を棒で見せる。計算は contra.js（JSのみ・保存しない）。
+  ルール値は data 属性でページの設定から渡すので、設定を変えれば追従する。
+  ⚠️ 入力は localStorage に覚えるだけ（短期と練習で別キー）。DB には触れない。
+{% endcomment %}
+<section class="ct-card ct-sim" id="ct-sim"
+         data-stop="{{ setting.default_stop_pct }}" data-target="{{ setting.default_target_pct }}"
+         data-cost="{{ setting.cost_pct }}" data-capital="{{ setting.capital }}" data-risk="{{ setting.risk_pct }}"
+         data-key="{{ sim_key|default:'contra' }}">
+  <h2>損切り・利確シミュレーター
+    <span class="ct-hint">金額を入れると、損切り −{{ setting.default_stop_pct|floatformat:"-1" }}%／利確 +{{ setting.default_target_pct|floatformat:"-1" }}% のときの金額を出す（片道コスト {{ setting.cost_pct }}% 込み）</span></h2>
+  <div class="ct-sim-in">
+    <label>投資金額（$）<input type="number" id="ct-sim-amount" min="1" step="1" inputmode="decimal" placeholder="例: 1000"></label>
+    <span class="ct-sim-quick">
+      <button type="button" class="ct-sim-q" data-v="500">$500</button>
+      <button type="button" class="ct-sim-q" data-v="1000">$1,000</button>
+      <button type="button" class="ct-sim-q" data-v="2000">$2,000</button>
+      <button type="button" class="ct-sim-q" data-v="5000">$5,000</button>
+    </span>
+  </div>
+  <div class="ct-sim-vis" id="ct-sim-vis" hidden>
+    <div class="ct-sim-top">
+      <div class="ct-sim-box stop"><span class="k">損切りしたら</span><b id="ct-sim-loss"></b><span class="ct-sim-after" id="ct-sim-loss-after"></span></div>
+      <div class="ct-sim-box entry"><span class="k">建値</span><b id="ct-sim-entry"></b><span class="ct-sim-after">投資金額</span></div>
+      <div class="ct-sim-box target"><span class="k">利確したら</span><b id="ct-sim-gain"></b><span class="ct-sim-after" id="ct-sim-gain-after"></span></div>
+    </div>
+    {% comment %} 棒: 左（赤）＝失う金額、右（緑）＝得る金額。幅は金額に比例（5%:10% なら 1:2） {% endcomment %}
+    <div class="ct-sim-bar">
+      <div class="ct-sim-seg stop" id="ct-sim-seg-stop"><span id="ct-sim-seg-stop-l"></span></div>
+      <div class="ct-sim-seg target" id="ct-sim-seg-target"><span id="ct-sim-seg-target-l"></span></div>
+    </div>
+    <div class="ct-sim-foot">
+      <span>利確1回で損切り <b id="ct-sim-ratio"></b>回分を取り返す</span>
+      <span>軍資金 $<b id="ct-sim-cap"></b> の <b id="ct-sim-risk-pct"></b>% ＝ 1回の損失は <b id="ct-sim-budget"></b> まで →
+        <b id="ct-sim-verdict"></b></span>
+    </div>
+    <div class="ct-sim-gauge"><div class="ct-sim-gauge-fill" id="ct-sim-gauge"></div></div><span class="ct-sim-gauge-l" id="ct-sim-gauge-l"></span>
+  </div>
+</section>

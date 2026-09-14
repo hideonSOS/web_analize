@@ -223,3 +223,32 @@
 .ct-shots{ margin:6px 0 8px; }
 .ct-shots .k{ display:inline-block; font-size:10px; color:#9ca3af; border:1px solid #334155; border-radius:4px; padding:0 6px; margin-bottom:4px; }
 .ct-shot-form .ct-btn{ margin-top:6px; font-size:12px; padding:6px 12px; }
+
+/* ---- 損切り・利確シミュレーター（2026-09-14・短期と練習で共用） ---- */
+.ct-sim-in{ display:flex; flex-wrap:wrap; align-items:end; gap:10px 16px; }
+.ct-sim-in label{ display:flex; flex-direction:column; gap:3px; font-size:11px; color:#9ca3af; }
+.ct-sim-in input{ width:160px; font-size:16px; font-weight:700; }
+.ct-sim-quick{ display:flex; gap:6px; flex-wrap:wrap; }
+.ct-sim-q{ background:none; border:1px solid #334155; border-radius:8px; color:#9ca3af; font-size:12px; padding:5px 10px; cursor:pointer; }
+.ct-sim-q:hover{ border-color:#3b82f6; color:#fff; background:rgba(59,130,246,.15); }
+.ct-sim-vis{ margin-top:14px; }
+.ct-sim-top{ display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:stretch; }
+.ct-sim-box{ border:1px solid #334155; border-radius:10px; padding:8px 12px; background:#0f172a; display:flex; flex-direction:column; gap:2px; }
+.ct-sim-box .k{ font-size:11px; color:#9ca3af; }
+.ct-sim-box b{ font-size:26px; font-variant-numeric:tabular-nums; color:#fff; line-height:1.1; }
+.ct-sim-box.stop{ border-color:#7c2d2d; } .ct-sim-box.stop b{ color:#f87171; }
+.ct-sim-box.target{ border-color:#1e5c2f; text-align:right; } .ct-sim-box.target b{ color:#4ade80; }
+.ct-sim-box.entry{ text-align:center; min-width:120px; }
+.ct-sim-after{ font-size:12px; color:#cbd5e1; }
+.ct-sim-bar{ display:flex; height:34px; margin-top:12px; border-radius:8px; overflow:hidden; border:1px solid #334155; }
+.ct-sim-seg{ display:flex; align-items:center; font-size:13px; font-weight:700; color:#fff; padding:0 10px; white-space:nowrap; min-width:0; transition:width .25s; }
+.ct-sim-seg.stop{ background:linear-gradient(90deg, rgba(239,68,68,.75), rgba(239,68,68,.45)); justify-content:flex-start; border-right:2px solid #fff; }
+.ct-sim-seg.target{ background:linear-gradient(90deg, rgba(74,222,128,.45), rgba(74,222,128,.75)); justify-content:flex-end; }
+.ct-sim-foot{ display:flex; flex-wrap:wrap; gap:4px 24px; margin-top:10px; font-size:12.5px; color:#cbd5e1; }
+.ct-sim-foot b{ color:#fff; }
+.ct-sim-gauge{ position:relative; height:8px; margin-top:6px; border-radius:4px; background:#1f2937; }
+.ct-sim-gauge-fill{ height:100%; border-radius:4px; background:#4ade80; transition:width .25s; }
+.ct-sim-gauge-fill.warn{ background:#fcd34d; } .ct-sim-gauge-fill.over{ background:#f87171; }
+.ct-sim-gauge-l{ display:block; text-align:right; margin-top:4px; font-size:10px; color:#6b7280; }
+/* スマホ: 損切り・利確を横並び、建値はその下に全幅（order で並べ替え） */
+@media (max-width:640px){ .ct-sim-top{ grid-template-columns:1fr 1fr; } .ct-sim-box.entry{ grid-column:1 / -1; order:3; min-width:0; } .ct-sim-box b{ font-size:22px; } }
