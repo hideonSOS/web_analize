@@ -122,11 +122,18 @@ def _build_history(reps, is_us=False, close_conv=None):
     # 米国株の推移は四半期のみを使う（FYと混ぜると同じ期が二重に並ぶため）
     series = us_quarters if is_us else reps
 
-    # 発行済株式数・年間配当は開示がある期の値を引き継ぐ
+    # 発行済株式数・年間配当は開示がある期の値を引き継ぐ。
+    # ⚠️ 日本株は J-Quants の株価が分割調整済みなのに、引き継いだ配当が分割前のまま残る（ソニー 5:1 の後
+    # 4四半期の利回りが 0.6%→3% に跳ねた・2026-09-16）。株式数が前回から 1.5 倍超／0.67 倍未満に
+    # 変わった期を分割とみなし、引き継ぎ中の配当を同じ比率で割る（J-Quants 無料枠に分割情報が無いための近似）
     last_shares = last_div = None
     enriched = []
     for r in series:
         if r.shares:
+            if last_shares and last_div is not None and not is_us:
+                ratio = r.shares / last_shares
+                if ratio > 1.5 or ratio < 0.67:
+                    last_div = last_div / ratio
             last_shares = r.shares
         if r.div_ann is not None:
             last_div = r.div_ann

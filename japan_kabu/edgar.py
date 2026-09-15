@@ -166,10 +166,26 @@ def _latest_by_period(entries, kind, allow_duration=False):
             key = (prio, -int((e.get('filed') or '0000-00-00').replace('-', '') or 0))
             cur = best.get(end)
             if cur is None or key < cur[0]:
-                best[end] = (key, e.get('val'))
+                best[end] = (key, e.get('val'), e.get('filed'))
         except (KeyError, ValueError, TypeError):
             continue
-    return {k: v[1] for k, v in best.items()}
+    return {k: (v[1], v[2]) for k, v in best.items()}
+
+
+def split_factor(splits, end, filed):
+    """提出時点の1株あたり数値を、今の株数基準に直す倍率（Π 分割比率）。
+
+    ⚠️ 株価（yfinance）は常に分割調整済みだが、EDGAR の株式数・EPS・1株配当は **提出時点のまま**。
+    そのまま割ると分割前の期の PER/PBR が 10〜20 倍ズレる（NVDA 2021/10 の PER が 7.9 倍と出た。
+    実際は約 79 倍。2026-09-16 に発見）。ただし後年の提出（比較表示）で **再表示された値は分割後**
+    なので、「期末が分割前」かつ「提出日も分割前」のものだけ調整する。
+    splits=[(date, ratio)]（yfinance の Ticker.splits）"""
+    f = 1.0
+    filed_d = _d(filed) if isinstance(filed, str) and filed else None
+    for sd, ratio in splits or []:
+        if end < sd and (filed_d is None or filed_d < sd):
+            f *= ratio
+    return f
 
 
 def _nearest_instant(instants, end, tolerance_days=10):
@@ -182,11 +198,12 @@ def _nearest_instant(instants, end, tolerance_days=10):
     return None
 
 
-def build_reports(facts):
+def build_reports(facts, splits=None):
     """companyfacts → 期ごとの dict のリスト（per_type FY/Q・per_end 昇順）
 
     返す各 dict: per_type, per_end, sales, op, np, eps, total_assets, equity, shares, div_ann
-    （div_ann は期末までの直近12か月の1株配当の合計）
+    （div_ann は期末までの直近12か月の1株配当の合計）。
+    splits=[(date, ratio)] を渡すと株式数・EPS・1株配当を今の株数基準に調整する（split_factor）
     """
     dur = {}   # item -> {'Q': {end: val}, 'FY': {end: val}}
     for item in DURATION_ITEMS:
@@ -211,23 +228,45 @@ def build_reports(facts):
         derived_q4[fe] = prev
     q_ends |= set(derived_q4)
 
-    # 配当: 四半期の宣言額を期末までの12か月で合計（FY の値があればそれを優先）
+    # 配当: 四半期の宣言額を期末までの12か月で合計（FY の値があればそれを優先）。1株あたりなので分割調整
     div_q, div_fy = dur['div']['Q'], dur['div']['FY']
 
+    def per_share(item_map, end):
+        """1株あたり項目を今の株数基準に（値 ÷ 分割倍率）"""
+        v = item_map.get(end)
+        if v is None or v[0] is None:
+            return None
+        return float(v[0]) / split_factor(splits, end, v[1])
+
     def div_ttm(end):
-        if end in div_fy and div_fy[end]:
-            return float(div_fy[end])
-        total = sum(float(v) for k, v in div_q.items() if v and 0 <= (end - k).days < 365)
+        fy = per_share(div_fy, end)
+        if fy:
+            return fy
+        total = sum(per_share(div_q, k) or 0 for k in div_q if 0 <= (end - k).days < 365)
         return total if total > 0 else None
 
-    def dur_val(item, kind, end):
+    def raw(item, kind, end):
         v = dur[item][kind].get(end)
+        return v[0] if v else None
+
+    def dur_val(item, kind, end):
+        v = raw(item, kind, end)
         if v is None and kind == 'Q' and end in derived_q4:
-            fy = dur[item]['FY'].get(end)
-            parts = [dur[item]['Q'].get(q) for q in derived_q4[end]]
+            fy = raw(item, 'FY', end)
+            parts = [raw(item, 'Q', q) for q in derived_q4[end]]
             if fy is not None and all(p is not None for p in parts):
                 v = fy - sum(parts)
         return v
+
+    def inst_val(item, end, tol=10):
+        v = _nearest_instant(inst[item], end, tol)
+        return v[0] if v else None
+
+    def shares_val(end):
+        v = _nearest_instant(inst['shares'], end, 45)
+        if not v or v[0] is None:
+            return None
+        return v[0] * split_factor(splits, end, v[1])   # 株式数は × 倍率
 
     rows = []
     for kind, ends in (('FY', fy_ends), ('Q', sorted(q_ends))):
@@ -235,17 +274,15 @@ def build_reports(facts):
             np_ = dur_val('np', kind, end)
             if np_ is None:
                 continue
-            eq = _nearest_instant(inst['equity'], end)
-            ta = _nearest_instant(inst['total_assets'], end)
             rows.append({
                 'per_type': kind, 'per_end': end,
                 'sales': dur_val('sales', kind, end),
                 'op': dur_val('op', kind, end),
                 'np': np_,
-                # EPS: Q4 補完は近似になるので入れない（指標は np/株数で計算するので未使用）
-                'eps': dur['eps'][kind].get(end),
-                'total_assets': ta, 'equity': eq,
-                'shares': _nearest_instant(inst['shares'], end, tolerance_days=45),
+                # EPS: Q4 補完は近似になるので入れない（指標は np/株数で計算するので未使用）。1株あたりなので分割調整
+                'eps': per_share(dur['eps'][kind], end),
+                'total_assets': inst_val('total_assets', end), 'equity': inst_val('equity', end),
+                'shares': shares_val(end),
                 'div_ann': div_ttm(end),
             })
     rows.sort(key=lambda r: (r['per_end'], r['per_type']))

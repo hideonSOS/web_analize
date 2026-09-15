@@ -6,7 +6,6 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from diary.models import DiaryEntry
 from japan_kabu.indicators import INDICATOR_DEFS, indicator_for_stock, indicators_for_stocks
 from japan_kabu.models import DailyPrice, Stock
 from japan_kabu.prices import bulk_price_stats, price_stats
@@ -47,15 +46,8 @@ def index(request):
     """カルテ一覧 + 新規作成 + 押し目一覧（高値からの下落率）"""
     kartes = list(StockKarte.objects.select_related('stock').all())
 
-    # 押し目一覧の母集団は「カルテ + 売買日記」。カルテ未作成でも保有中なら
-    # リバランス対象になるため（株価取得バッチの対象範囲と揃えてある）
-    karte_codes = {k.stock_id for k in kartes}
-    diary_stocks = list(Stock.objects.filter(
-        code__in=DiaryEntry.objects.values_list('stock_id', flat=True)
-    ).exclude(code__in=karte_codes))
-    target_stocks = [k.stock for k in kartes] + diary_stocks
-
-    stats = bulk_price_stats(target_stocks)
+    # 1年ドローダウン（比較表の列）。旧「押し目一覧」は 2026-09-16 に削除（比較表と重複・ユーザー指示）
+    stats = bulk_price_stats([k.stock for k in kartes])
     # 指標の比較表（2026-09-16・旧「銘柄別指標」を吸収）。カルテ銘柄だけ計算するので軽い
     inds = indicators_for_stocks([k.stock for k in kartes])
     rows = []
@@ -78,29 +70,9 @@ def index(request):
     # 比較表は押し目が深い順（None は末尾）。ユーザーが決めた5列: PER/PBR/ROE/配当利回り/1年DD
     compare = sorted(rows, key=lambda r: (r['dd'] is None, r['dd'] if r['dd'] is not None else 0))
 
-    # 押し目が深い順（＝高値から最も下落している銘柄が先頭）。
-    # 主役はドローダウンでレンジ内位置ではない（位置は期間を延ばすほど鈍化するため）。
-    dips = []
-    for s in target_stocks:
-        p = stats.get(s.code)
-        if not p or not p.get('1y'):
-            continue
-        dd = p['1y']['drawdown']
-        dips.append({
-            'stock': s,
-            'dd': dd,
-            # バー幅は下落率の絶対値（テンプレートでabsが使えないためここで出す）
-            'width': min(100.0, abs(dd)),
-            'dd_3y': p['3y']['drawdown'] if p.get('3y') else None,
-            # カルテ未作成の銘柄は詳細ページが無い（開くと404になる）ためリンクしない
-            'has_karte': s.code in karte_codes,
-        })
-    dips.sort(key=lambda d: d['dd'])
-
     context = {
         'rows': rows,
         'compare': compare,
-        'dips': dips,
         'total_fields': len(FIELDS),
         # ランキング等から「カルテが無い銘柄」を開いたとき、検索窓にコードを入れて候補を出す
         'prefill': request.GET.get('q', '').strip()[:20],

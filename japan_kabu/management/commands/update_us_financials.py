@@ -115,7 +115,7 @@ class Command(BaseCommand):
     # -------------------------------------------------------------- 20-F XBRL
     def _fetch_20f(self, stock):
         """外国企業の通期を 20-F の XBRL から（IFRS・外貨建て）。取れた期数を返す。
-        期末株価は調整前（EDGAR 経路と同じ）。四半期はこの経路では取れない（6-K に XBRL が無い）"""
+        四半期はこの経路では取れない（6-K に XBRL が無い）。分割調整は未対応（対象が新規上場の ADR のため）"""
         cik = edgar.ticker_to_cik(stock.display_code)
         if cik is None:
             return 0
@@ -153,10 +153,11 @@ class Command(BaseCommand):
         if cik is None:
             return 0
         facts = edgar.fetch_companyfacts(cik)
-        rows = edgar.build_reports(facts)
+        # ⚠️ yfinance の株価は常に分割調整済み（auto_adjust=False でも分割は調整される）。EDGAR の
+        # 株式数・EPS・1株配当は提出時点のままなので、分割履歴を渡して今の株数基準に揃える（edgar.split_factor）
+        rows = edgar.build_reports(facts, splits=self._splits(stock.display_code))
         if not rows:
             return 0
-        # 期末株価: 調整前（提出時点の株数・EPS と整合させる）。yfinance 1コール
         closes = self._raw_closes(stock.display_code)
         saved = 0
         kept = []
@@ -189,6 +190,16 @@ class Command(BaseCommand):
         # 並び、TTM（直近4四半期の合計）と業績推移が狂う。EDGAR で取れた銘柄は EDGAR の行だけにする
         FinancialReport.objects.filter(stock=stock).exclude(pk__in=kept).delete()
         return saved
+
+    @staticmethod
+    def _splits(ticker):
+        """[(分割日, 比率)]。取れなければ []（調整なし＝分割の無い銘柄と同じ扱い）"""
+        import yfinance as yf
+        try:
+            s = yf.Ticker(ticker).splits
+            return [(ts.date(), float(r)) for ts, r in s.items() if r and r > 0]
+        except Exception:   # noqa: BLE001
+            return []
 
     @staticmethod
     def _raw_closes(ticker):
