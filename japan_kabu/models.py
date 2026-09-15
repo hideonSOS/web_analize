@@ -72,7 +72,9 @@ class FinancialReport(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['stock', 'per_end'], name='uniq_report_stock_perend'),
+            # 米国株は FY と Q4 の期末日が同じなので per_type も含める（0011・2026-09-16）。
+            # 日本株は FY/1Q/2Q/3Q で期末日が重ならないので影響なし
+            models.UniqueConstraint(fields=['stock', 'per_end', 'per_type'], name='uniq_report_stock_perend_type'),
         ]
         ordering = ['per_end']
 

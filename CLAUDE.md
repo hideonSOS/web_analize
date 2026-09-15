@@ -341,17 +341,40 @@ tail -50 logs/update_$(date +%Y%m%d).log
 ```bash
 python manage.py update_us_financials             # 登録済み米国株の決算を取得
 python manage.py update_us_financials --ticker MSTR   # 1銘柄だけ試す
+python manage.py update_us_financials --source yf     # yfinance を強制（比較・保険）
 ```
+
+### 取得元は SEC EDGAR（2026-09-16・ユーザー決定「推奨案で」）
+- **一次情報は SEC EDGAR の companyfacts API**（`japan_kabu/edgar.py`。公式・無料・キー不要・
+  10 req/s）。yfinance の四半期は直近5〜6期しか無いが、EDGAR は 10年以上（NVDA 実測: FY 22年・
+  四半期 78期・2008年〜）。EDGAR に無い銘柄（CIK 未登録・純利益タグ無し）だけ yfinance にフォールバック
+- 検討して**採らなかった**もの: TradingView（公式 API 無し。非公式ライブラリは規約グレーで壊れやすい）、
+  株探（規約とヘルプで自動取得を明示的に禁止）、FMP/Alpha Vantage（無料枠が細い）。Finnhub（60回/分）は
+  計算済み指標の答え合わせ用に後から足せる
+- ⚠️ SEC は **User-Agent に連絡先** を求める（無いと 403 になりうる）。`config.json` の `edgar_contact`
+  （メール）を `settings.EDGAR_CONTACT` で渡す。開発機・本番とも設定済み
+- ⚠️ **FY と Q4 の期末日が同じ**なので一意制約を (stock, per_end, per_type) にした（0011）。
+  日本株は FY/1Q/2Q/3Q で重ならないので影響なし。`update_marketcap` の upsert は従来どおり
+- ⚠️ **Q4 単独は開示されない**（10-K は通期のみ）。`edgar.build_reports` が同じ会計年度の Q1〜Q3 が
+  揃うときだけ Q4 = FY − ΣQ で補う（TTM に必要）。EPS の Q4 は近似になるので入れない（指標は未使用）
+- ⚠️ **値は提出時点のまま（分割調整なし）**。そのため EDGAR 経路の期末株価は **調整前**
+  （`auto_adjust=False`）を合わせる（分割前の株数×分割前の株価で PER/PBR が整合する）。
+  yfinance 経路（調整後）と混ぜないよう、EDGAR で取れた銘柄は **その銘柄の旧行を全部消して EDGAR の
+  行だけにする**（yfinance は期末を月末日にするので、同じ期が二重に並び TTM が狂う。実際に起きた）
+- タグは企業ごとに揺れる（純利益 NetIncomeLoss/ProfitLoss、売上 Revenues/RevenueFromContract…）ので
+  `edgar.TAGS` の候補を先勝ちで見る。変な値が出た銘柄は `edgar.coverage_note(facts)` で採ったタグを確認
+- 配当は `CommonStockDividendsPerShareDeclared` の四半期宣言額を期末までの12か月で合計
+  （NVDA 2026-07 期は 0.25+0.01×3=0.28。増配直後は跳ねて見えるが正しい）
 
 ### ⚠️ 日本株との構造的な違い（実装時の注意）
 
-| | 日本株(J-Quants) | 米国株(yfinance) |
+| | 日本株(J-Quants) | 米国株(SEC EDGAR・保険で yfinance) |
 |---|---|---|
 | 四半期の数値 | **期初からの累計** | **その四半期単独** |
 | TTM純利益 | 直前FY + 当期累計 − 前年同期累計 | 直近4四半期の単純合計 |
 | `per_type` | `FY` / `1Q` `2Q` `3Q` | `FY` / `Q` |
 | PER | 来期**予想**EPSベース | **実績TTM**ベース（予想が無いため） |
-| 四半期履歴 | **20期(5年)** | **5〜6期のみ** |
+| 四半期履歴 | **20期(5年)** | **EDGAR で 10年以上**（yfinance 代替時は 5〜6期） |
 | 通貨・単位 | 円 / 億円 | ドル / 百万ドル |
 
 TTMの計算は `japan_kabu/views.py` の `_ttm_np`（日本株）と `_ttm_np_us`（米国株）で

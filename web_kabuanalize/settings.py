@@ -30,6 +30,8 @@ EDINET_API_KEY = _config.get('edinet_api_key', '')
 # Zaim 公式API（OAuth 1.0a）。scripts/zaim_authorize.py で発行した4つの鍵を config.json の
 # "zaim" に置く。未設定なら fetch_zaim は何もしない（手動アップロードのみ）
 ZAIM_API = _config.get('zaim', {}) or {}
+# SEC EDGAR は User-Agent に連絡先（メール）を求める。config.json の "edgar_contact"（未設定でも動くが 403 になりうる）
+EDGAR_CONTACT = _config.get('edgar_contact', '')
 
 # サイト全体の閲覧パスワード（config.json で設定する。空なら認証なし）
 # ※ コードに直接書かないこと。リポジトリは公開されているため漏れる
