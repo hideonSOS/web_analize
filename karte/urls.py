@@ -12,6 +12,7 @@ urlpatterns = [
     path('<str:code>/save/', views.save, name='save'),
     path('<str:code>/reorder/', views.reorder, name='reorder'),
     path('<str:code>/prices/fetch/', views.fetch_prices, name='fetch_prices'),
+    path('<str:code>/financials/fetch/', views.fetch_financials, name='fetch_financials'),
     path('<str:code>/delete/', views.delete, name='delete'),
     path('<str:code>/target/add/', views.add_target, name='add_target'),
     path('<str:code>/target/<int:pk>/delete/', views.delete_target, name='delete_target'),

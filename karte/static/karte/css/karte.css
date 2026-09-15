@@ -335,3 +335,40 @@
   .kt-grid{ grid-template-columns:1fr; }
   .kt-target-val{ margin-left:0; width:100%; }
 }
+
+
+/* ---- 指標（自動）セクション（2026-09-16・旧 stock_detail.css から移植）と一覧の比較表 ---- */
+.kt-msg-top{ margin:8px 0 0; font-size:13px; }
+.kt-h3{ color:#93c5fd; font-size:14px; margin:18px 0 8px; letter-spacing:1px; }
+.kt-ind-head{ margin:0 0 8px; font-size:18px; font-weight:700; color:#e5e7eb; }
+.kt-ind-head .kt-note{ display:inline; margin-left:8px; font-weight:400; }
+.ind-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:8px 0; }
+.ind-card{ display:flex; align-items:center; gap:14px; border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:10px 14px; min-width:0; }
+.ind-info{ flex:0 0 auto; width:120px; }
+.ind-label{ margin:0; font-size:12px; color:#93c5fd; font-weight:700; white-space:nowrap; }
+.ind-value{ margin:4px 0 0; font-size:22px; font-weight:700; color:#3b82f6; }
+.ind-value.neg{ color:#ef4444; }
+.ind-value.ind-na{ color:#6b7280; font-size:14px; }
+.ind-chart-wrap{ flex:1 1 auto; height:56px; min-width:0; }
+.ec-canvas{ width:100%; height:100%; }
+.hist-tabs{ display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
+.hist-tabs button{ background:#0f172a; color:#93c5fd; font-size:12px; font-weight:700; border:1px solid #1e3a5f; padding:5px 11px; border-radius:999px; cursor:pointer; }
+.hist-tabs button:hover{ background:rgba(59,130,246,.12); }
+.hist-tabs button.active{ color:#fff; border-color:#3b82f6; background:rgba(59,130,246,.25); box-shadow:0 0 10px rgba(59,130,246,.4); }
+.hist-chart-wrap{ border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:10px 6px; height:260px; box-sizing:border-box; }
+.trend-chart-wrap{ border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:10px 6px; height:280px; box-sizing:border-box; }
+@media (max-width:700px){ .ind-grid{ grid-template-columns:1fr; } .ind-card{ gap:8px; } .ind-info{ width:110px; } .ind-value{ font-size:19px; } }
+/* 一覧: 指標の比較表 */
+.kt-tbl-wrap{ overflow-x:auto; }
+.kt-cmp{ width:100%; border-collapse:collapse; font-size:13px; }
+.kt-cmp th{ color:#93c5fd; font-weight:700; font-size:11px; text-align:right; padding:6px 8px; border-bottom:1px solid #1f2937; white-space:nowrap; }
+.kt-cmp th:first-child{ text-align:left; }
+.kt-cmp td{ padding:7px 8px; border-bottom:1px solid #111827; white-space:nowrap; }
+.kt-cmp td.num{ text-align:right; font-variant-numeric:tabular-nums; color:#e5e7eb; }
+.kt-cmp td.num.neg{ color:#f87171; }
+.kt-cmp td.kt-dd{ color:#fca5a5; }
+.kt-cmp .kt-na{ color:#4b5563; }
+.kt-cmp-name a{ color:#e5e7eb; text-decoration:none; }
+.kt-cmp-name a:hover{ color:#93c5fd; }
+.kt-cmp-name b{ color:#93c5fd; margin-right:4px; }
+.kt-cmp tr:hover td{ background:rgba(59,130,246,.06); }

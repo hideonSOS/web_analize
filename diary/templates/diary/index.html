@@ -57,7 +57,7 @@
         <tr>
           <td>{{ r.e.recorded_at|date:"y/m/d H:i" }}</td>
           <td>{{ r.e.stock_code }}</td>
-          <td>{% if r.e.stock and r.e.stock.country == 'JP' %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}</td>
+          <td>{% if r.e.stock %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}" title="カルテ">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}</td>
           <td><span class="dy-badge dy-badge-{{ r.e.action }}">{{ r.e.get_action_display }}</span></td>
           <td class="num">{% if r.e.price %}{{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}{% endif %}</td>
           <td class="num">{% if r.e.shares %}{{ r.e.shares|intcomma }}{% endif %}</td>
@@ -88,7 +88,7 @@
     <header class="dy-card-head">
       <span class="dy-badge dy-badge-{{ r.e.action }}">{{ r.e.get_action_display }}</span>
       <span class="dy-stock">
-        {% if r.e.stock and r.e.stock.country == 'JP' %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}
+        {% if r.e.stock %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}" title="カルテ">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}
         {% if r.e.stock_code %}<span class="dy-stock-code">（{{ r.e.stock_code }}）</span>{% endif %}
         {% if r.e.stock and r.e.stock.country == 'US' %}<span class="dy-us-tag">US</span>{% endif %}
       </span>

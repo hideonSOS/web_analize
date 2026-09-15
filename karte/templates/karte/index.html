@@ -14,7 +14,8 @@
 
   <div class="kt-toolbar">
     <div class="kt-new">
-      <input type="text" id="kt-stock-search" placeholder="銘柄名かコードで検索してカルテを作成" autocomplete="off" />
+      <input type="text" id="kt-stock-search" placeholder="銘柄名かコードで検索してカルテを作成" autocomplete="off" data-prefill="{{ prefill }}" />
+      {% if prefill %}<p class="kt-note">「{{ prefill }}」のカルテはまだありません。候補から選ぶと作成されます。</p>{% endif %}
       <div id="kt-stock-list" class="kt-stock-list" hidden></div>
       <form method="post" action="{% url 'karte:create' %}" id="kt-create-form">
         {% csrf_token %}
@@ -22,6 +23,37 @@
       </form>
     </div>
   </div>
+
+  {% comment %}
+    指標の比較表（2026-09-16・旧「銘柄別指標」ページを吸収）。列はユーザー決定の5つ:
+    PER／PBR／ROE／配当利回り／1年ドローダウン。押し目が深い順。数値はカルテ銘柄だけサーバーで計算
+  {% endcomment %}
+  {% if compare %}
+  <section class="kt-section kt-compare">
+    <h2 class="kt-h2">指標の比較（カルテ銘柄）</h2>
+    <div class="kt-tbl-wrap">
+      <table class="kt-cmp">
+        <thead><tr><th>銘柄</th><th>現在値</th><th>PER</th><th>PBR</th><th>ROE</th><th>配当利回り</th><th>1年DD</th></tr></thead>
+        <tbody>
+        {% for r in compare %}
+        <tr>
+          <td class="kt-cmp-name"><a href="{% url 'karte:detail' r.k.stock.display_code %}"><b>{{ r.k.stock.display_code }}</b> {{ r.k.stock.name|truncatechars:22 }}</a>{% if r.k.stock.country == 'US' %}<span class="kt-us">US</span>{% endif %}</td>
+          <td class="num">{% if r.close %}{% if r.k.stock.country == 'US' %}${{ r.close|floatformat:2 }}{% else %}{{ r.close|floatformat:0 }}円{% endif %}{% else %}—{% endif %}</td>
+          {% with i=r.ind %}
+          <td class="num">{% if i and i.per is not None %}{{ i.per|floatformat:1 }}倍{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          <td class="num">{% if i and i.pbr is not None %}{{ i.pbr|floatformat:2 }}倍{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          <td class="num {% if i and i.roe is not None and i.roe < 0 %}neg{% endif %}">{% if i and i.roe is not None %}{{ i.roe|floatformat:1 }}%{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          <td class="num">{% if i and i.yield is not None %}{{ i.yield|floatformat:2 }}%{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          {% endwith %}
+          <td class="num kt-dd">{% if r.dd is not None %}{{ r.dd|floatformat:1 }}%{% else %}<span class="kt-na">—</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="kt-note">PER は日本株＝来期予想、米国株＝実績TTM。「—」は決算未取得（米国株はカルテの「決算を取得する」で埋まる）。</p>
+  </section>
+  {% endif %}
 
   {% if dips %}
   <section class="kt-section kt-dips">

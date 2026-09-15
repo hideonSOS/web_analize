@@ -27,10 +27,8 @@ WINDOW_MINUTES = 60        # 失敗回数を数える窓
 FEATURES = {
     1: {'name': '時価総額ランキング', 'description': '日本株の時価総額TOPを横棒グラフで表示', 'url': 'japan_kabu:index'},
     2: {'name': '出来高急増ランキング', 'description': '出来高の統計的異常度（対数z-score）ランキング', 'url': 'japan_kabu:volume'},
-    3: {'name': '銘柄カルテ', 'description': 'IR資料を読みながら共通雛形に記入する詳細分析', 'url': 'karte:index'},
+    3: {'name': '銘柄カルテ', 'description': '興味ある銘柄だけ登録して調べる。定性分析＋指標（PER/PBR/ROE等）＋株価レンジ', 'url': 'karte:index'},
     4: {'name': '売買日記', 'description': '売買判断の記録と振り返り。その後の値動きを自動表示', 'url': 'diary:index'},
-    5: {'name': '銘柄別指標', 'description': 'PER/PBR/ROE/ROA等を棒グラフで表示（現在はソニーグループのみ）',
-        'url': 'japan_kabu:stock_detail', 'url_args': ['6758']},
     6: {'name': 'セクター別インパルス', 'description': '独自セクターの日次騰落を時系列で並べモメンタムを見る', 'url': 'japan_kabu:impulse'},
     7: {'name': 'セクター別ドローダウン', 'description': '高値からの下落率で「下がりきったセクター」を探す（逆張りの入口）', 'url': 'japan_kabu:drawdown'},
     8: {'name': 'マクロ指標', 'description': '日米のCPI・失業率の長期時系列と「基準値」の読み方（学習用）', 'url': 'japan_kabu:macro'},

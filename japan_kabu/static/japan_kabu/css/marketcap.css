@@ -82,3 +82,6 @@
   .mc-table{ font-size:11px; }
   .mc-table th, .mc-table td{ padding:4px 5px; }
 }
+
+/* 銘柄名の横「カルテあり」マーク（2026-09-16） */
+.rk-karte{ font-size:11px; margin-left:4px; opacity:.8; }

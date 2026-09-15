@@ -38,7 +38,7 @@
         <tr>
           <td>{{ forloop.counter }}</td>
           <td>{{ s.display_code }}</td>
-          <td><a href="{% url 'japan_kabu:stock_detail' s.display_code %}">{{ s.name }}</a></td>
+          <td><a href="{% url 'japan_kabu:stock_detail' s.display_code %}" title="{% if s.code in karte_codes %}カルテを開く{% else %}カルテを作る（登録画面へ）{% endif %}">{{ s.name }}</a>{% if s.code in karte_codes %}<span class="rk-karte" title="カルテあり">📋</span>{% endif %}</td>
           <td>{{ s.market }}</td>
           <td>{{ s.sector33 }}</td>
           <td class="num" data-yen="{{ s.market_cap }}"></td>

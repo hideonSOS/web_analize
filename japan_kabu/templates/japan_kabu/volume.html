@@ -43,7 +43,7 @@
         <tr>
           <td>{{ r.rank }}</td>
           <td>{{ r.stock.display_code }}</td>
-          <td><a href="{% url 'japan_kabu:stock_detail' r.stock.display_code %}">{{ r.stock.name }}</a></td>
+          <td><a href="{% url 'japan_kabu:stock_detail' r.stock.display_code %}" title="{% if r.stock.code in karte_codes %}カルテを開く{% else %}カルテを作る（登録画面へ）{% endif %}">{{ r.stock.name }}</a>{% if r.stock.code in karte_codes %}<span class="rk-karte" title="カルテあり">📋</span>{% endif %}</td>
           <td>{{ r.stock.sector33 }}</td>
           <td class="num" data-num="{{ r.stock.volume }}"></td>
           <td class="num">{{ r.stock.volume_ratio|floatformat:1 }}倍</td>

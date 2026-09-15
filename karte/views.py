@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from diary.models import DiaryEntry
+from japan_kabu.indicators import INDICATOR_DEFS, indicator_for_stock, indicators_for_stocks
 from japan_kabu.models import DailyPrice, Stock
 from japan_kabu.prices import bulk_price_stats, price_stats
 
@@ -28,8 +29,10 @@ FIELDS = [f for _, items in SECTIONS for f, _ in items]
 # ここに無いキーは無視、欠けているキーは既定順で末尾に補う（セクション追加に強くする）。
 DEFAULT_SECTION_ORDER = [
     'mgmt', 'business', 'videos', 'screenshots',
-    'price', 'invest', 'competitive', 'kpi', 'targets',
+    'price', 'indicators', 'invest', 'competitive', 'kpi', 'targets',
 ]
+# 'indicators' は 2026-09-16 に旧「銘柄別指標」ページを吸収して追加。既存カルテの section_order には
+# 無いキーだが resolve_section_order が既定順で補うので、手直し不要（price の次に出る）
 
 
 def resolve_section_order(saved):
@@ -53,16 +56,25 @@ def index(request):
     target_stocks = [k.stock for k in kartes] + diary_stocks
 
     stats = bulk_price_stats(target_stocks)
+    # 指標の比較表（2026-09-16・旧「銘柄別指標」を吸収）。カルテ銘柄だけ計算するので軽い
+    inds = indicators_for_stocks([k.stock for k in kartes])
     rows = []
     for k in kartes:
         filled = sum(1 for f in FIELDS if getattr(k, f).strip())
+        p = stats.get(k.stock_id)
+        ind = inds.get(k.stock_id)
         rows.append({
             'k': k,
             'filled': filled,
             'total': len(FIELDS),
             'pct': round(filled / len(FIELDS) * 100),
-            'price': stats.get(k.stock_id),
+            'price': p,
+            'ind': ind['ind'] if ind else None,
+            'close': ind['close'] if ind else k.stock.close,
+            'dd': p['1y']['drawdown'] if p and p.get('1y') else None,
         })
+    # 比較表は押し目が深い順（None は末尾）。ユーザーが決めた5列: PER/PBR/ROE/配当利回り/1年DD
+    compare = sorted(rows, key=lambda r: (r['dd'] is None, r['dd'] if r['dd'] is not None else 0))
 
     # 押し目が深い順（＝高値から最も下落している銘柄が先頭）。
     # 主役はドローダウンでレンジ内位置ではない（位置は期間を延ばすほど鈍化するため）。
@@ -85,8 +97,11 @@ def index(request):
 
     context = {
         'rows': rows,
+        'compare': compare,
         'dips': dips,
         'total_fields': len(FIELDS),
+        # ランキング等から「カルテが無い銘柄」を開いたとき、検索窓にコードを入れて候補を出す
+        'prefill': request.GET.get('q', '').strip()[:20],
     }
     return render(request, 'karte/index.html', context)
 
@@ -204,9 +219,43 @@ def detail(request, code):
         'targets': karte.targets.all(),
         'kpi_groups': grouped,
         'kpi_chart': kpi_chart,
-        'has_indicator_page': stock.country == 'JP',
+        # 指標（旧「銘柄別指標」ページを吸収・2026-09-16）。この1銘柄分だけ計算する
+        'indicator': indicator_for_stock(stock),
+        'indicator_defs': [{'key': k, 'label': label, 'unit': unit, 'min': mn, 'max': mx}
+                           for k, label, unit, mn, mx in INDICATOR_DEFS],
     }
     return render(request, 'karte/detail.html', context)
+
+
+@require_POST
+def fetch_financials(request, code):
+    """カルテ詳細の「決算を取得する」ボタン（米国株のみ・2026-09-16）。
+
+    米国株は登録した銘柄だけ update_us_financials（yfinance）で決算を取る設計なので、
+    登録直後は指標が空。株価取得ボタンと同じく、その場で1銘柄だけ同期実行する（数秒）。
+    日本株は J-Quants の夜バッチ（update_marketcap）が全銘柄分を取り込むのでボタンは出さない。
+    """
+    from io import StringIO
+
+    from django.contrib import messages
+    from django.core.management import call_command
+
+    stock = get_object_or_404(Stock, display_code=code)
+    if stock.country != 'US':
+        messages.error(request, '日本株の決算は夜バッチ（update_marketcap）が取り込みます。')
+        return redirect('karte:detail', code=code)
+    out, err = StringIO(), StringIO()
+    try:
+        call_command('update_us_financials', ticker=stock.display_code, stdout=out, stderr=err)
+    except Exception as e:   # noqa: BLE001
+        messages.error(request, f'決算の取得に失敗しました: {e}')
+        return redirect('karte:detail', code=code)
+    if indicator_for_stock(stock):
+        messages.success(request, '決算を取得しました。' + out.getvalue().strip()[-160:])
+    else:
+        messages.error(request, '決算を取得できませんでした（yfinance に財務データが無い可能性）。'
+                                + (err.getvalue().strip() or out.getvalue().strip())[-200:])
+    return redirect('karte:detail', code=code)
 
 
 @require_POST

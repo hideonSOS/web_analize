@@ -258,7 +258,7 @@ python manage.py update_daily_prices # 登録銘柄の日次終値（ドロー�
 - **株価・時価総額・出来高（ランキング）＝ yfinance**（`update_jp_ranking`・東証は
   `<コード>.T`）。US版のミラー。時価総額は既存の `Stock.shares`（J-Quants由来・DBに
   残存）を再利用して「終値×株式数」。週1で `--refresh-shares`。
-- **銘柄マスタ＋決算（銘柄別指標用）＝ J-Quants無料**（`update_marketcap`）。無料プランは
+- **銘柄マスタ＋決算（カルテの指標用）＝ J-Quants無料**（`update_marketcap`）。無料プランは
   直近が**約12週遅延**なので、取れない直近日は**スキップして継続**する（落とさない）。
   ＝指標ページの財務は「最新四半期が約1Q遅れ」になるが、履歴は揃う。
 - `update_volume` は廃止（出来高は `update_jp_ranking` が算出）。無料プランのキーは
@@ -304,8 +304,7 @@ python manage.py update_daily_prices --years 3         # 日次終値3年分・�
   推移で、「この銘柄の普通の痛みの深さ・沈んでいた期間」を較正する（下落率1点の
   数字の時系列版）。系列はビュー（`karte/views.py` detail）がサーバー計算して
   `price_chart.drawdown` で渡し、`karte_detail.js` がECharts描画。
-  ⚠️ 銘柄指標ページには置かない（全銘柄5MB一括埋め込み設計に日次系列を足すと
-  膨らむうえ、日次データは登録銘柄にしか無い。置き場所はカルテが正）。
+  ⚠️ 置き場所はカルテが正（日次データは登録銘柄にしか無い。旧「銘柄指標」ページは 2026-09-16 に廃止）。
 
 ### ブラウザから取得する（カルテ詳細の「株価を取得する／更新する」ボタン・2026-09-09）
 新しく登録した銘柄は翌朝のバッチまで株価が空で「未取得です」と出る。SSH せずに埋められるよう、
@@ -728,7 +727,7 @@ python manage.py update_us_ranking --refresh-list # 構成銘柄CSVを再取得
 
 項目が9個に増えたため、`base.html` のナビを **市場／銘柄／記録** の3グループ＋
 ログアウトに再編し、ラベルも短縮した（時価総額/出来高急増/インパルス/ドローダウン/
-米国マクロ｜銘柄指標/カルテ｜売買日記）。
+米国マクロ｜カルテ｜売買日記）。「銘柄指標」は 2026-09-16 にカルテへ吸収してナビから外した。
 
 - 機能を足すときは該当グループの `<ul>` に1行足す。CSSは `base.css` の `.nav-group` 一式
   （デスクトップ=縦線区切りの横並び／モバイル=グループ見出し付き縦積み）。
@@ -802,7 +801,7 @@ ETagで確実に検知できる。
 | アプリ | 内容 |
 |---|---|
 | `website` | 共通レイアウト（base.html）・トップページ。ナビの機能割当は `website/views.py` の FEATURES |
-| `japan_kabu` | 時価総額ランキング(`/japan_kabu/`)・出来高急増(`/japan_kabu/volume/`)・銘柄別指標(`/japan_kabu/stock/<code>/`)。ランキング2ページは`?country=JP/US`の国別タブで日米切替 |
+| `japan_kabu` | 時価総額ランキング(`/japan_kabu/`)・出来高急増(`/japan_kabu/volume/`)・指標計算(`indicators.py`)。`/japan_kabu/stock/<code>/` は**旧「銘柄別指標」ページの URL で、その銘柄のカルテへ転送するだけ**（カルテ未作成なら一覧の検索窓にコードを入れて開く）。ランキング2ページは`?country=JP/US`の国別タブで日米切替 |
 | `diary` | 売買日記(`/diary/`)。判断記録は編集不可・振り返りのみ追記の設計 |
 | `karte` | 銘柄カルテ(`/karte/`)。IR資料を読みながら手入力する定性分析＋株価レンジ |
 | `portfolio` | 資産ダッシュボード(`/portfolio/`)と棚卸し登録(`/portfolio/register/`)。株・投信・金銀・**暗号資産（2026-09-05追加）**・現金を円換算で自動評価。暗号資産は `Product.category='crypto'`（BTC/ETH/XRP/SOL・`CRYPTO_CHOICES`）で、価格は `update_product_prices` が yfinance「銘柄-USD」×ドル円で円/枚を毎晩取得（マイグレーション 0010）。銘柄を足すときは `CRYPTO_CHOICES` と `CRYPTO_TICKERS` の両方。大分類・目標・スナップショットは `ASSET_CLASSES`/`ASSET_CLASS_CHOICES`/`AssetSnapshot.crypto` で自動追従。**サーバー反映手順は `docs/DEPLOY_PORTFOLIO.md`**（migrate→collectstatic→`seed_fund_products`→`update_product_prices`→restart。投信のプルダウン候補はDBデータなのでseedコマンド実行が必須） |
@@ -827,9 +826,25 @@ principal（投資元本）は「総資産 − 含み損益」で導出してい
 - 一覧(`/karte/`)には**押し目一覧**（1年高値からの下落率順）を表示。
   母集団は**カルテ＋売買日記**の銘柄。カルテ未作成の銘柄は詳細ページが無いためリンクしない
 
-- 銘柄別指標ページは**全銘柄データ（約5MB）をページに一括埋め込み**、銘柄切替はフロント完結。
-  これはユーザーの明示要件（切替時にバックエンド通信ゼロ）。**API化・都度取得に変えないこと**。
-  本番では gzip 圧縮（nginx等）を有効にする。
+- **旧「銘柄別指標」ページ（全銘柄 3,704 件・5.8MB を一括埋め込み・生成 3.8 秒）は 2026-09-16 に廃止し、
+  カルテへ吸収した**（ユーザー方針: 実際に見る銘柄は少ないので、興味ある銘柄だけ登録して調べる。
+  登録は必ず登録画面＝カルテ一覧の検索窓を経由し、ワンクリック登録はしない）。
+  - 指標の計算は `japan_kabu/indicators.py`（`indicators_for_stocks` / `indicator_for_stock`。渡した銘柄の
+    FinancialReport だけ読む）。旧 `_build_indicator_payload` のように全銘柄を読む経路は残していない
+  - カルテ詳細の **「指標（自動）」セクション**（`section_order` のキー `indicators`・price の次が既定）:
+    6指標カード → 四半期推移（TTM）→ 業績推移を `karte_indicators.js`（ECharts）で描く。米国株は
+    登録直後は決算が無いので **「決算を取得する」ボタン**（`karte:fetch_financials` → `update_us_financials
+    --ticker` を同期実行）を置いた。日本株は夜バッチ待ち（`update_marketcap` は全日本株を取り続ける。
+    登録した瞬間に指標が出る利点があるので対象を絞らない）
+  - カルテ一覧の **「指標の比較」表**: ユーザー決定の5列 = PER／PBR／ROE／配当利回り／1年ドローダウン。
+    押し目が深い順。「—」は決算未取得
+  - 入口: 時価総額・出来高ランキングと日記の銘柄名リンクは `japan_kabu:stock_detail`（転送ビュー）のまま。
+    カルテがあればカルテ詳細へ、無ければ `/karte/?q=<コード>` で検索窓にコードが入り候補が出る
+    （`karte_index.js` の `data-prefill`）。ランキングでカルテがある銘柄には 📋 を付ける（`_karte_codes`）
+  - 旧ページの `stock_detail.html` / `stock_detail.js` / `stock_detail.css` は削除済み。**戻さないこと**
+- **ユーザーの方針転換（2026-09-16）: 主戦場は米国株**。今後は国内株の機能は程々にし、米国株中心に
+  拡充する。米国株のデータ源として株探等の有用サイトからのスクレイピングも検討対象（本人の意向。
+  楽天・銀行のような出金権限のあるサイトとは別枠）
 - グラフは Chart.js（CDN読み込み）。
 
 ## 🎯 短期トレード（`/diary/contra/`）— 2026-09-09 追加

@@ -14,10 +14,8 @@
   <h1 class="kt-title">{{ stock.name }}</h1>
   <p class="kt-sub">
     {{ stock.display_code }}{% if stock.market %} ／ {{ stock.market }}{% endif %}{% if stock.sector33 %} ／ {{ stock.sector33 }}{% endif %}
-    {% if has_indicator_page %}
-    ・<a href="{% url 'japan_kabu:stock_detail' stock.display_code %}">自動指標を見る</a>
-    {% endif %}
   </p>
+  {% if messages %}{% for m in messages %}<p class="kt-note kt-msg-{{ m.tags }} kt-msg-top">{{ m }}</p>{% endfor %}{% endif %}
   <p class="kt-fill">
     記入済み {{ filled }}/{{ total_fields }}項目
     {% if karte.ir_url %}
@@ -163,6 +161,49 @@
           <button type="submit">追加</button>
         </form>
 
+        {% elif key == 'indicators' %}
+        {% comment %}
+          指標（自動）: 旧「銘柄別指標」ページを吸収（2026-09-16）。この銘柄1件分だけをサーバーで計算し
+          （japan_kabu.indicators.indicator_for_stock）、karte_indicators.js が ECharts で描く。
+          6指標のカード → 四半期推移（TTM）→ 業績推移。米国株は登録直後に決算が無いので取得ボタンを置く
+        {% endcomment %}
+        <h2 class="kt-h2">指標（自動）</h2>
+        {% if indicator %}
+        <p class="kt-ind-head"><span id="kt-ind-close"></span> <span class="kt-note" id="kt-ind-fy"></span></p>
+        <div class="ind-grid">
+          {% for d in indicator_defs %}
+          <div class="ind-card">
+            <div class="ind-info">
+              <p class="ind-label" id="ind-label-{{ forloop.counter0 }}">{{ d.label }}</p>
+              <p class="ind-value" id="ind-value-{{ forloop.counter0 }}"></p>
+            </div>
+            <div class="ind-chart-wrap"><div id="ind-chart-{{ forloop.counter0 }}" class="ec-canvas"></div></div>
+          </div>
+          {% endfor %}
+        </div>
+        <h3 class="kt-h3">指標の推移（四半期・TTMベース）</h3>
+        <div class="hist-tabs" id="hist-tabs">
+          {% for d in indicator_defs %}<button type="button" data-key="{{ d.key }}" {% if forloop.first %}class="active"{% endif %}>{{ d.label }}</button>{% endfor %}
+        </div>
+        <div class="hist-chart-wrap"><div id="hist-chart" class="ec-canvas"></div></div>
+        <h3 class="kt-h3">業績推移</h3>
+        <div class="trend-chart-wrap"><div id="trend-chart" class="ec-canvas"></div></div>
+        {% if stock.country == 'US' %}
+        <form method="post" action="{% url 'karte:fetch_financials' stock.display_code %}" class="kt-price-fetch">
+          {% csrf_token %}<button type="submit" class="kt-btn-sub">決算を更新する（サーバーで update_us_financials を実行・数秒）</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <p class="kt-note">決算データが未取得です。
+          {% if stock.country == 'US' %}下のボタンでその場で取得できます（yfinance・数秒）。
+          {% else %}日本株は夜バッチ（update_marketcap・J-Quants）が取り込みます。翌日以降に表示されます。{% endif %}</p>
+        {% if stock.country == 'US' %}
+        <form method="post" action="{% url 'karte:fetch_financials' stock.display_code %}" class="kt-price-fetch">
+          {% csrf_token %}<button type="submit" class="kt-btn-sub">決算を取得する（サーバーで update_us_financials を実行・数秒）</button>
+        </form>
+        {% endif %}
+        {% endif %}
+
         {% elif key == 'price' %}
         <h2 class="kt-h2">株価レンジ（買い場の目安）</h2>
         {% if price %}
@@ -248,9 +289,6 @@
           ブラウザから update_daily_prices --code をその場で実行する（ユーザー要望 2026-09-09）。
           結果は messages で出す。base.html は messages を描かないのでここで描く
         {% endcomment %}
-        {% if messages %}
-          {% for m in messages %}<p class="kt-note kt-msg-{{ m.tags }}">{{ m }}</p>{% endfor %}
-        {% endif %}
         <form method="post" action="{% url 'karte:fetch_prices' stock.display_code %}" class="kt-fetch-form">
           {% csrf_token %}
           <button type="submit" class="kt-btn-sub">{% if price %}株価を更新する{% else %}株価を取得する{% endif %}（サーバーで update_daily_prices を実行・数秒）</button>
@@ -351,10 +389,13 @@
 
 {{ kpi_chart|json_script:"kpi-data" }}
 {{ price_chart|json_script:"price-data" }}
+{{ indicator|json_script:"indicator-data" }}
+{{ indicator_defs|json_script:"indicator-defs" }}
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="{% static 'karte/js/karte_detail.js' %}?v={% now 'U' %}"></script>
+<script src="{% static 'karte/js/karte_indicators.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

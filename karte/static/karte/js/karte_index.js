@@ -58,4 +58,9 @@
   input.addEventListener('focus', () => { load(); showMatches(input.value); });
   input.addEventListener('input', () => showMatches(input.value));
   input.addEventListener('blur', () => { setTimeout(() => { list.hidden = true; }, 150); });
+
+  // ランキング等から「カルテが無い銘柄」を開いたとき（?q=コード）: 検索窓に入れて候補を出す。
+  // 自動では作らない（登録画面を経由する、がユーザー方針 2026-09-16）
+  const pre = (input.dataset.prefill || '').trim();
+  if (pre) { input.value = pre; input.focus(); load(); }
 })();
