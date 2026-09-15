@@ -24,12 +24,12 @@
     : (isUS ? '$' + d.close.toLocaleString() + (fx ? `（約${yen(d.close * fx)}）` : '') : d.close.toLocaleString() + '円')
     + (d.price_date ? `（${d.price_date} 終値）` : '');
   const fyEl = $('kt-ind-fy');
-  if (fyEl) fyEl.textContent = `決算期: ${d.fy_end}期` + (isUS ? '（PERは実績TTM）' : '（PERは来期予想）')
+  if (fyEl) fyEl.textContent = `決算期: ${d.fy_end}期` + (d.per_basis === 'forecast' ? '（PERは来期予想）' : '（PERは実績TTM）') + (d.basis_note ? `・${d.basis_note}` : '')
     + (fx ? `・$1=${fx.toFixed(2)}円（${d.fx.date}）` : '')
     + (isUS && d.fin_currency && d.fin_currency !== 'USD' ? `・決算は${d.fin_currency === 'JPY' ? '円' : d.fin_currency}建て（PER/PBRは株価を換算して計算）` : '');
 
   // PER の根拠が国で違う（日本株=来期予想 / 米国株=実績TTM）
-  const labelFor = (def) => (def.key === 'per' ? (isUS ? 'PER（実績）' : 'PER（予想）') : def.label);
+  const labelFor = (def) => (def.key === 'per' ? (d.per_basis === 'forecast' ? 'PER（予想）' : 'PER（実績）') : def.label);
 
   // ---- 6枚のカード（値＋ミニ横棒） ----
   defs.forEach((def, i) => {

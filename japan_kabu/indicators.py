@@ -23,30 +23,40 @@ INDICATOR_DEFS = [
 ]
 
 
-def _indicator_values(close, rep, ttm_np=None):
-    """終値と決算データから指標を計算する。算出不可はNone
+def _indicator_values(close, *, profit, eps, bps, equity, assets, dividend, equity_ratio):
+    """指標を計算する（材料は build_stock_indicator が国別に揃える）。算出不可は None
 
-    ttm_np を渡すと、それを利益として使う（米国株のTTM実績ベース）。
-    渡さない場合は日本株の想定で、来期予想EPS/通期純利益を使う。
+    2026-09-16 に定義を揃えた（Yahoo・決算短信との突合で ROE が 2〜4 割低く出ていたため）:
+    - ROE = 利益 ÷ **自己資本の期首・期末平均**（決算短信「自己資本当期純利益率」・Yahoo と同じ）
+    - ROA = 利益 ÷ **総資産の期首・期末平均**（純利益ベース。Yahoo の ROA は税引後営業利益ベースで別物）
+    - 利益は日米とも **直近12か月（TTM）の親会社帰属純利益**（日本株も 1Q 開示後は TTM に更新）
+    - PER は 予想 EPS があれば予想（日本株・J-Quants の来期予想）、無ければ実績 TTM（米国株・予想無しの日本株）
     """
     values = {key: None for key, *_ in INDICATOR_DEFS}
-    if rep is None or close is None:
+    if close is None:
         return values
-    # 日本株は来期予想EPSベース（予想PER）。米国株は予想が無いのでTTM実績を渡す
-    if ttm_np is not None:
-        eps = ttm_np / rep.shares if rep.shares else None
-        profit = ttm_np
-    else:
-        eps = rep.nx_np / rep.shares if rep.nx_np and rep.shares else None
-        profit = rep.np
-    dividend = rep.nx_div_ann or rep.div_ann
     values['per'] = close / eps if eps and eps > 0 else None
-    values['pbr'] = close / rep.bps if rep.bps and rep.bps > 0 else None
-    values['roe'] = profit / rep.equity * 100 if profit is not None and rep.equity else None
-    values['roa'] = profit / rep.total_assets * 100 if profit is not None and rep.total_assets else None
+    values['pbr'] = close / bps if bps and bps > 0 else None
+    values['roe'] = profit / equity * 100 if profit is not None and equity else None
+    values['roa'] = profit / assets * 100 if profit is not None and assets else None
     values['yield'] = dividend / close * 100 if dividend else None
-    values['equity_ratio'] = rep.equity_ratio * 100 if rep.equity_ratio is not None else None
+    values['equity_ratio'] = equity_ratio * 100 if equity_ratio is not None else None
     return {k: round(v, 3) if v is not None else None for k, v in values.items()}
+
+
+def _rep_year_before(target, reps, kinds):
+    """target の約1年前（350〜380日前）の同種のレポート（期首の自己資本・総資産に使う）"""
+    for r in reversed(reps):
+        if r.per_type in kinds and 350 <= (target.per_end - r.per_end).days <= 380:
+            return r
+    return None
+
+
+def _avg(a, b):
+    """期首・期末の平均。期首が無ければ期末だけ（新規上場など）"""
+    if a is None:
+        return None
+    return (a + b) / 2 if b is not None else a
 
 
 def _oku(v):
@@ -280,13 +290,39 @@ def build_stock_indicator(stock, reps):
         rate = fx_latest if current else _fx_at(fx_hist, fx_latest, d)
         return close * rate if rate else None
 
-    # 米国株は最新の四半期を現在値の算出に使う（yfinance に来期予想が無いため PER は実績 TTM）
+    # 現在値の指標（定義は _indicator_values の docstring）。利益は日米とも TTM、自己資本・総資産は期首期末平均
     if is_us:
-        ttm = _ttm_np_us(latest_ind_src, quarters) if quarters else latest.np
-        ind = _indicator_values(close_in_fin(stock.close, stock.price_date, current=True),
-                                latest_ind_src, ttm_np=ttm)
+        src = latest_ind_src
+        ttm = _ttm_np_us(src, quarters) if quarters else latest.np
+        prev = _rep_year_before(src, reps, {'Q', 'FY'})
+        eps = (ttm / src.shares) if (ttm is not None and src.shares) else None
+        per_basis = 'actual'
+        close_now = close_in_fin(stock.close, stock.price_date, current=True)
+        bps = src.bps if (src.bps and src.bps > 0) else ((src.equity / src.shares) if (src.equity and src.shares) else None)
+        dividend = src.div_ann
+        eq_ratio = src.equity_ratio
     else:
-        ind = _indicator_values(stock.close, latest)
+        by_key = {(r.fy_end, r.per_type): r for r in reps}
+        fy_ends = [r.fy_end for r in fy_reps]
+        src = reps[-1]                              # 直近の開示（1Q 等でも TTM に更新する）
+        ttm = _ttm_np(src, by_key, fy_ends)
+        if ttm is None:
+            src, ttm = latest, latest.np            # 累計の差分が取れないときは通期実績
+        prev = _rep_year_before(src, reps, {src.per_type})
+        shares = src.shares or latest.shares
+        if latest.nx_np and shares:                 # J-Quants の来期予想があれば予想 PER（従来どおり）
+            eps, per_basis = latest.nx_np / shares, 'forecast'
+        else:                                       # 予想が無い会社（NEC・ソフトバンクG 等）は実績 TTM
+            eps, per_basis = ((ttm / shares) if (ttm is not None and shares) else None), 'actual'
+        close_now = stock.close
+        bps = src.bps if (src.bps and src.bps > 0) else ((src.equity / shares) if (src.equity and shares) else latest.bps)
+        dividend = latest.nx_div_ann or latest.div_ann
+        eq_ratio = src.equity_ratio if src.equity_ratio is not None else latest.equity_ratio
+    ind = _indicator_values(
+        close_now, profit=ttm, eps=eps, bps=bps,
+        equity=_avg(src.equity, prev.equity if prev else None),
+        assets=_avg(src.total_assets, prev.total_assets if prev else None),
+        dividend=dividend, equity_ratio=eq_ratio)
     if fin_ccy == 'JPY':
         scale, trend_unit = _oku, '億円'
     else:
@@ -297,6 +333,8 @@ def build_stock_indicator(stock, reps):
         'country': stock.country,
         'currency': 'USD' if is_us else 'JPY',
         'fin_currency': fin_ccy,          # 業績・指標の元データの通貨（JS は USD のときだけ円換算する）
+        'per_basis': per_basis,           # 'forecast'（来期予想 EPS）/ 'actual'（実績 TTM）。JS がラベルに使う
+        'basis_note': f'利益は {src.per_end:%Y/%m} までの12か月、自己資本・総資産は期首期末平均',
         'trend_unit': trend_unit,
         # 米国株は円換算の併記用に最新ドル円（portfolio.FxRate・夜バッチ）を添える（2026-09-16 ユーザー要望）。
         # 値そのものはドルのまま。換算は JS（業績推移の Y 軸=億円、現在値=円併記）とテンプレで行う
