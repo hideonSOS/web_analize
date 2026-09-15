@@ -269,19 +269,21 @@ def build_stock_indicator(stock, reps):
     fx_hist = _fx_history() if foreign_fin else {}
     fx_latest = fx['rate'] if fx else None
 
-    def close_in_fin(close, d):
-        """株価（取引通貨=USD）を財務の通貨へ。JPY 建て財務なら ×ドル円。換算できなければ None"""
+    def close_in_fin(close, d, current=False):
+        """株価（取引通貨=USD）を財務の通貨へ。JPY 建て財務なら ×ドル円。換算できなければ None
+        current=True（現在値の指標）は最新の日次レート、過去の期末はその月の月次平均を使う。
+        ⚠️ 現在値に月次平均を使うと PER が 15.2→15.6 のようにズレる（実際に起きた 2026-09-16）"""
         if close is None or not foreign_fin:
             return close
         if fin_ccy != 'JPY':
             return None   # JPY 以外の外貨建て財務は未対応（算出不可にする）
-        rate = _fx_at(fx_hist, fx_latest, d)
+        rate = fx_latest if current else _fx_at(fx_hist, fx_latest, d)
         return close * rate if rate else None
 
     # 米国株は最新の四半期を現在値の算出に使う（yfinance に来期予想が無いため PER は実績 TTM）
     if is_us:
         ttm = _ttm_np_us(latest_ind_src, quarters) if quarters else latest.np
-        ind = _indicator_values(close_in_fin(stock.close, stock.price_date or latest_ind_src.per_end),
+        ind = _indicator_values(close_in_fin(stock.close, stock.price_date, current=True),
                                 latest_ind_src, ttm_np=ttm)
     else:
         ind = _indicator_values(stock.close, latest)
