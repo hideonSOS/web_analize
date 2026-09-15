@@ -137,6 +137,14 @@ def _build_history(reps, is_us=False, close_conv=None):
             last_shares = r.shares
         if r.div_ann is not None:
             last_div = r.div_ann
+            # 日本株: 実績配当（div_ann）が分割前の株数基準のまま開示され、来期予想（nx_div_ann）だけ
+            # 分割後の基準になっている行がある（富士通 260 vs 28、フジクラ 225 vs 38、NEC 140 vs 32、
+            # 上場直後の JX金属 109.55 vs 15）。実績÷予想が 1.5 倍超／0.67 倍未満なら基準が違うとみなし、
+            # 株価（分割後）と同じ基準の予想配当を使う（2026-09-16・利回りが 5〜10% と出ていた）
+            if not is_us and r.nx_div_ann and r.div_ann:
+                ratio = r.div_ann / r.nx_div_ann
+                if ratio > 1.5 or ratio < 0.67:
+                    last_div = r.nx_div_ann
         enriched.append((r, last_shares, last_div))
 
     hist = {k: [] for k in
