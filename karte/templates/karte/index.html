@@ -24,6 +24,43 @@
     </div>
   </div>
 
+  {% comment %} 押し目一覧は 2026-09-16 に削除（指標の比較表に1年DDがあり重複・ユーザー指示）。戻さないこと {% endcomment %}
+
+  {% if rows %}
+  {% comment %} カードは上・比較表は下（ユーザー要望 2026-09-16）。⠿ を掴んでドラッグすると並びが保存される
+    （karte:reorder_cards・StockKarte.sort_order）。推しを前に置く用途 {% endcomment %}
+  <p class="kt-note">⠿ をドラッグでカードの並びを変えられます（保存されます）</p>
+  <div class="kt-grid" id="kt-cards" data-reorder-url="{% url 'karte:reorder_cards' %}">
+    {% for r in rows %}
+    <!-- カード全体が<a>のため、削除フォームは入れ子にできない（HTML的に不正）。
+         ラッパーで包み、フォームはカードの外に重ねて配置する -->
+    <div class="kt-card-wrap" data-code="{{ r.k.stock.display_code }}">
+      <span class="kt-card-handle" title="ドラッグして並び替え">⠿</span>
+      <a class="kt-card" href="{% url 'karte:detail' r.k.stock.display_code %}">
+        <p class="kt-card-name">{{ r.k.stock.name }}</p>
+        <p class="kt-card-code">
+          {{ r.k.stock.display_code }}
+          {% if r.k.stock.country == 'US' %}<span class="kt-us">US</span>{% endif %}
+        </p>
+        <div class="kt-progress">
+          <div class="kt-progress-bar" style="width: {{ r.pct }}%"></div>
+        </div>
+        <p class="kt-card-meta">記入 {{ r.filled }}/{{ r.total }}項目　更新 {{ r.k.updated_at|date:"Y/m/d" }}</p>
+      </a>
+      <form method="post" action="{% url 'karte:delete' r.k.stock.display_code %}"
+            class="kt-del-form kt-card-del"
+            onsubmit="return confirm('「{{ r.k.stock.name|escapejs }}」のカルテを削除します。\n手入力した内容は元に戻せません。よろしいですか？');">
+        {% csrf_token %}<button type="submit" class="kt-del" title="このカルテを削除">🗑</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="kt-empty">
+    <p>まだカルテがありません。上の検索窓から銘柄を選ぶとカルテが作成されます。</p>
+  </div>
+  {% endif %}
+
   {% comment %}
     指標の比較表（2026-09-16・旧「銘柄別指標」ページを吸収）。列はユーザー決定の5つ:
     PER／PBR／ROE／配当利回り／1年ドローダウン。押し目が深い順。数値はカルテ銘柄だけサーバーで計算
@@ -55,42 +92,11 @@
   </section>
   {% endif %}
 
-  {% comment %} 押し目一覧は 2026-09-16 に削除（指標の比較表に1年DDがあり重複・ユーザー指示）。戻さないこと {% endcomment %}
-
-  {% if rows %}
-  <div class="kt-grid">
-    {% for r in rows %}
-    <!-- カード全体が<a>のため、削除フォームは入れ子にできない（HTML的に不正）。
-         ラッパーで包み、フォームはカードの外に重ねて配置する -->
-    <div class="kt-card-wrap">
-      <a class="kt-card" href="{% url 'karte:detail' r.k.stock.display_code %}">
-        <p class="kt-card-name">{{ r.k.stock.name }}</p>
-        <p class="kt-card-code">
-          {{ r.k.stock.display_code }}
-          {% if r.k.stock.country == 'US' %}<span class="kt-us">US</span>{% endif %}
-        </p>
-        <div class="kt-progress">
-          <div class="kt-progress-bar" style="width: {{ r.pct }}%"></div>
-        </div>
-        <p class="kt-card-meta">記入 {{ r.filled }}/{{ r.total }}項目　更新 {{ r.k.updated_at|date:"Y/m/d" }}</p>
-      </a>
-      <form method="post" action="{% url 'karte:delete' r.k.stock.display_code %}"
-            class="kt-del-form kt-card-del"
-            onsubmit="return confirm('「{{ r.k.stock.name|escapejs }}」のカルテを削除します。\n手入力した内容は元に戻せません。よろしいですか？');">
-        {% csrf_token %}<button type="submit" class="kt-del" title="このカルテを削除">🗑</button>
-      </form>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="kt-empty">
-    <p>まだカルテがありません。上の検索窓から銘柄を選ぶとカルテが作成されます。</p>
-  </div>
-  {% endif %}
 </main>
 {% endblock %}
 
 {% block extra_js %}
 <script>window.KARTE_STOCK_OPTIONS_URL = "{% url 'karte:stock_options' %}";</script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="{% static 'karte/js/karte_index.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

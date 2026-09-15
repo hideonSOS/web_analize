@@ -44,7 +44,9 @@ def resolve_section_order(saved):
 
 def index(request):
     """カルテ一覧 + 新規作成 + 押し目一覧（高値からの下落率）"""
-    kartes = list(StockKarte.objects.select_related('stock').all())
+    # 並び: 手で並べたもの（sort_order 1,2,3…）が先、未設定（0）は更新日の新しい順で後ろ
+    kartes = sorted(StockKarte.objects.select_related('stock').all(),
+                    key=lambda k: (k.sort_order == 0, k.sort_order, -k.updated_at.timestamp()))
 
     # 1年ドローダウン（比較表の列）。旧「押し目一覧」は 2026-09-16 に削除（比較表と重複・ユーザー指示）
     stats = bulk_price_stats([k.stock for k in kartes])
@@ -263,6 +265,30 @@ def fetch_prices(request, code):
         messages.error(request, '株価を取得できませんでした（ティッカーが yfinance に無い可能性）。'
                                 + (err.getvalue().strip()[-200:] or summary))
     return redirect('karte:detail', code=code)
+
+
+@require_POST
+def reorder_cards(request):
+    """一覧のカードの並び順を保存（JS からドラッグ後に呼ぶ）。ボディ: {"order": ["NVDA", "6758", ...]}
+    渡された順に 1,2,3… を振る。渡されなかったカルテは末尾（既存の値を保つ）"""
+    try:
+        payload = json.loads(request.body or '{}')
+        codes = [str(c) for c in payload.get('order', [])]
+    except (ValueError, TypeError, AttributeError):
+        return JsonResponse({'ok': False, 'error': 'invalid json'}, status=400)
+    kartes = {k.stock.display_code: k for k in StockKarte.objects.select_related('stock')}
+    # 渡された順 → 渡されなかったもの（現在の並び）の順で 1,2,3… を全件に振る
+    # （未設定 0 が残ると「0 が先頭」になり並びが崩れる。実際に起きた）
+    rest = [k for k in sorted(kartes.values(), key=lambda k: (k.sort_order == 0, k.sort_order, -k.updated_at.timestamp()))
+            if k.stock.display_code not in codes]
+    ordered = [kartes[c] for c in codes if c in kartes] + rest
+    n = 0
+    for i, k in enumerate(ordered, 1):
+        if k.sort_order != i:
+            k.sort_order = i
+            k.save(update_fields=['sort_order'])   # updated_at は動かさない（記入の更新日ではない）
+            n += 1
+    return JsonResponse({'ok': True, 'saved': n})
 
 
 @require_POST

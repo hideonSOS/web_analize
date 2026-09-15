@@ -64,3 +64,26 @@
   const pre = (input.dataset.prefill || '').trim();
   if (pre) { input.value = pre; input.focus(); load(); }
 })();
+
+
+// カードの並び替え（推しを前に）。ハンドル(⠿)を掴んでドラッグ → 離した時点で保存
+(() => {
+  const grid = document.getElementById('kt-cards');
+  if (!grid || typeof Sortable === 'undefined') return;
+  function csrfToken() {
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    const input = document.querySelector('[name=csrfmiddlewaretoken]');
+    return input ? input.value : '';
+  }
+  Sortable.create(grid, {
+    handle: '.kt-card-handle', animation: 150, ghostClass: 'kt-sortable-ghost',
+    onEnd() {
+      const order = [...grid.querySelectorAll('.kt-card-wrap')].map((el) => el.dataset.code);
+      fetch(grid.dataset.reorderUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+        body: JSON.stringify({ order }),
+      }).catch(() => {});
+    },
+  });
+})();

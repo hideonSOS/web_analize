@@ -56,12 +56,15 @@ class StockKarte(models.Model):
     # セクションの表示順（銘柄ごとにドラッグで並び替える。空なら既定順）。
     # セクションを識別するキー文字列のリストを保存する。未知/欠落キーは表示時に補正する。
     section_order = models.JSONField(default=list, blank=True)
+    # 一覧のカードの並び（0014・2026-09-16 ユーザー要望「推しを前にするので自由に並べ替えたい」）。
+    # ドラッグ&ドロップで karte:reorder_cards に保存。小さいほど前。未設定（0）は更新日の新しい順
+    sort_order = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-updated_at']
+        ordering = ['sort_order', '-updated_at']
 
     def __str__(self):
         return f"カルテ {self.stock_id}"

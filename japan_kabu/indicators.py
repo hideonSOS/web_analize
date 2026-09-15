@@ -44,6 +44,17 @@ def _indicator_values(close, *, profit, eps, bps, equity, assets, dividend, equi
     return {k: round(v, 3) if v is not None else None for k, v in values.items()}
 
 
+def _jp_own_equity(r):
+    """日本株の自己資本（親会社所有者帰属）。J-Quants の Eq は純資産（非支配持分を含む）なので、
+    自己資本比率（EqAR＝自己資本÷総資産）× 総資産 で自己資本に戻す（住友林業で ROE が 13% 過小に出た・
+    2026-09-16）。比率が無ければ Eq で代用"""
+    if r is None:
+        return None
+    if r.equity_ratio is not None and r.total_assets:
+        return r.total_assets * r.equity_ratio
+    return r.equity
+
+
 def _rep_year_before(target, reps, kinds):
     """target の約1年前（350〜380日前）の同種のレポート（期首の自己資本・総資産に使う）"""
     for r in reversed(reps):
@@ -158,7 +169,8 @@ def _build_history(reps, is_us=False, close_conv=None):
         hist['labels'].append(r.per_end.strftime('%y/%m'))
         hist['per'].append(_r2(close / eps_ttm) if (close and eps_ttm and eps_ttm > 0) else None)
         hist['pbr'].append(_r2(close / bps) if (close and bps) else None)
-        hist['roe'].append(_r2(ttm / r.equity * 100) if (ttm is not None and r.equity) else None)
+        eq_r = r.equity if is_us else _jp_own_equity(r)
+        hist['roe'].append(_r2(ttm / eq_r * 100) if (ttm is not None and eq_r) else None)
         hist['roa'].append(_r2(ttm / r.total_assets * 100) if (ttm is not None and r.total_assets) else None)
         hist['yield'].append(_r2(div / close * 100) if (div and close) else None)
         hist['equity_ratio'].append(_r2(r.equity_ratio * 100) if r.equity_ratio is not None else None)
@@ -333,9 +345,10 @@ def build_stock_indicator(stock, reps):
         bps = src.bps if (src.bps and src.bps > 0) else ((src.equity / shares) if (src.equity and shares) else latest.bps)
         dividend = latest.nx_div_ann or latest.div_ann
         eq_ratio = src.equity_ratio if src.equity_ratio is not None else latest.equity_ratio
+    eq_now, eq_prev = (src.equity, prev.equity if prev else None) if is_us else (_jp_own_equity(src), _jp_own_equity(prev))
     ind = _indicator_values(
         close_now, profit=ttm, eps=eps, bps=bps,
-        equity=_avg(src.equity, prev.equity if prev else None),
+        equity=_avg(eq_now, eq_prev),
         assets=_avg(src.total_assets, prev.total_assets if prev else None),
         dividend=dividend, equity_ratio=eq_ratio)
     if fin_ccy == 'JPY':

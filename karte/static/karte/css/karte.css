@@ -381,3 +381,9 @@
 .kt-trend-tbl{ margin-top:8px; font-size:12px; }
 .kt-trend-tbl th i{ display:block; font-style:normal; font-weight:400; color:#6b7280; font-size:9px; }
 .kt-trend-tbl td.num.up{ color:#4ade80; } .kt-trend-tbl td.num.down{ color:#f87171; }
+
+/* 一覧カードの並び替えハンドル（2026-09-16） */
+.kt-card-handle{ position:absolute; left:8px; top:6px; color:#6b7280; cursor:grab; font-size:16px; z-index:2; user-select:none; }
+.kt-card-handle:hover{ color:#93c5fd; }
+.kt-card-wrap .kt-card{ padding-left:28px; }
+.kt-sortable-ghost{ opacity:.4; }

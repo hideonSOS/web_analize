@@ -8,6 +8,8 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('stock-options.json', views.stock_options, name='stock_options'),
     path('create/', views.create, name='create'),
+    # ⚠️ <str:code>/ より前に置くこと（後ろだと 'reorder-cards' が銘柄コードとして detail に吸われて 404）
+    path('reorder-cards/', views.reorder_cards, name='reorder_cards'),
     path('<str:code>/', views.detail, name='detail'),
     path('<str:code>/save/', views.save, name='save'),
     path('<str:code>/reorder/', views.reorder, name='reorder'),
