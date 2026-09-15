@@ -186,7 +186,7 @@
           {% for d in indicator_defs %}<button type="button" data-key="{{ d.key }}" {% if forloop.first %}class="active"{% endif %}>{{ d.label }}</button>{% endfor %}
         </div>
         <div class="hist-chart-wrap"><div id="hist-chart" class="ec-canvas"></div></div>
-        <h3 class="kt-h3">業績推移</h3>
+        <h3 class="kt-h3">業績推移{% if stock.country == 'US' and indicator.fx %} <span class="kt-note">Y軸は億円換算（$1={{ indicator.fx.rate|floatformat:2 }}円）・ドルはグラフ上で表示</span>{% endif %}</h3>
         <div class="trend-chart-wrap"><div id="trend-chart" class="ec-canvas"></div></div>
         {% if stock.country == 'US' %}
         <form method="post" action="{% url 'karte:fetch_financials' stock.display_code %}" class="kt-price-fetch">

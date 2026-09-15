@@ -17,10 +17,15 @@
 
   // 見出し: 現在値と決算期
   const closeEl = $('kt-ind-close');
-  if (closeEl) closeEl.textContent = d.close === null ? '―' : (isUS ? '$' + d.close.toLocaleString() : d.close.toLocaleString() + '円')
+  // 米国株: ドル表記はそのままに円換算を併記（ユーザー要望 2026-09-16）。為替は d.fx（最新ドル円）
+  const fx = isUS && d.fx && d.fx.rate ? d.fx.rate : null;
+  const yen = (v) => Math.round(v).toLocaleString() + '円';
+  if (closeEl) closeEl.textContent = d.close === null ? '―'
+    : (isUS ? '$' + d.close.toLocaleString() + (fx ? `（約${yen(d.close * fx)}）` : '') : d.close.toLocaleString() + '円')
     + (d.price_date ? `（${d.price_date} 終値）` : '');
   const fyEl = $('kt-ind-fy');
-  if (fyEl) fyEl.textContent = `決算期: ${d.fy_end}期` + (isUS ? '（PERは実績TTM）' : '（PERは来期予想）');
+  if (fyEl) fyEl.textContent = `決算期: ${d.fy_end}期` + (isUS ? '（PERは実績TTM）' : '（PERは来期予想）')
+    + (fx ? `・$1=${fx.toFixed(2)}円（${d.fx.date}）` : '');
 
   // PER の根拠が国で違う（日本株=来期予想 / 米国株=実績TTM）
   const labelFor = (def) => (def.key === 'per' ? (isUS ? 'PER（実績）' : 'PER（予想）') : def.label);
@@ -78,17 +83,30 @@
   if (trendBox && d.trend) {
     const trendChart = echarts.init(trendBox, null, { renderer: 'canvas' });
     charts.push(trendChart);
+    // 米国株で為替があれば Y 軸は億円（百万ドル × レート ÷ 100 = 億円）。tooltip にドルも併記
+    const toYen = fx ? (v) => (v === null || v === undefined ? null : Math.round(v * fx / 100)) : null;
+    const conv = (arr) => (toYen ? arr.map(toYen) : arr);
+    const unitName = toYen ? '億円' : (d.trend_unit || '億円');
+    const KEY = { '売上高': 'sales', '営業利益': 'op', '純利益': 'np' };
+    const fmt = (v, i, seriesName) => {
+      if (v === null || v === undefined) return '―';
+      if (!toYen) return v.toLocaleString() + (d.trend_unit || '億円');
+      const usd = d.trend[KEY[seriesName]][i];
+      return v.toLocaleString() + '億円（$' + (usd === null ? '―' : usd.toLocaleString()) + 'M）';
+    };
     trendChart.setOption({
       backgroundColor: 'transparent', animationDuration: 500,
       legend: { textStyle: { color: '#e5e7eb' }, top: 0 },
       grid: { left: 10, right: 20, top: 36, bottom: 24, containLabel: true },
-      tooltip: { trigger: 'axis', ...TOOLTIP, axisPointer: { type: 'shadow' }, valueFormatter: (v) => (v === null ? '―' : v.toLocaleString() + (d.trend_unit || '億円')) },
+      tooltip: { trigger: 'axis', ...TOOLTIP, axisPointer: { type: 'shadow' },
+        formatter: (ps) => ps[0].axisValue + (fx ? `（$1=${fx.toFixed(2)}円）` : '') + '<br/>'
+          + ps.map((p) => `${p.marker}${p.seriesName}: ${fmt(p.value, p.dataIndex, p.seriesName)}`).join('<br/>') },
       xAxis: { type: 'category', data: d.trend.labels, axisLabel: { color: AXIS }, axisLine: { lineStyle: { color: 'rgba(59,130,246,0.3)' } } },
-      yAxis: { type: 'value', axisLabel: { color: AXIS, formatter: (v) => v.toLocaleString() }, name: d.trend_unit || '億円', nameTextStyle: { color: AXIS, fontSize: 11 }, splitLine: { lineStyle: { color: GRID } } },
+      yAxis: { type: 'value', axisLabel: { color: AXIS, formatter: (v) => v.toLocaleString() }, name: unitName, nameTextStyle: { color: AXIS, fontSize: 11 }, splitLine: { lineStyle: { color: GRID } } },
       series: [
-        { name: '売上高', type: 'bar', data: d.trend.sales, itemStyle: { color: 'rgba(59,130,246,0.7)', borderRadius: [3, 3, 0, 0] } },
-        { name: '営業利益', type: 'bar', data: d.trend.op, itemStyle: { color: 'rgba(250,204,21,0.7)', borderRadius: [3, 3, 0, 0] } },
-        { name: '純利益', type: 'bar', data: d.trend.np, itemStyle: { color: 'rgba(34,197,94,0.7)', borderRadius: [3, 3, 0, 0] } },
+        { name: '売上高', type: 'bar', data: conv(d.trend.sales), itemStyle: { color: 'rgba(59,130,246,0.7)', borderRadius: [3, 3, 0, 0] } },
+        { name: '営業利益', type: 'bar', data: conv(d.trend.op), itemStyle: { color: 'rgba(250,204,21,0.7)', borderRadius: [3, 3, 0, 0] } },
+        { name: '純利益', type: 'bar', data: conv(d.trend.np), itemStyle: { color: 'rgba(34,197,94,0.7)', borderRadius: [3, 3, 0, 0] } },
       ],
     });
   }

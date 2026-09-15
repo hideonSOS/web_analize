@@ -71,6 +71,8 @@ def index(request):
             'price': p,
             'ind': ind['ind'] if ind else None,
             'close': ind['close'] if ind else k.stock.close,
+            # 米国株は円換算を併記（最新ドル円。indicator に fx が無ければ出さない）
+            'close_jpy': (ind['close'] * ind['fx']['rate']) if (ind and ind.get('fx') and ind['close']) else None,
             'dd': p['1y']['drawdown'] if p and p.get('1y') else None,
         })
     # 比較表は押し目が深い順（None は末尾）。ユーザーが決めた5列: PER/PBR/ROE/配当利回り/1年DD

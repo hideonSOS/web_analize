@@ -140,6 +140,16 @@ def _build_history(reps, is_us=False):
     return hist
 
 
+def _fx():
+    """最新ドル円 {'rate': float, 'date': 'YYYY/MM/DD'}。未取得なら None（円併記を出さないだけ）"""
+    try:
+        from portfolio.services import latest_fx_rate
+        rate, d = latest_fx_rate()
+    except Exception:   # noqa: BLE001
+        return None
+    return {'rate': rate, 'date': d.strftime('%Y/%m/%d')} if rate else None
+
+
 def build_stock_indicator(stock, reps):
     """1銘柄分の指標・推移。reps は per_end 昇順の FinancialReport。通期決算が無ければ None"""
     fy_reps = [r for r in reps if r.per_type == 'FY']
@@ -164,6 +174,9 @@ def build_stock_indicator(stock, reps):
         'country': stock.country,
         'currency': 'USD' if is_us else 'JPY',
         'trend_unit': '百万ドル' if is_us else '億円',
+        # 米国株は円換算の併記用に最新ドル円（portfolio.FxRate・夜バッチ）を添える（2026-09-16 ユーザー要望）。
+        # 値そのものはドルのまま。換算は JS（業績推移の Y 軸=億円、現在値=円併記）とテンプレで行う
+        'fx': _fx() if is_us else None,
         'close': stock.close,
         'price_date': stock.price_date.strftime('%Y/%m/%d') if stock.price_date else None,
         'fy_end': latest_ind_src.per_end.strftime('%Y/%m/%d'),
