@@ -73,6 +73,9 @@ class FinancialReport(models.Model):
     # ⚠️ 米国上場でも日本企業の ADR（PayPay 等）は yfinance の財務が JPY で返る。空は USD 扱いにしない
     # こと（indicators.py は「US で空」を USD とみなす。yfinance 経路は必ず financialCurrency を書く）
     fin_currency = models.CharField(max_length=3, blank=True, default='')
+    # 出典（0013・2026-09-16）: '' = J-Quants（日本株）/ 'edgar' = companyfacts / 'edgar20f' = 20-F の XBRL
+    # （外国企業の通期公表値）/ 'yf' = yfinance（Yahoo が組み替えた推定値。公表値とズレることがある）
+    source = models.CharField(max_length=10, blank=True, default='')
 
     class Meta:
         constraints = [

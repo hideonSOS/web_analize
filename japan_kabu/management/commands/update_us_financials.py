@@ -88,12 +88,21 @@ class Command(BaseCommand):
         return list(Stock.objects.filter(code__in=codes))
 
     def _fetch_one(self, stock, source='auto'):
-        """1銘柄。(保存した期数, 使った取得元) を返す"""
+        """1銘柄。(保存した期数, 使った取得元) を返す
+
+        順序: ①companyfacts（米国企業）→ ②20-F の XBRL で通期の公表値＋yfinance で四半期だけ
+        （外国企業の ADR。PayPay で導入）→ ③yfinance（どちらも無いとき）
+        """
         if source in ('auto', 'edgar'):
             try:
                 n = self._fetch_edgar(stock)
                 if n:
                     return n, 'edgar'
+                n = self._fetch_20f(stock)
+                if n:
+                    self.stdout.write(f'  {stock.display_code:<6} companyfacts に無いので 20-F の通期 {n}期＋yfinance の四半期')
+                    nq = self._fetch_one_yf(stock, quarters_only=True)
+                    return n + nq, 'edgar20f+yf'
                 if source == 'edgar':
                     return 0, 'edgar'
                 self.stdout.write(f'  {stock.display_code:<6} EDGAR に決算が無いので yfinance で代替')
@@ -102,6 +111,41 @@ class Command(BaseCommand):
                     raise
                 self.stdout.write(f'  {stock.display_code:<6} EDGAR 失敗（{type(e).__name__}: {e}）→ yfinance で代替')
         return self._fetch_one_yf(stock), 'yf'
+
+    # -------------------------------------------------------------- 20-F XBRL
+    def _fetch_20f(self, stock):
+        """外国企業の通期を 20-F の XBRL から（IFRS・外貨建て）。取れた期数を返す。
+        期末株価は調整前（EDGAR 経路と同じ）。四半期はこの経路では取れない（6-K に XBRL が無い）"""
+        cik = edgar.ticker_to_cik(stock.display_code)
+        if cik is None:
+            return 0
+        rows = edgar.reports_from_20f(cik)
+        if not rows:
+            return 0
+        closes = self._raw_closes(stock.display_code)
+        kept = []
+        for r in rows:
+            equity, assets, shares = r['equity'], r['total_assets'], r['shares']
+            obj, _ = FinancialReport.objects.update_or_create(
+                stock=stock, per_end=r['per_end'], per_type='FY',
+                defaults={
+                    'fy_end': r['per_end'],
+                    'disc_date': r['per_end'] + timedelta(days=90),   # 20-F は期末の約3か月後
+                    'sales': self._as_int(r['sales']), 'op': self._as_int(r['op']), 'np': self._as_int(r['np']),
+                    'eps': r['eps'],
+                    'total_assets': self._as_int(assets), 'equity': self._as_int(equity),
+                    'equity_ratio': (equity / assets) if (equity and assets) else None,
+                    'bps': (equity / shares) if (equity and shares) else None,
+                    'shares': self._as_int(shares),
+                    'div_ann': None,
+                    'close': self._close_at(closes, r['per_end']), 'close_date': r['per_end'],
+                    'fin_currency': r['currency'], 'source': 'edgar20f',
+                },
+            )
+            kept.append(obj.pk)
+        # 旧 yfinance の通期行（推定値）は公表値に置き換わるので消す。四半期は後段の yfinance が上書き
+        FinancialReport.objects.filter(stock=stock, per_type='FY').exclude(pk__in=kept).delete()
+        return len(kept)
 
     # ------------------------------------------------------------------ EDGAR
     def _fetch_edgar(self, stock):
@@ -136,6 +180,7 @@ class Command(BaseCommand):
                     'close': self._close_at(closes, r['per_end']),
                     'close_date': r['per_end'],
                     'fin_currency': 'USD',   # EDGAR は USD 単位のタグだけ採る（edgar._entries）
+                    'source': 'edgar',
                 },
             )
             kept.append(obj.pk)
@@ -155,8 +200,9 @@ class Command(BaseCommand):
             return None
 
     # --------------------------------------------------------------- yfinance
-    def _fetch_one_yf(self, stock):
-        """従来の yfinance 経路（四半期は直近5〜6期しか無い）。EDGAR に無い銘柄の保険"""
+    def _fetch_one_yf(self, stock, quarters_only=False):
+        """従来の yfinance 経路（四半期は直近5〜6期しか無い）。EDGAR に無い銘柄の保険。
+        quarters_only=True は 20-F で通期を取れたとき（通期は公表値を残し、四半期だけ推定値で補う）"""
         import yfinance as yf
 
         t = yf.Ticker(stock.display_code)
@@ -174,7 +220,7 @@ class Command(BaseCommand):
 
         saved = 0
         for per_type, inc, bal in (('FY', ai, ab), ('Q', qi, qb)):
-            if inc is None or inc.empty:
+            if inc is None or inc.empty or (quarters_only and per_type == 'FY'):
                 continue
             for col in inc.columns:
                 per_end = col.date() if hasattr(col, 'date') else col
@@ -202,7 +248,7 @@ class Command(BaseCommand):
                         'div_ann': self._trailing_dividend(divs, per_end),
                         'close': self._close_at(closes, per_end),
                         'close_date': per_end,
-                        'fin_currency': fin_ccy,
+                        'fin_currency': fin_ccy, 'source': 'yf',
                     },
                 )
                 saved += 1

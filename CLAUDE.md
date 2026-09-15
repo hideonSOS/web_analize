@@ -370,6 +370,15 @@ python manage.py update_us_financials --source yf     # yfinance を強制（比
   （JS も `fin_currency=='USD'` のときだけ換算）、PER/PBR は **株価（USD）側を円に直して**計算する。
   過去期の換算はマクロの月次ドル円（`MacroIndicator` USDJPY）、最新は `portfolio.FxRate`
   （日次だが1か月分しか無いので履歴には使えない）。JPY 以外の外貨建て財務は算出不可にしてある
+- ⚠️ **外国企業（ADR）は companyfacts に財務タグが無いことがある**（PayPay は dei のみ・2026-09-16）。
+  yfinance に落ちると Yahoo が組み替えた「Operating Income」が公表の営業利益と大きくズレる
+  （PayPay 2026/3 期: 公表 800.8 億円 vs yfinance 1,053 億円、1〜3月期は 190.7 vs 447）。対処:
+  **20-F の XBRL インスタンス（`<primaryDocument>_htm.xml`・ifrs-full）から通期の公表値を取る**
+  （`edgar.reports_from_20f`・`_fetch_20f`・`source='edgar20f'`）。四半期は 6-K に XBRL が無いので
+  yfinance の推定値のまま（`source='yf'`）、カルテに「四半期は推定値」の注記を出す。
+  `FinancialReport.source`（0013）で出典を持つ。20-F の1株配当タグは使わない（PayPay は子会社分が混ざる）
+- ⚠️ **業績推移のラベルは期末の年月（「2026/3期」）**。「2026年」だと 2025年4月〜2026年3月の決算を
+  2026年と誤読し、日本の「2025年度」とも食い違う（ユーザー指摘「判断ミスの温床」）。年だけに戻さないこと
 - 配当は `CommonStockDividendsPerShareDeclared` の四半期宣言額を期末までの12か月で合計
   （NVDA 2026-07 期は 0.25+0.01×3=0.28。増配直後は跳ねて見えるが正しい）
 

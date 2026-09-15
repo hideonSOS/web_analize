@@ -170,6 +170,11 @@
         <h2 class="kt-h2">指標（自動）</h2>
         {% if indicator %}
         <p class="kt-ind-head"><span id="kt-ind-close"></span> <span class="kt-note" id="kt-ind-fy"></span></p>
+        {% comment %} 出典の注記（2026-09-16）: yfinance は Yahoo が組み替えた推定値で、公表値とズレることがある
+          （PayPay 2026/3 期の営業利益: 公表 800.8 億円 vs yfinance 1,053 億円）。判断ミスを防ぐため明示する {% endcomment %}
+        {% if 'yf' in indicator.sources %}
+        <p class="kt-note kt-msg-warning">⚠ {% if 'edgar20f' in indicator.sources %}通期は 20-F（年次報告書）の公表値、<b>四半期は yfinance の推定値</b>です。四半期・TTM の数字は決算リリースと異なることがあります{% else %}この銘柄の決算は yfinance の推定値です（EDGAR に財務データが無い）。公表値と異なることがあるので、判断は決算リリースで確認してください{% endif %}。</p>
+        {% endif %}
         <div class="ind-grid">
           {% for d in indicator_defs %}
           <div class="ind-card">

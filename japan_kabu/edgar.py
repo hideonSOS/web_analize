@@ -28,6 +28,7 @@ import gzip
 import json
 import time
 import urllib.request
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import date, datetime
 
@@ -258,3 +259,123 @@ def coverage_note(facts):
         found = sorted({p for p, _ in _entries(facts, item)})
         out[item] = [cands[p][1] for p in found]
     return out
+
+
+# ====================================================================================
+# 20-F（外国企業の年次報告書）の XBRL から通期の公表値を取る（2026-09-16・PayPay で導入）
+# ====================================================================================
+# companyfacts は IFRS/外貨建ての外国企業（日本企業の ADR 等）で財務タグを返さないことがある
+# （PayPay は dei しか無い）。その場合 yfinance に落ちると、Yahoo が組み替えた「Operating Income」が
+# 公表の営業利益と大きくズレる（PayPay 2026/3 期: 公表 800.8 億円 vs yfinance 1,053 億円）。
+# 20-F には XBRL インスタンス（<primaryDocument>_htm.xml）が付いており、ifrs-full タグで
+# 通期3期分（損益）＋2期分（貸借）が正確に取れる。四半期（6-K）には XBRL が無いので取れない。
+SUBMISSIONS_URL = 'https://data.sec.gov/submissions/CIK{cik:010d}.json'
+ARCHIVE_URL = 'https://www.sec.gov/Archives/edgar/data/{cik}/{acc}/{doc}'
+MAX_20F_FILINGS = 4    # 1提出=3期分なので4本で約10年。1本 10MB 超なので増やし過ぎない
+_XBRLI = '{http://www.xbrl.org/2003/instance}'
+
+# 項目 → ローカル名の候補（名前空間は ifrs-full / dei / us-gaap を問わない。先勝ち）
+TAGS_20F = {
+    'sales': ['Revenue', 'Revenues', 'RevenueFromContractsWithCustomers'],
+    'op': ['ProfitLossFromOperatingActivities', 'OperatingIncomeLoss'],
+    'np': ['ProfitLossAttributableToOwnersOfParent', 'ProfitLoss', 'NetIncomeLoss'],
+    'eps': ['DilutedEarningsLossPerShare', 'BasicEarningsLossPerShare', 'EarningsPerShareDiluted'],
+    'total_assets': ['Assets'],
+    'equity': ['EquityAttributableToOwnersOfParent', 'Equity', 'StockholdersEquity'],
+    'shares': ['EntityCommonStockSharesOutstanding', 'NumberOfSharesOutstanding', 'CommonStockSharesOutstanding'],
+}
+
+
+def _get_bytes(url):
+    global _last_call
+    wait = _MIN_INTERVAL - (time.time() - _last_call)
+    if wait > 0:
+        time.sleep(wait)
+    req = urllib.request.Request(url, headers={'User-Agent': _user_agent(), 'Accept-Encoding': 'gzip'})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        raw = resp.read()
+        if resp.headers.get('Content-Encoding') == 'gzip':
+            raw = gzip.decompress(raw)
+    _last_call = time.time()
+    return raw
+
+
+def list_20f_instances(cik):
+    """その CIK の 20-F（訂正 20-F/A 含む）の XBRL インスタンス URL を新しい順に返す"""
+    sub = _get_json(SUBMISSIONS_URL.format(cik=cik))
+    rec = sub.get('filings', {}).get('recent', {})
+    out = []
+    for form, acc, doc in zip(rec.get('form', []), rec.get('accessionNumber', []), rec.get('primaryDocument', [])):
+        if form in ('20-F', '20-F/A') and doc.endswith('.htm'):
+            out.append(ARCHIVE_URL.format(cik=cik, acc=acc.replace('-', ''), doc=doc[:-4] + '_htm.xml'))
+    return out[:MAX_20F_FILINGS]
+
+
+def parse_xbrl_instance(xml_bytes):
+    """XBRL インスタンス → (contexts{id: (start|None, end)}, units{id: 'JPY'}, facts[(local, ctx, unit, text)])
+    次元付き（segment あり）のコンテキストは捨てる（セグメント別・クラス別の値を混ぜないため）"""
+    root = ET.fromstring(xml_bytes)
+    ctx, units, facts = {}, {}, []
+    for c in root.iter(_XBRLI + 'context'):
+        if c.find('.//' + _XBRLI + 'segment') is not None:
+            continue
+        p = c.find(_XBRLI + 'period')
+        if p is None:
+            continue
+        s_, e_, i_ = p.find(_XBRLI + 'startDate'), p.find(_XBRLI + 'endDate'), p.find(_XBRLI + 'instant')
+        ctx[c.get('id')] = (s_.text if s_ is not None else None, e_.text if e_ is not None else (i_.text if i_ is not None else None))
+    for u in root.iter(_XBRLI + 'unit'):
+        m = u.find('.//' + _XBRLI + 'measure')
+        if m is not None and m.text:
+            units[u.get('id')] = m.text.split(':')[-1].upper()   # iso4217:JPY → JPY / shares → SHARES
+    for el in root:
+        cref = el.get('contextRef')
+        if cref and cref in ctx and el.text:
+            facts.append((el.tag.split('}')[-1], cref, el.get('unitRef'), el.text.strip()))
+    return ctx, units, facts
+
+
+def reports_from_20f(cik):
+    """20-F の XBRL から通期（FY）の行を返す。[{per_type:'FY', per_end, sales, op, np, eps, total_assets,
+    equity, shares, div_ann: None, currency}] per_end 昇順。同じ期は新しい提出を優先。取れなければ []"""
+    rows = {}   # per_end -> dict
+    for url in list_20f_instances(cik):
+        try:
+            ctx, units, facts = parse_xbrl_instance(_get_bytes(url))
+        except Exception:   # noqa: BLE001  1本壊れていても他の提出は使う
+            continue
+        # 通期の期間（約1年）と、その期末の時点
+        fy_ctx = {cid: _d(e) for cid, (s_, e) in ctx.items() if s_ and e and 350 <= (_d(e) - _d(s_)).days <= 380}
+        inst_ctx = {cid: _d(e) for cid, (s_, e) in ctx.items() if not s_ and e}
+        by = defaultdict(dict)   # (item, per_end) -> value（先勝ち=候補順）
+        ccy = None
+        for item, cands in TAGS_20F.items():
+            for prio, local in enumerate(cands):
+                for tag, cref, uref, text in facts:
+                    if tag != local:
+                        continue
+                    end = fy_ctx.get(cref) if item in ('sales', 'op', 'np', 'eps') else inst_ctx.get(cref)
+                    if end is None:
+                        continue
+                    try:
+                        val = float(text)
+                    except ValueError:
+                        continue
+                    cur = by[item].get(end)
+                    if cur is None or prio < cur[0]:
+                        by[item][end] = (prio, val)
+                    u = units.get(uref, '')
+                    if item in ('sales', 'op', 'np') and len(u) == 3 and u != 'SHA':
+                        ccy = ccy or u
+        for end in sorted(by['np']):
+            if end in rows:          # 新しい提出（先に処理）を優先
+                continue
+            v = lambda item: (by[item].get(end) or (None, None))[1]   # noqa: E731
+            rows[end] = {
+                'per_type': 'FY', 'per_end': end,
+                'sales': v('sales'), 'op': v('op'), 'np': v('np'), 'eps': v('eps'),
+                'total_assets': v('total_assets'), 'equity': v('equity'), 'shares': v('shares'),
+                'div_ann': None,     # 20-F の1株配当タグは企業ごとに定義が揺れる（PayPay は子会社分が混ざる）ので使わない
+                'currency': ccy or 'USD',
+            }
+    return [rows[k] for k in sorted(rows)]

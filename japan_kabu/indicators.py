@@ -217,8 +217,14 @@ def build_stock_indicator(stock, reps):
         'price_date': stock.price_date.strftime('%Y/%m/%d') if stock.price_date else None,
         'fy_end': latest_ind_src.per_end.strftime('%Y/%m/%d'),
         'ind': ind,
+        # 出典（yf を含めば「推定値」の注記を出す。通期だけ公表値のときは四半期に限った注記）
+        'sources': sorted({r.source for r in reps if r.source}),
+        'trend_sources': sorted({r.source or '' for r in trend_reps}),
         'trend': {
-            'labels': [f'{r.per_end.year}年' if is_us else f'{r.fy_end.year}年度' for r in trend_reps],
+            # ラベルは「2026/3期」のように期末の年月（2026-09-16 ユーザー指摘: 「2026年」だと 2025年4月〜
+            # 2026年3月の決算を 2026年のものと誤読する。日本の「2025年度」とも食い違う）
+            'labels': [f'{r.per_end.year}/{r.per_end.month}期' if is_us else f'{r.fy_end.year}/{r.fy_end.month}期'
+                       for r in trend_reps],
             'sales': [scale(r.sales) for r in trend_reps],
             'op': [scale(r.op) for r in trend_reps],
             'np': [scale(r.np) for r in trend_reps],

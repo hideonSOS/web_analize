@@ -374,3 +374,5 @@
 .kt-cmp tr:hover td{ background:rgba(59,130,246,.06); }
 
 .kt-jpy{ display:block; font-size:10px; color:#9ca3af; }
+
+.kt-msg-warning{ color:#fcd34d; }
