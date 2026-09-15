@@ -191,8 +191,15 @@
           {% for d in indicator_defs %}<button type="button" data-key="{{ d.key }}" {% if forloop.first %}class="active"{% endif %}>{{ d.label }}</button>{% endfor %}
         </div>
         <div class="hist-chart-wrap"><div id="hist-chart" class="ec-canvas"></div></div>
-        <h3 class="kt-h3">業績推移{% if stock.country == 'US' and indicator.fx and indicator.fin_currency == 'USD' %} <span class="kt-note">Y軸は億円換算（$1={{ indicator.fx.rate|floatformat:2 }}円）・ドルはグラフ上で表示</span>{% elif stock.country == 'US' and indicator.fin_currency == 'JPY' %} <span class="kt-note">決算は円建て（ADR）。換算なし</span>{% endif %}</h3>
+        <h3 class="kt-h3">業績推移{% if stock.country == 'US' and indicator.fx and indicator.fin_currency == 'USD' %} <span class="kt-note">億円換算（$1={{ indicator.fx.rate|floatformat:2 }}円）・ドルはグラフ上で表示</span>{% elif stock.country == 'US' and indicator.fin_currency == 'JPY' %} <span class="kt-note">決算は円建て（ADR）。換算なし</span>{% endif %}</h3>
+        {% comment %} 既定は四半期（直近の決算を含む・単独値）。通期はタブ。ラベルは期間そのもの（26/4–6・25/4–26/3）。
+          グラフの下に 前年同期比・営業利益率 の表（新しい期が上）。2026-09-16 大幅更新 {% endcomment %}
+        <div class="hist-tabs" id="trend-tabs">
+          <button type="button" data-mode="q" class="active">四半期（直近{{ indicator.trend_q.labels|length }}期・単独）</button>
+          <button type="button" data-mode="fy">通期（{{ indicator.trend.labels|length }}期）</button>
+        </div>
         <div class="trend-chart-wrap"><div id="trend-chart" class="ec-canvas"></div></div>
+        <div class="kt-tbl-wrap"><table class="kt-cmp kt-trend-tbl" id="trend-table"></table></div>
         {% if stock.country == 'US' %}
         <form method="post" action="{% url 'karte:fetch_financials' stock.display_code %}" class="kt-price-fetch">
           {% csrf_token %}<button type="submit" class="kt-btn-sub">決算を更新する（サーバーで update_us_financials を実行・数秒）</button>

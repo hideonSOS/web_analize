@@ -90,27 +90,57 @@
     const conv = (arr) => (toYen ? arr.map(toYen) : arr);
     const unitName = toYen ? '億円' : (d.trend_unit || '億円');
     const KEY = { '売上高': 'sales', '営業利益': 'op', '純利益': 'np' };
-    const fmt = (v, i, seriesName) => {
-      if (v === null || v === undefined) return '―';
-      if (!toYen) return v.toLocaleString() + (d.trend_unit || '億円');
-      const usd = d.trend[KEY[seriesName]][i];
-      return v.toLocaleString() + '億円（$' + (usd === null ? '―' : usd.toLocaleString()) + 'M）';
-    };
-    trendChart.setOption({
-      backgroundColor: 'transparent', animationDuration: 500,
-      legend: { textStyle: { color: '#e5e7eb' }, top: 0 },
-      grid: { left: 10, right: 20, top: 36, bottom: 24, containLabel: true },
-      tooltip: { trigger: 'axis', ...TOOLTIP, axisPointer: { type: 'shadow' },
-        formatter: (ps) => ps[0].axisValue + (fx ? `（$1=${fx.toFixed(2)}円）` : '') + '<br/>'
-          + ps.map((p) => `${p.marker}${p.seriesName}: ${fmt(p.value, p.dataIndex, p.seriesName)}`).join('<br/>') },
-      xAxis: { type: 'category', data: d.trend.labels, axisLabel: { color: AXIS }, axisLine: { lineStyle: { color: 'rgba(59,130,246,0.3)' } } },
-      yAxis: { type: 'value', axisLabel: { color: AXIS, formatter: (v) => v.toLocaleString() }, name: unitName, nameTextStyle: { color: AXIS, fontSize: 11 }, splitLine: { lineStyle: { color: GRID } } },
-      series: [
-        { name: '売上高', type: 'bar', data: conv(d.trend.sales), itemStyle: { color: 'rgba(59,130,246,0.7)', borderRadius: [3, 3, 0, 0] } },
-        { name: '営業利益', type: 'bar', data: conv(d.trend.op), itemStyle: { color: 'rgba(250,204,21,0.7)', borderRadius: [3, 3, 0, 0] } },
-        { name: '純利益', type: 'bar', data: conv(d.trend.np), itemStyle: { color: 'rgba(34,197,94,0.7)', borderRadius: [3, 3, 0, 0] } },
-      ],
-    });
+    // 前年がごく小さい黒字だと桁外れ（PayPay 24/4–25/3 の営業利益 +322,718%）になるので 1,000% 以上は丸める
+    const pct = (v) => (v === null || v === undefined ? '—' : (v >= 1000 ? '+999%超' : (v > 0 ? '+' : '') + v.toFixed(1) + '%'));
+    const cls = (v) => (v === null || v === undefined ? 'kt-na' : (v > 0 ? 'up' : (v < 0 ? 'down' : '')));
+    const amt = (v) => (v === null || v === undefined ? '—' : v.toLocaleString());
+    // 四半期（直近の決算を含む・既定）／通期 をタブで切替（ユーザー指摘 2026-09-16: 通期だけでは判断に使えず、
+    // 前年同期比も比べられない）
+    let mode = (d.trend_q && d.trend_q.labels && d.trend_q.labels.length) ? 'q' : 'fy';
+    function renderTrend() {
+      const src = mode === 'q' ? d.trend_q : d.trend;
+      const fmt = (v, i, seriesName) => {
+        if (v === null || v === undefined) return '―';
+        const key = KEY[seriesName];
+        const yoy = src['yoy_' + key][i];
+        const tail = yoy === null || yoy === undefined ? '' : `　前年同期比 ${pct(yoy)}`;
+        if (!toYen) return v.toLocaleString() + (d.trend_unit || '億円') + tail;
+        const usd = src[key][i];
+        return v.toLocaleString() + '億円（$' + (usd === null ? '―' : usd.toLocaleString()) + 'M）' + tail;
+      };
+      trendChart.setOption({
+        backgroundColor: 'transparent', animationDuration: 500,
+        legend: { textStyle: { color: '#e5e7eb' }, top: 0 },
+        grid: { left: 10, right: 20, top: 36, bottom: 24, containLabel: true },
+        tooltip: { trigger: 'axis', ...TOOLTIP, axisPointer: { type: 'shadow' },
+          formatter: (ps) => ps[0].axisValue + (mode === 'q' ? '（3か月）' : '（12か月）') + (fx ? `（$1=${fx.toFixed(2)}円）` : '') + '<br/>'
+            + ps.map((p) => `${p.marker}${p.seriesName}: ${fmt(p.value, p.dataIndex, p.seriesName)}`).join('<br/>') },
+        xAxis: { type: 'category', data: src.labels, axisLabel: { color: AXIS, fontSize: 10 }, axisLine: { lineStyle: { color: 'rgba(59,130,246,0.3)' } } },
+        yAxis: { type: 'value', axisLabel: { color: AXIS, formatter: (v) => v.toLocaleString() }, name: unitName, nameTextStyle: { color: AXIS, fontSize: 11 }, splitLine: { lineStyle: { color: GRID } } },
+        series: [
+          { name: '売上高', type: 'bar', data: conv(src.sales), itemStyle: { color: 'rgba(59,130,246,0.7)', borderRadius: [3, 3, 0, 0] } },
+          { name: '営業利益', type: 'bar', data: conv(src.op), itemStyle: { color: 'rgba(250,204,21,0.7)', borderRadius: [3, 3, 0, 0] } },
+          { name: '純利益', type: 'bar', data: conv(src.np), itemStyle: { color: 'rgba(34,197,94,0.7)', borderRadius: [3, 3, 0, 0] } },
+        ],
+      }, { replaceMerge: ['series', 'xAxis'] });
+      document.querySelectorAll('#trend-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+      // 前年同期比の表（新しい期が上）。金額はグラフと同じ単位（換算後）
+      const tbl = $('trend-table');
+      if (tbl) {
+        const S = conv(src.sales), O = conv(src.op), N = conv(src.np);
+        let h = `<thead><tr><th>期間</th><th>売上高<i>${unitName}</i></th><th>前年比</th><th>営業利益</th><th>前年比</th><th>利益率</th><th>純利益</th><th>前年比</th></tr></thead><tbody>`;
+        for (let i = src.labels.length - 1; i >= 0; i--) {
+          h += `<tr><td>${src.labels[i]}</td>`
+            + `<td class="num">${amt(S[i])}</td><td class="num ${cls(src.yoy_sales[i])}">${pct(src.yoy_sales[i])}</td>`
+            + `<td class="num">${amt(O[i])}</td><td class="num ${cls(src.yoy_op[i])}">${pct(src.yoy_op[i])}</td>`
+            + `<td class="num">${src.margin[i] === null || src.margin[i] === undefined ? '—' : src.margin[i].toFixed(1) + '%'}</td>`
+            + `<td class="num">${amt(N[i])}</td><td class="num ${cls(src.yoy_np[i])}">${pct(src.yoy_np[i])}</td></tr>`;
+        }
+        tbl.innerHTML = h + '</tbody>';
+      }
+    }
+    document.querySelectorAll('#trend-tabs button').forEach((b) => b.addEventListener('click', () => { mode = b.dataset.mode; renderTrend(); }));
+    renderTrend();
   }
   window.addEventListener('resize', () => charts.forEach((c) => c.resize()));
 })();

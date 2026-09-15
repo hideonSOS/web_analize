@@ -376,3 +376,8 @@
 .kt-jpy{ display:block; font-size:10px; color:#9ca3af; }
 
 .kt-msg-warning{ color:#fcd34d; }
+
+/* 業績推移の前年同期比の表（2026-09-16） */
+.kt-trend-tbl{ margin-top:8px; font-size:12px; }
+.kt-trend-tbl th i{ display:block; font-style:normal; font-weight:400; color:#6b7280; font-size:9px; }
+.kt-trend-tbl td.num.up{ color:#4ade80; } .kt-trend-tbl td.num.down{ color:#f87171; }

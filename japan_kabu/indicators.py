@@ -165,6 +165,92 @@ def _fx_at(hist, latest, d):
     return latest
 
 
+def _period_label(end, months):
+    """期間そのものを書くラベル（2026-09-16 ユーザー指摘「2026/3期」でも1年ズレて見える）。
+    通期: '25/4–26/3'、四半期: '26/4–6'。呼び方（2025年度／FY2025／2026年3月期）に依存しない"""
+    m = end.month - months + 1
+    y = end.year
+    while m <= 0:
+        m += 12
+        y -= 1
+    if y == end.year:
+        return f'{y % 100}/{m}–{end.month}'
+    return f'{y % 100}/{m}–{end.year % 100}/{end.month}'
+
+
+def _jp_single_quarters(reps):
+    """日本株（J-Quants）の四半期は期初からの累計なので、同じ会計年度内で前の累計を引いて
+    単独値にする。4Q = FY − 3Q 累計。前の期が欠けていれば差分不能として None"""
+    by_fy = defaultdict(dict)
+    for r in reps:
+        by_fy[r.fy_end][r.per_type] = r
+    out = []
+    for fy_end in sorted(by_fy):
+        d = by_fy[fy_end]
+        prev = None
+        for pt in ('1Q', '2Q', '3Q', 'FY'):
+            r = d.get(pt)
+            if r is None:
+                prev = None
+                continue
+
+            def single(field):
+                v = getattr(r, field)
+                if v is None:
+                    return None
+                if pt == '1Q':
+                    return v
+                if prev is None or getattr(prev, field) is None:
+                    return None
+                return v - getattr(prev, field)
+            out.append({'end': r.per_end, 'sales': single('sales'), 'op': single('op'), 'np': single('np')})
+            prev = r
+    return out
+
+
+def _yoy(cur, prev):
+    """前年同期比（%）。前年が 0 以下（赤字・無し）なら比率に意味が無いので None（表は '—'）"""
+    if cur is None or prev is None or prev <= 0:
+        return None
+    return round((cur / prev - 1) * 100, 1)
+
+
+def _margin(op, sales):
+    if op is None or not sales:
+        return None
+    return round(op / sales * 100, 1)
+
+
+def _trend_pack(rows, months, scale, keep):
+    """rows=[{end, sales, op, np}] 昇順 → 表示用 dict。前年同期比は「12か月前の期」（four periods back for
+    quarters / one back for FY）を end の差で探す（欠けた期があってもズレない）"""
+    by_end = {r['end']: r for r in rows}
+
+    def prev_of(end):
+        for k in by_end:
+            dd = (end - k).days
+            if 350 <= dd <= 380:
+                return by_end[k]
+        return None
+    sel = rows[-keep:]
+    pack = {'labels': [], 'sales': [], 'op': [], 'np': [], 'yoy_sales': [], 'yoy_op': [], 'yoy_np': [], 'margin': []}
+    for r in sel:
+        p = prev_of(r['end']) or {}
+        pack['labels'].append(_period_label(r['end'], months))
+        pack['sales'].append(scale(r['sales']))
+        pack['op'].append(scale(r['op']))
+        pack['np'].append(scale(r['np']))
+        pack['yoy_sales'].append(_yoy(r['sales'], p.get('sales')))
+        pack['yoy_op'].append(_yoy(r['op'], p.get('op')))
+        pack['yoy_np'].append(_yoy(r['np'], p.get('np')))
+        pack['margin'].append(_margin(r['op'], r['sales']))
+    return pack
+
+
+TREND_QUARTERS = 8   # 四半期の業績推移に出す期数（2年分）
+TREND_YEARS = 5
+
+
 def build_stock_indicator(stock, reps):
     """1銘柄分の指標・推移。reps は per_end 昇順の FinancialReport。通期決算が無ければ None"""
     fy_reps = [r for r in reps if r.per_type == 'FY']
@@ -220,15 +306,14 @@ def build_stock_indicator(stock, reps):
         # 出典（yf を含めば「推定値」の注記を出す。通期だけ公表値のときは四半期に限った注記）
         'sources': sorted({r.source for r in reps if r.source}),
         'trend_sources': sorted({r.source or '' for r in trend_reps}),
-        'trend': {
-            # ラベルは「2026/3期」のように期末の年月（2026-09-16 ユーザー指摘: 「2026年」だと 2025年4月〜
-            # 2026年3月の決算を 2026年のものと誤読する。日本の「2025年度」とも食い違う）
-            'labels': [f'{r.per_end.year}/{r.per_end.month}期' if is_us else f'{r.fy_end.year}/{r.fy_end.month}期'
-                       for r in trend_reps],
-            'sales': [scale(r.sales) for r in trend_reps],
-            'op': [scale(r.op) for r in trend_reps],
-            'np': [scale(r.np) for r in trend_reps],
-        },
+        # 業績推移（2026-09-16 大幅更新・ユーザー指摘「直近の決算が入らない通期だけの棒は価値が低い／
+        # 前年同期比も比べられない」）: 通期と四半期（単独値）の両方に 前年同期比・営業利益率 を付ける。
+        # 既定表示は四半期。ラベルは期間そのもの（'25/4–26/3'・'26/4–6'）で呼び方（年度/FY）に依存しない
+        'trend': _trend_pack([{'end': (r.per_end if is_us else r.fy_end), 'sales': r.sales, 'op': r.op, 'np': r.np}
+                              for r in fy_reps], 12, scale, TREND_YEARS),
+        'trend_q': _trend_pack(
+            [{'end': r.per_end, 'sales': r.sales, 'op': r.op, 'np': r.np} for r in quarters] if is_us
+            else _jp_single_quarters(reps), 3, scale, TREND_QUARTERS),
         'hist': _build_history(reps, is_us=is_us, close_conv=close_in_fin if foreign_fin else None),
     }
 
