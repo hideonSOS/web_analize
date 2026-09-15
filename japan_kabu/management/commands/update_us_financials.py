@@ -135,6 +135,7 @@ class Command(BaseCommand):
                     'div_ann': r['div_ann'],
                     'close': self._close_at(closes, r['per_end']),
                     'close_date': r['per_end'],
+                    'fin_currency': 'USD',   # EDGAR は USD 単位のタグだけ採る（edgar._entries）
                 },
             )
             kept.append(obj.pk)
@@ -159,6 +160,12 @@ class Command(BaseCommand):
         import yfinance as yf
 
         t = yf.Ticker(stock.display_code)
+        # 財務の通貨。ADR（PayPay 等）は株価が USD でも財務が JPY で返る。取り違えると
+        # 円の営業利益を「百万ドル」として為替を掛け、155倍に化ける（実際に起きた 2026-09-16）
+        try:
+            fin_ccy = (t.info.get('financialCurrency') or 'USD').upper()[:3]
+        except Exception:   # noqa: BLE001
+            fin_ccy = 'USD'
         qi, qb = t.quarterly_income_stmt, t.quarterly_balance_sheet
         ai, ab = t.income_stmt, t.balance_sheet
         divs = t.dividends
@@ -195,6 +202,7 @@ class Command(BaseCommand):
                         'div_ann': self._trailing_dividend(divs, per_end),
                         'close': self._close_at(closes, per_end),
                         'close_date': per_end,
+                        'fin_currency': fin_ccy,
                     },
                 )
                 saved += 1

@@ -363,6 +363,13 @@ python manage.py update_us_financials --source yf     # yfinance を強制（比
   行だけにする**（yfinance は期末を月末日にするので、同じ期が二重に並び TTM が狂う。実際に起きた）
 - タグは企業ごとに揺れる（純利益 NetIncomeLoss/ProfitLoss、売上 Revenues/RevenueFromContract…）ので
   `edgar.TAGS` の候補を先勝ちで見る。変な値が出た銘柄は `edgar.coverage_note(facts)` で採ったタグを確認
+- ⚠️ **ADR の財務通貨**（2026-09-16 に PayPay で発覚）: 米国上場でも日本企業の ADR は yfinance の財務が
+  **JPY** で返る（`info['financialCurrency']`）。これを百万ドル扱いして為替を掛け、営業利益 1,053億円が
+  163,191億円と表示された。対処: `FinancialReport.fin_currency`（0012）に通貨を保存（EDGAR=USD・
+  yfinance=financialCurrency）、`indicators.build_stock_indicator` は JPY 建てなら業績を億円のまま出し
+  （JS も `fin_currency=='USD'` のときだけ換算）、PER/PBR は **株価（USD）側を円に直して**計算する。
+  過去期の換算はマクロの月次ドル円（`MacroIndicator` USDJPY）、最新は `portfolio.FxRate`
+  （日次だが1か月分しか無いので履歴には使えない）。JPY 以外の外貨建て財務は算出不可にしてある
 - 配当は `CommonStockDividendsPerShareDeclared` の四半期宣言額を期末までの12か月で合計
   （NVDA 2026-07 期は 0.25+0.01×3=0.28。増配直後は跳ねて見えるが正しい）
 

@@ -10,7 +10,7 @@
 """
 from collections import defaultdict
 
-from .models import FinancialReport
+from .models import FinancialReport, MacroIndicator
 
 INDICATOR_DEFS = [
     # (キー, 表示名, 単位, min, max)
@@ -100,7 +100,7 @@ def _ttm_np_us(rep, quarters):
 HISTORY_PERIODS = 20  # 推移グラフに表示する期数（四半期×5年）
 
 
-def _build_history(reps, is_us=False):
+def _build_history(reps, is_us=False, close_conv=None):
     """四半期ごとの指標推移（TTMベース）。repsはper_end昇順の全レコード
 
     米国株は四半期が単独値、日本株は累計値なのでTTMの求め方を分ける。
@@ -125,7 +125,7 @@ def _build_history(reps, is_us=False):
     hist = {k: [] for k in
             ('labels', 'per', 'pbr', 'roe', 'roa', 'yield', 'equity_ratio')}
     for r, shares, div in enriched[-HISTORY_PERIODS:]:
-        close = r.close
+        close = close_conv(r.close, r.per_end) if close_conv else r.close   # 円建て財務なら株価を円に
         ttm = _ttm_np_us(r, us_quarters) if is_us else _ttm_np(r, by_key, fy_ends)
         eps_ttm = ttm / shares if (ttm is not None and shares) else None
         bps = r.bps if (r.bps and r.bps > 0) else (
@@ -150,6 +150,21 @@ def _fx():
     return {'rate': rate, 'date': d.strftime('%Y/%m/%d')} if rate else None
 
 
+def _fx_history():
+    """月次ドル円 {date(月初): rate}（マクロの USDJPY=FRED EXJPUS・長期）。過去の期末株価を円に直す用。
+    portfolio.FxRate は日次だが1か月分しか無いので履歴には使えない（実測 2026-09-16）"""
+    return dict(MacroIndicator.objects.filter(series='USDJPY').order_by('date').values_list('date', 'value'))
+
+
+def _fx_at(hist, latest, d):
+    """日付 d 時点のドル円: その月（無ければ直前の月）の月次平均 → 無ければ最新レート"""
+    if hist:
+        past = [k for k in hist if k <= d]
+        if past:
+            return hist[max(past)]
+    return latest
+
+
 def build_stock_indicator(stock, reps):
     """1銘柄分の指標・推移。reps は per_end 昇順の FinancialReport。通期決算が無ければ None"""
     fy_reps = [r for r in reps if r.per_type == 'FY']
@@ -158,25 +173,46 @@ def build_stock_indicator(stock, reps):
     is_us = stock.country == 'US'
     latest = fy_reps[-1]
     trend_reps = fy_reps[-5:]
-    # 米国株は最新の四半期を現在値の算出に使う（yfinance に来期予想が無いため PER は実績 TTM）
     quarters = [r for r in reps if r.per_type == 'Q']
+    latest_ind_src = (quarters[-1] if quarters else latest) if is_us else latest
+    # 財務の通貨。米国上場でも日本企業の ADR（PayPay）は JPY（FinancialReport.fin_currency）。
+    # その場合: 業績は億円のまま（為替を掛けない）、PER/PBR は株価（USD）側を円に直して計算する
+    fin_ccy = ((latest_ind_src.fin_currency or 'USD').upper() if is_us else 'JPY')
+    foreign_fin = is_us and fin_ccy != 'USD'
+    fx = _fx() if is_us else None
+    fx_hist = _fx_history() if foreign_fin else {}
+    fx_latest = fx['rate'] if fx else None
+
+    def close_in_fin(close, d):
+        """株価（取引通貨=USD）を財務の通貨へ。JPY 建て財務なら ×ドル円。換算できなければ None"""
+        if close is None or not foreign_fin:
+            return close
+        if fin_ccy != 'JPY':
+            return None   # JPY 以外の外貨建て財務は未対応（算出不可にする）
+        rate = _fx_at(fx_hist, fx_latest, d)
+        return close * rate if rate else None
+
+    # 米国株は最新の四半期を現在値の算出に使う（yfinance に来期予想が無いため PER は実績 TTM）
     if is_us:
-        latest_ind_src = quarters[-1] if quarters else latest
         ttm = _ttm_np_us(latest_ind_src, quarters) if quarters else latest.np
-        ind = _indicator_values(stock.close, latest_ind_src, ttm_np=ttm)
+        ind = _indicator_values(close_in_fin(stock.close, stock.price_date or latest_ind_src.per_end),
+                                latest_ind_src, ttm_np=ttm)
     else:
-        latest_ind_src = latest
         ind = _indicator_values(stock.close, latest)
-    scale = _mil if is_us else _oku
+    if fin_ccy == 'JPY':
+        scale, trend_unit = _oku, '億円'
+    else:
+        scale, trend_unit = _mil, ('百万ドル' if fin_ccy == 'USD' else f'百万{fin_ccy}')
     return {
         'code': stock.display_code,
         'name': stock.name,
         'country': stock.country,
         'currency': 'USD' if is_us else 'JPY',
-        'trend_unit': '百万ドル' if is_us else '億円',
+        'fin_currency': fin_ccy,          # 業績・指標の元データの通貨（JS は USD のときだけ円換算する）
+        'trend_unit': trend_unit,
         # 米国株は円換算の併記用に最新ドル円（portfolio.FxRate・夜バッチ）を添える（2026-09-16 ユーザー要望）。
         # 値そのものはドルのまま。換算は JS（業績推移の Y 軸=億円、現在値=円併記）とテンプレで行う
-        'fx': _fx() if is_us else None,
+        'fx': fx,
         'close': stock.close,
         'price_date': stock.price_date.strftime('%Y/%m/%d') if stock.price_date else None,
         'fy_end': latest_ind_src.per_end.strftime('%Y/%m/%d'),
@@ -187,7 +223,7 @@ def build_stock_indicator(stock, reps):
             'op': [scale(r.op) for r in trend_reps],
             'np': [scale(r.np) for r in trend_reps],
         },
-        'hist': _build_history(reps, is_us=is_us),
+        'hist': _build_history(reps, is_us=is_us, close_conv=close_in_fin if foreign_fin else None),
     }
 
 

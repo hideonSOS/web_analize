@@ -69,6 +69,10 @@ class FinancialReport(models.Model):
     shares = models.BigIntegerField(null=True, blank=True)        # 期末発行済株式数（ShOutFY）
     close = models.FloatField(null=True, blank=True)              # 当期末（直近営業日）の終値。PER/PBR推移用
     close_date = models.DateField(null=True, blank=True)          # その株価の日付
+    # 財務数値の通貨（2026-09-16・0012）。日本株は空=円、米国株は EDGAR なら USD。
+    # ⚠️ 米国上場でも日本企業の ADR（PayPay 等）は yfinance の財務が JPY で返る。空は USD 扱いにしない
+    # こと（indicators.py は「US で空」を USD とみなす。yfinance 経路は必ず financialCurrency を書く）
+    fin_currency = models.CharField(max_length=3, blank=True, default='')
 
     class Meta:
         constraints = [

@@ -25,7 +25,8 @@
     + (d.price_date ? `（${d.price_date} 終値）` : '');
   const fyEl = $('kt-ind-fy');
   if (fyEl) fyEl.textContent = `決算期: ${d.fy_end}期` + (isUS ? '（PERは実績TTM）' : '（PERは来期予想）')
-    + (fx ? `・$1=${fx.toFixed(2)}円（${d.fx.date}）` : '');
+    + (fx ? `・$1=${fx.toFixed(2)}円（${d.fx.date}）` : '')
+    + (isUS && d.fin_currency && d.fin_currency !== 'USD' ? `・決算は${d.fin_currency === 'JPY' ? '円' : d.fin_currency}建て（PER/PBRは株価を換算して計算）` : '');
 
   // PER の根拠が国で違う（日本株=来期予想 / 米国株=実績TTM）
   const labelFor = (def) => (def.key === 'per' ? (isUS ? 'PER（実績）' : 'PER（予想）') : def.label);
@@ -84,7 +85,8 @@
     const trendChart = echarts.init(trendBox, null, { renderer: 'canvas' });
     charts.push(trendChart);
     // 米国株で為替があれば Y 軸は億円（百万ドル × レート ÷ 100 = 億円）。tooltip にドルも併記
-    const toYen = fx ? (v) => (v === null || v === undefined ? null : Math.round(v * fx / 100)) : null;
+    // 財務が USD のときだけ換算。JPY 建て（PayPay 等の ADR）は元から億円なので触らない
+    const toYen = (fx && d.fin_currency === 'USD') ? (v) => (v === null || v === undefined ? null : Math.round(v * fx / 100)) : null;
     const conv = (arr) => (toYen ? arr.map(toYen) : arr);
     const unitName = toYen ? '億円' : (d.trend_unit || '億円');
     const KEY = { '売上高': 'sales', '営業利益': 'op', '純利益': 'np' };
