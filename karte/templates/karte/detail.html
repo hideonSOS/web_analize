@@ -170,6 +170,10 @@
         <h2 class="kt-h2">指標（自動）</h2>
         {% if indicator %}
         <p class="kt-ind-head"><span id="kt-ind-close"></span> <span class="kt-note" id="kt-ind-fy"></span></p>
+        {% if indicator.market_cap_str %}
+        <p class="kt-ind-mcap">時価総額 <b>{{ indicator.market_cap_str }}</b>{% if indicator.market_cap_jpy_str %}<span class="kt-note">（約{{ indicator.market_cap_jpy_str }}）</span>{% endif %}
+          ・発行済株式数 <b>{{ indicator.shares_str }}</b><span class="kt-note">（{{ indicator.shares_date }}時点・PERと同じ株数）</span></p>
+        {% endif %}
         {% comment %} 出典の注記（2026-09-16）: yfinance は Yahoo が組み替えた推定値で、公表値とズレることがある
           （PayPay 2026/3 期の営業利益: 公表 800.8 億円 vs yfinance 1,053 億円）。判断ミスを防ぐため明示する {% endcomment %}
         {% if 'yf' in indicator.sources %}

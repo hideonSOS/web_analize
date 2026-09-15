@@ -55,6 +55,26 @@ def _jp_own_equity(r):
     return r.equity
 
 
+def fmt_shares(n, is_us):
+    """発行済株式数の表示文字列: 日本株は「6.15億株」、米国株は「24.1B株」「677M株」"""
+    if not n:
+        return None
+    if is_us:
+        return f'{n / 1e9:.2f}B株' if n >= 1e9 else f'{n / 1e6:.0f}M株'
+    return f'{n / 1e8:.2f}億株' if n >= 1e8 else f'{n / 1e4:,.0f}万株'
+
+
+def fmt_money(v, currency):
+    """時価総額の表示文字列: 円は「2.3兆円」「4,500億円」、ドルは「$5.1T」「$120.5B」「$850M」"""
+    if v is None:
+        return None
+    if currency == 'JPY':
+        return f'{v / 1e12:.2f}兆円' if v >= 1e12 else f'{v / 1e8:,.0f}億円'
+    if v >= 1e12:
+        return f'${v / 1e12:.2f}T'
+    return f'${v / 1e9:.1f}B' if v >= 1e9 else f'${v / 1e6:,.0f}M'
+
+
 def _rep_year_before(target, reps, kinds):
     """target の約1年前（350〜380日前）の同種のレポート（期首の自己資本・総資産に使う）"""
     for r in reversed(reps):
@@ -346,6 +366,11 @@ def build_stock_indicator(stock, reps):
         dividend = latest.nx_div_ann or latest.div_ann
         eq_ratio = src.equity_ratio if src.equity_ratio is not None else latest.equity_ratio
     eq_now, eq_prev = (src.equity, prev.equity if prev else None) if is_us else (_jp_own_equity(src), _jp_own_equity(prev))
+    # 発行済株式数と時価総額（2026-09-16 ユーザー要望）。株式数は PER と同じ直近開示（米国株は分割調整済み）、
+    # 時価総額 = 現在株価（取引通貨）× 株式数。米国株は円換算も添える（fx が取れたとき）
+    shares_now = src.shares if is_us else (src.shares or latest.shares)
+    mcap = (stock.close * shares_now) if (stock.close and shares_now) else None
+    mcap_jpy = (mcap * fx_latest) if (mcap is not None and is_us and fx_latest) else (mcap if not is_us else None)
     ind = _indicator_values(
         close_now, profit=ttm, eps=eps, bps=bps,
         equity=_avg(eq_now, eq_prev),
@@ -362,6 +387,9 @@ def build_stock_indicator(stock, reps):
         'currency': 'USD' if is_us else 'JPY',
         'fin_currency': fin_ccy,          # 業績・指標の元データの通貨（JS は USD のときだけ円換算する）
         'per_basis': per_basis,           # 'forecast'（来期予想 EPS）/ 'actual'（実績 TTM）。JS がラベルに使う
+        'shares': shares_now, 'shares_str': fmt_shares(shares_now, is_us), 'shares_date': src.per_end.strftime('%Y/%m'),
+        'market_cap': mcap, 'market_cap_str': fmt_money(mcap, 'USD' if is_us else 'JPY'),
+        'market_cap_jpy_str': fmt_money(mcap_jpy, 'JPY') if (is_us and mcap_jpy is not None) else None,
         'basis_note': f'利益は {src.per_end:%Y/%m} までの12か月、自己資本・総資産は期首期末平均',
         'trend_unit': trend_unit,
         # 米国株は円換算の併記用に最新ドル円（portfolio.FxRate・夜バッチ）を添える（2026-09-16 ユーザー要望）。

@@ -387,3 +387,6 @@
 .kt-card-handle:hover{ color:#93c5fd; }
 .kt-card-wrap .kt-card{ padding-left:28px; }
 .kt-sortable-ghost{ opacity:.4; }
+
+.kt-ind-mcap{ margin:0 0 8px; font-size:13px; color:#cbd5e1; }
+.kt-ind-mcap b{ color:#fff; font-size:15px; }

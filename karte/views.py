@@ -65,6 +65,8 @@ def index(request):
             'price': p,
             'ind': ind['ind'] if ind else None,
             'close': ind['close'] if ind else k.stock.close,
+            'mcap': ind['market_cap_str'] if ind else None,
+            'mcap_jpy': ind['market_cap_jpy_str'] if ind else None,
             # 米国株は円換算を併記（最新ドル円。indicator に fx が無ければ出さない）
             'close_jpy': (ind['close'] * ind['fx']['rate']) if (ind and ind.get('fx') and ind['close']) else None,
             'dd': p['1y']['drawdown'] if p and p.get('1y') else None,
