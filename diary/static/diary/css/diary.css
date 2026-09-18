@@ -330,3 +330,7 @@
 .dy-price-sub{ font-size:12.5px; color:#cbd5e1; }
 .dy-reason{ margin-top:10px; padding-top:8px; border-top:1px solid #1f2937; }
 @media (max-width:480px){ .dy-price-num{ font-size:22px; } .dy-price-big{ gap:8px 18px; } }
+
+/* 売り買いを外枠の色で区別（ユーザー要望 2026-09-19）: 買い=薄い緑 / 売り=薄いオレンジ / 見送り=既定 */
+.dy-card-buy{ border-color:rgba(74,222,128,.45); box-shadow:0 0 0 1px rgba(74,222,128,.12), 0 0 14px rgba(34,197,94,.08); }
+.dy-card-sell{ border-color:rgba(251,146,60,.5); box-shadow:0 0 0 1px rgba(251,146,60,.14), 0 0 14px rgba(249,115,22,.08); }

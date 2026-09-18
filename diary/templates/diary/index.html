@@ -84,7 +84,7 @@
   </div>
   {% else %}
   {% for r in rows %}
-  <article class="dy-card">
+  <article class="dy-card dy-card-{{ r.e.action }}">
     <header class="dy-card-head">
       <span class="dy-badge dy-badge-{{ r.e.action }}">{{ r.e.get_action_display }}</span>
       <span class="dy-stock">
