@@ -256,3 +256,50 @@
 .dy-sell-badge.dy-sell-loss{ background:rgba(239,68,68,.15); color:#fca5a5; border:1px solid #7c2d2d; }
 .dy-rule{ font-size:12px; font-weight:700; }
 .dy-rule-ok{ color:#86efac; } .dy-rule-ng{ color:#fcd34d; }
+
+/* ---- 記録フォームの選択肢を角丸ボタンに（ユーザー要望 2026-09-19「ラジオではなくテンションの上がるボタン」）----
+   ネイティブの radio は隠し、label をボタンとして描く。選択中は色付きのグラデーション＋グロー。
+   :has() を使う（対応ブラウザ: Chrome/Edge 105+・Safari 15.4+・Firefox 121+） */
+#dy-form .dy-radio-row{ gap:10px; }
+#dy-form .dy-radio-row label{
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  min-width:96px; padding:10px 18px; border-radius:12px; cursor:pointer; user-select:none;
+  font-size:14px; font-weight:700; letter-spacing:.5px; color:#9ca3af;
+  background:linear-gradient(180deg, #111827, #0b1220); border:1px solid #334155;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.35);
+  transition:transform .12s ease, box-shadow .2s ease, border-color .2s ease, color .2s ease, background .2s ease;
+}
+#dy-form .dy-radio-row label:hover{ transform:translateY(-1px); border-color:#3b82f6; color:#e5e7eb; }
+#dy-form .dy-radio-row label:active{ transform:translateY(1px) scale(.98); }
+#dy-form .dy-radio-row input[type="radio"]{ position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
+/* 既定（青系）: 選択中 */
+#dy-form .dy-radio-row label:has(input:checked){
+  color:#fff; border-color:#60a5fa;
+  background:linear-gradient(135deg, #2563eb, #1e40af);
+  box-shadow:0 0 0 1px rgba(96,165,250,.6), 0 0 18px rgba(59,130,246,.55), inset 0 1px 0 rgba(255,255,255,.18);
+}
+/* 色分け: 買い・利益確定・できた＝緑 / 売り・損切り＝赤 / 見送り＝グレー / できなかった＝琥珀 */
+#dy-form .dy-radio-row label:has(input[value="buy"]:checked),
+#dy-form .dy-radio-row label:has(input[value="profit"]:checked),
+#dy-form .dy-radio-row label:has(input[value="yes"]:checked){
+  border-color:#4ade80; background:linear-gradient(135deg, #16a34a, #15803d);
+  box-shadow:0 0 0 1px rgba(74,222,128,.6), 0 0 18px rgba(34,197,94,.55), inset 0 1px 0 rgba(255,255,255,.18);
+}
+#dy-form .dy-radio-row label:has(input[value="sell"]:checked),
+#dy-form .dy-radio-row label:has(input[value="loss"]:checked){
+  border-color:#f87171; background:linear-gradient(135deg, #dc2626, #991b1b);
+  box-shadow:0 0 0 1px rgba(248,113,113,.6), 0 0 18px rgba(239,68,68,.55), inset 0 1px 0 rgba(255,255,255,.18);
+}
+#dy-form .dy-radio-row label:has(input[value="pass"]:checked){
+  border-color:#9ca3af; background:linear-gradient(135deg, #4b5563, #374151);
+  box-shadow:0 0 0 1px rgba(156,163,175,.5), 0 0 14px rgba(156,163,175,.35), inset 0 1px 0 rgba(255,255,255,.12);
+}
+#dy-form .dy-radio-row label:has(input[value="no"]:checked){
+  border-color:#fbbf24; background:linear-gradient(135deg, #d97706, #b45309);
+  box-shadow:0 0 0 1px rgba(251,191,36,.6), 0 0 18px rgba(245,158,11,.5), inset 0 1px 0 rgba(255,255,255,.18);
+}
+/* 売りの分類は色付きの文字色指定を打ち消し、ボタンの色に任せる */
+#dy-form .dy-sell-profit, #dy-form .dy-sell-loss{ color:#9ca3af; }
+#dy-form .dy-radio-row label:has(input:checked).dy-sell-profit,
+#dy-form .dy-radio-row label:has(input:checked).dy-sell-loss{ color:#fff; }
+@media (max-width:480px){ #dy-form .dy-radio-row label{ min-width:0; flex:1 1 auto; padding:10px 12px; } }
