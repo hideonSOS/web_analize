@@ -281,18 +281,18 @@
       {% endcomment %}
       <div id="dy-sell-extra" hidden>
         <div class="dy-field">
+          <span class="dy-field-label">ルールどおりにできたか</span>
+          <div class="dy-radio-row">
+            <label><input type="radio" name="rule_followed" value="yes" /> できた</label>
+            <label><input type="radio" name="rule_followed" value="no" /> できなかった</label>
+            <div class="dy-field">
           <span class="dy-field-label">分類</span>
           <div class="dy-radio-row dy-sell-kind">
             <label class="dy-sell-profit"><input type="radio" name="sell_kind" value="profit" /> 利益確定</label>
             <label class="dy-sell-loss"><input type="radio" name="sell_kind" value="loss" /> 損切り</label>
           </div>
         </div>
-        <div class="dy-field">
-          <span class="dy-field-label">ルールどおりにできたか</span>
-          <div class="dy-radio-row">
-            <label><input type="radio" name="rule_followed" value="yes" /> できた</label>
-            <label><input type="radio" name="rule_followed" value="no" /> できなかった</label>
-          </div>
+      </div>
         </div>
       </div>
       {% comment %} 判断理由タグと心理は 2026-09-19 に買い・売りとも廃止（ユーザー指示）。自由記述の判断理由だけ残す {% endcomment %}
