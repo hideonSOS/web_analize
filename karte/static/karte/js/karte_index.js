@@ -22,6 +22,7 @@
 
   function showMatches(query) {
     const q = query.trim().toLowerCase();
+    if (!q) { list.hidden = true; return; }   // 空では候補を出さない（フォーカスだけで一覧が被るのを防ぐ 2026-09-19）
     let matches;
     if (q) {
       // ティッカー完全一致 > 前方一致 > 名前部分一致 の順に並べる

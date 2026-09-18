@@ -210,6 +210,8 @@
   // 銘柄検索ドロップダウン
   function showMatches(query) {
     const q = query.trim().toLowerCase();
+    // 空のときは候補を出さない（モーダルを開いた直後に候補リストがフォームを覆う、というユーザー指摘 2026-09-19）
+    if (!q) { list.hidden = true; return; }
     let matches;
     if (q) {
       // ランク付け: ティッカー完全一致 > ティッカー前方一致 > 名前部分一致
@@ -253,6 +255,7 @@
     codeInput.value = '';
     showMatches(searchInput.value);
   });
-  searchInput.addEventListener('focus', () => { searchInput.select(); showMatches(''); });
+  // フォーカスでは候補を出さず、読み込みだけ先に済ませる（1文字入れたら候補が出る）
+  searchInput.addEventListener('focus', () => { searchInput.select(); loadStocks(); showMatches(searchInput.value); });
   searchInput.addEventListener('blur', () => { setTimeout(() => { list.hidden = true; }, 150); });
 })();
