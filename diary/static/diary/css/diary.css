@@ -321,3 +321,12 @@
 #dy-form .dy-radio-row label:has(input:checked).dy-sell-profit,
 #dy-form .dy-radio-row label:has(input:checked).dy-sell-loss{ color:#fff; }
 @media (max-width:480px){ #dy-form .dy-radio-row label{ min-width:0; flex:1 1 auto; padding:10px 12px; } }
+
+/* カードの価格を大きく（2026-09-19）: 記録時（購入/売却）と現在を並べる */
+.dy-price-big{ display:flex; flex-wrap:wrap; gap:10px 28px; align-items:flex-end; margin:4px 0 6px; }
+.dy-price-box{ display:flex; flex-direction:column; gap:2px; }
+.dy-price-k{ font-size:11px; color:#93c5fd; font-weight:700; letter-spacing:.5px; }
+.dy-price-num{ font-size:26px; font-weight:800; color:#fff; line-height:1.1; font-variant-numeric:tabular-nums; letter-spacing:.5px; }
+.dy-price-sub{ font-size:12.5px; color:#cbd5e1; }
+.dy-reason{ margin-top:10px; padding-top:8px; border-top:1px solid #1f2937; }
+@media (max-width:480px){ .dy-price-num{ font-size:22px; } .dy-price-big{ gap:8px 18px; } }

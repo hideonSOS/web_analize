@@ -101,20 +101,30 @@
 
     <div class="dy-price-row">
       {% if r.e.price %}
-      <div class="dy-price-line">
-        <span class="dy-price-cell"><span class="dy-price-val">{{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}{% if r.e.shares %} × {{ r.e.shares|intcomma }}株{% endif %}</span><span class="dy-price-when">：価格（記録時）</span></span>
+      {% comment %} 価格は大きく（ユーザー要望 2026-09-19）: 記録時の価格 → 現在の価格 を並べ、株数・その後%・概算損益を添える {% endcomment %}
+      <div class="dy-price-big">
+        <div class="dy-price-box">
+          <span class="dy-price-k">{% if r.e.action == 'sell' %}売却価格{% elif r.e.action == 'buy' %}購入価格{% else %}記録時の価格{% endif %}</span>
+          <span class="dy-price-num">{{ r.cur_pre }}{{ r.e.price|floatformat:1 }}{{ r.cur_suf }}</span>
+          {% if r.e.shares %}<span class="dy-price-sub">× {{ r.e.shares|intcomma }}株</span>{% endif %}
+        </div>
+        {% if r.current_close %}
+        <div class="dy-price-box">
+          <span class="dy-price-k">現在の価格</span>
+          <span class="dy-price-num">{{ r.cur_pre }}{{ r.current_close|floatformat:1 }}{{ r.cur_suf }}</span>
+          <span class="dy-price-sub dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">その後 {% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
+        </div>
+        {% endif %}
       </div>
       {% if r.current_close %}
       <div class="dy-price-line">
-        <span class="dy-price-cell"><span class="dy-price-val">{{ r.cur_pre }}{{ r.current_close|floatformat:1 }}{{ r.cur_suf }}</span><span class="dy-price-when">：価格（現在）</span></span>
-        <span class="dy-change {% if r.change >= 0 %}up{% else %}down{% endif %}">その後 {% if r.change >= 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
         {% if r.pnl is not None %}
         <span class="dy-change {% if r.pnl >= 0 %}up{% else %}down{% endif %}">概算損益 {% if r.pnl >= 0 %}+{% endif %}{{ r.cur_pre }}{% if r.is_us %}{{ r.pnl|floatformat:2|intcomma }}{% else %}{{ r.pnl|floatformat:0|intcomma }}{% endif %}{{ r.cur_suf }}</span>
         {% endif %}
       </div>
       {% endif %}
       {% endif %}
-      {% if r.e.mood %}<div class="dy-price-line"><span class="dy-mood">心理: {{ r.e.mood }}</span></div>{% endif %}
+      {% comment %} 心理は表示しない（2026-09-19 ユーザー指示。列は残る） {% endcomment %}
       {% if r.e.action == 'sell' and r.e.sell_kind or r.e.rule_followed is not None %}
       <div class="dy-price-line dy-sell-meta">
         {% if r.e.sell_kind %}<span class="dy-sell-badge dy-sell-{{ r.e.sell_kind }}">{{ r.e.get_sell_kind_display }}</span>{% endif %}
@@ -152,8 +162,8 @@
     <div class="dy-tags">{% for t in r.tag_list %}<span class="dy-tag">{{ t }}</span>{% endfor %}</div>
     {% endif %}
 
-    <p class="dy-label">判断理由</p>
-    <p class="dy-text">{{ r.e.reason|linebreaksbr }}</p>
+    {% comment %} 「判断理由」のラベルは出さず本文だけ（2026-09-19 ユーザー指示） {% endcomment %}
+    <p class="dy-text dy-reason">{{ r.e.reason|linebreaksbr }}</p>
     {% if r.e.impression %}
     <p class="dy-label">感想・メモ</p>
     <p class="dy-text">{{ r.e.impression|linebreaksbr }}</p>
