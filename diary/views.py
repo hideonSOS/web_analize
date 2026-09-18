@@ -180,7 +180,7 @@ def create(request):
         sell_kind=sell_kind,
         rule_followed=rule_followed,
         reason=request.POST.get('reason', '').strip(),
-        impression=request.POST.get('impression', '').strip(),
+        impression='',   # 感想・メモは 2026-09-19 に廃止（フォームから削除）
     )
     # 短期との連動（入力は日記に統一・2026-09-09）:
     #   買い＋「短期トレードとして追跡」チェック → Trade を起こす（損切り/利確は日記の価格から）

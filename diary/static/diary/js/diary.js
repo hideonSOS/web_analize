@@ -186,7 +186,7 @@
       }
       updateRR();
     } else {
-      trackHint.textContent = 'チェックすると目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）';
+      trackHint.textContent = '押すと目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）';
       trackHint.classList.remove('warn');
     }
   }
