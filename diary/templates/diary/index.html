@@ -232,6 +232,15 @@
         </div>
       </div>
       <div id="dy-exit">
+        {% comment %} 追跡ボタンは目標・損切りの上（ユーザー指示 2026-09-19）。押した瞬間に +10%/−5% の価格で固定 {% endcomment %}
+        {% comment %} 短期トレードとして追跡（買いのみ）。損切り/利確は上の価格から%を逆算、無ければ設定の既定 {% endcomment %}
+        {% comment %} チェックボックスではなくトグル型のボタン（ユーザー要望 2026-09-19）。input は隠し、label をボタンとして描く {% endcomment %}
+        <div class="dy-track-wrap">
+          <label class="dy-track-check"><input type="checkbox" name="track_contra" value="1" id="dy-track" />
+            <span class="dy-track-btn"><span class="dy-track-icon">⚡</span>短期トレードとして追跡する
+              <span class="dy-track-rule">利確 +{{ contra_setting.default_target_pct|floatformat:"-1" }}%／損切り −{{ contra_setting.default_stop_pct|floatformat:"-1" }}%</span></span></label>
+          <span class="dy-track-hint" id="dy-track-hint">押すと目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）</span>
+        </div>
         <div class="dy-field-row">
           <div class="dy-field">
             <span class="dy-field-label">目標株価（<span class="dy-cur-unit">円</span>）</span>
@@ -262,14 +271,6 @@
           </div>
         </div>
         <p class="dy-rr-hint" id="dy-rr-hint"></p>
-        {% comment %} 短期トレードとして追跡（買いのみ）。損切り/利確は上の価格から%を逆算、無ければ設定の既定 {% endcomment %}
-        {% comment %} チェックボックスではなくトグル型のボタン（ユーザー要望 2026-09-19）。input は隠し、label をボタンとして描く {% endcomment %}
-        <div class="dy-track-wrap">
-          <label class="dy-track-check"><input type="checkbox" name="track_contra" value="1" id="dy-track" />
-            <span class="dy-track-btn"><span class="dy-track-icon">⚡</span>短期トレードとして追跡する
-              <span class="dy-track-rule">利確 +{{ contra_setting.default_target_pct|floatformat:"-1" }}%／損切り −{{ contra_setting.default_stop_pct|floatformat:"-1" }}%</span></span></label>
-          <span class="dy-track-hint" id="dy-track-hint">押すと目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）</span>
-        </div>
         <label class="dy-field" id="dy-risk-field" hidden>マイナスになる想定（短期トレードの学習用）
           <textarea name="risk_scenario" rows="2" placeholder="例: 決算の悪材料が続くとサポートを割って−5%に届く"></textarea></label>
       </div>

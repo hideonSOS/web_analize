@@ -244,6 +244,8 @@
         setCurrency(s.country);    // 米国株なら入力単位を$へ（保存はドルのまま）
         if (s.close !== null) priceInput.value = (Math.round(s.close * 100) / 100).toFixed(2);   // step=0.01 に丸める
         updateAmount();
+        // 追跡ボタンが先に押されていても、銘柄選択で株価が入った瞬間に +10%/−5% の価格を固定する
+        if (typeof applyTrackLock === 'function') applyTrackLock();
         list.hidden = true;
       });
       list.appendChild(item);
