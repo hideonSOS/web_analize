@@ -290,22 +290,7 @@
           </div>
         </div>
       </div>
-      <div class="dy-field" id="dy-tags-field">
-        <span class="dy-field-label">判断理由タグ（複数可）</span>
-        <div class="dy-check-row">
-          {% for t in tags %}
-          <label><input type="checkbox" name="tags" value="{{ t }}" /> {{ t }}</label>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="dy-field" id="dy-mood-field">
-        <span class="dy-field-label">記録時の心理状態</span>
-        <div class="dy-radio-row">
-          {% for m in moods %}
-          <label><input type="radio" name="mood" value="{{ m }}" {% if m == '中立' %}checked{% endif %} /> {{ m }}</label>
-          {% endfor %}
-        </div>
-      </div>
+      {% comment %} 判断理由タグと心理は 2026-09-19 に買い・売りとも廃止（ユーザー指示）。自由記述の判断理由だけ残す {% endcomment %}
       <label class="dy-field"><span id="dy-reason-label">判断理由</span>
         <textarea name="reason" id="dy-reason" rows="3" required placeholder="なぜそう判断したか（あとで書き換えない前提で正直に）"></textarea>
       </label>

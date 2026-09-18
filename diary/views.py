@@ -156,7 +156,7 @@ def create(request):
     action = request.POST.get('action', '')
     if action not in dict(DiaryEntry.ACTION_CHOICES):
         action = 'buy'
-    # 売りの新フォーム（2026-09-19）: 分類（利益確定/損切り）とルール遵守だけ。タグ・心理は売りでは持たない
+    # 売りの新フォーム（2026-09-19）: 分類（利益確定/損切り）とルール遵守だけ。タグ・心理は買い・売りとも廃止
     sell_kind = request.POST.get('sell_kind', '') if action == 'sell' else ''
     if sell_kind not in dict(DiaryEntry.SELL_KINDS):
         sell_kind = ''
@@ -175,8 +175,8 @@ def create(request):
         target_price=_float_or_none('target_price'),
         stop_price=_float_or_none('stop_price'),
         action=action,
-        tags='' if action == 'sell' else ','.join(t for t in request.POST.getlist('tags') if t in TAGS),
-        mood='' if action == 'sell' else (request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else ''),
+        tags='',    # 判断理由タグ・心理は 2026-09-19 に廃止（フォームから削除。列は過去の記録のため残す）
+        mood='',
         sell_kind=sell_kind,
         rule_followed=rule_followed,
         reason=request.POST.get('reason', '').strip(),
