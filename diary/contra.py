@@ -142,8 +142,11 @@ def close_from_entry(entry, reason: str = '', expected: str = '') -> Trade | Non
     price = float(entry.price)
     t.exit_date, t.exit_price = entry.recorded_at.date(), price
     t.exit_reason = reason if reason in dict(Trade.EXIT) else auto_exit_reason(t, price)
+    # 日記の売りが「利益確定」なのに価格が損切り線以下（ルール外の売り）は裁量として残す
+    if reason == '' and getattr(entry, 'sell_kind', '') == 'profit' and t.exit_reason == 'stop':
+        t.exit_reason = 'manual'
     t.exit_note, t.exit_diary = entry.reason, entry
-    t.exit_expected = expected if expected in dict(Trade.EXPECTED) else ''
+    t.exit_expected = expected if expected in dict(Trade.EXPECTED) else ''   # 日記の売りでは 2026-09-19 から未使用
     t.save()
     entry.strategy, entry.trade = 'contra', t
     entry.save(update_fields=['strategy', 'trade'])

@@ -34,6 +34,12 @@ class DiaryEntry(models.Model):
     reason = models.TextField()                          # 判断理由
     impression = models.TextField(blank=True)            # 感想・メモ
 
+    # 売りの記録（2026-09-19 ユーザー指示で売りフォームを一新）: 分類は「利益確定／損切り」だけ、
+    # 「ルールどおりにできたか」を必ず記録する。判断理由タグ・心理・想定内/外は売りでは使わない
+    SELL_KINDS = [('profit', '利益確定'), ('loss', '損切り')]
+    sell_kind = models.CharField(max_length=10, blank=True, choices=SELL_KINDS)
+    rule_followed = models.BooleanField(null=True, blank=True)   # True=できた / False=できなかった / None=未記録（売り以外）
+
     # 振り返り（後日追記）
     review_note = models.TextField(blank=True)
     review_result = models.CharField(max_length=10, blank=True, choices=RESULT_CHOICES)

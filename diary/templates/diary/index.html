@@ -115,6 +115,12 @@
       {% endif %}
       {% endif %}
       {% if r.e.mood %}<div class="dy-price-line"><span class="dy-mood">心理: {{ r.e.mood }}</span></div>{% endif %}
+      {% if r.e.action == 'sell' and r.e.sell_kind or r.e.rule_followed is not None %}
+      <div class="dy-price-line dy-sell-meta">
+        {% if r.e.sell_kind %}<span class="dy-sell-badge dy-sell-{{ r.e.sell_kind }}">{{ r.e.get_sell_kind_display }}</span>{% endif %}
+        {% if r.e.rule_followed is True %}<span class="dy-rule dy-rule-ok">ルールどおり ✔</span>{% elif r.e.rule_followed is False %}<span class="dy-rule dy-rule-ng">ルール逸脱 ✖</span>{% endif %}
+      </div>
+      {% endif %}
     </div>
 
     {% if r.e.target_price or r.e.stop_price %}
@@ -263,25 +269,28 @@
         <label class="dy-field" id="dy-risk-field" hidden>マイナスになる想定（短期トレードの学習用）
           <textarea name="risk_scenario" rows="2" placeholder="例: 決算の悪材料が続くとサポートを割って−5%に届く"></textarea></label>
       </div>
-      {% comment %} 売りのとき: 保有中の短期取引があれば決済として扱う。理由は未選択なら価格から推定 {% endcomment %}
+      {% comment %}
+        売りのフォーム（2026-09-19 ユーザー指示で一新）: ①利益確定か損切りか ②ルールどおりにできたか、の2点だけ。
+        判断理由タグ・心理・想定内/外は売りでは出さない（JS で隠す）。同じ銘柄を短期で追跡中なら決済として記録
+        （損切り→損切り、利益確定→価格から利確／早期利確を判定）
+      {% endcomment %}
       <div id="dy-sell-extra" hidden>
         <div class="dy-field">
-          <span class="dy-field-label">短期トレードの決済理由（同じ銘柄を追跡中なら決済として記録）</span>
-          <div class="dy-radio-row">
-            <label><input type="radio" name="exit_reason" value="" checked /> 価格から自動判定</label>
-            {% for v, l in exit_choices %}<label><input type="radio" name="exit_reason" value="{{ v }}" /> {{ l }}</label>{% endfor %}
+          <span class="dy-field-label">分類</span>
+          <div class="dy-radio-row dy-sell-kind">
+            <label class="dy-sell-profit"><input type="radio" name="sell_kind" value="profit" /> 利益確定</label>
+            <label class="dy-sell-loss"><input type="radio" name="sell_kind" value="loss" /> 損切り</label>
           </div>
         </div>
         <div class="dy-field">
-          <span class="dy-field-label">損切り・マイナスは想定どおりだったか</span>
+          <span class="dy-field-label">ルールどおりにできたか</span>
           <div class="dy-radio-row">
-            <label><input type="radio" name="exit_expected" value="" checked /> 該当なし</label>
-            <label><input type="radio" name="exit_expected" value="expected" /> 想定内</label>
-            <label><input type="radio" name="exit_expected" value="unexpected" /> 想定外（寝耳に水）</label>
+            <label><input type="radio" name="rule_followed" value="yes" /> できた</label>
+            <label><input type="radio" name="rule_followed" value="no" /> できなかった</label>
           </div>
         </div>
       </div>
-      <div class="dy-field">
+      <div class="dy-field" id="dy-tags-field">
         <span class="dy-field-label">判断理由タグ（複数可）</span>
         <div class="dy-check-row">
           {% for t in tags %}
@@ -289,7 +298,7 @@
           {% endfor %}
         </div>
       </div>
-      <div class="dy-field">
+      <div class="dy-field" id="dy-mood-field">
         <span class="dy-field-label">記録時の心理状態</span>
         <div class="dy-radio-row">
           {% for m in moods %}
@@ -297,8 +306,8 @@
           {% endfor %}
         </div>
       </div>
-      <label class="dy-field">判断理由
-        <textarea name="reason" rows="3" required placeholder="なぜそう判断したか（あとで書き換えない前提で正直に）"></textarea>
+      <label class="dy-field"><span id="dy-reason-label">判断理由</span>
+        <textarea name="reason" id="dy-reason" rows="3" required placeholder="なぜそう判断したか（あとで書き換えない前提で正直に）"></textarea>
       </label>
       <label class="dy-field">感想・メモ
         <textarea name="impression" rows="2" placeholder="迷い・確信度・相場の雰囲気など"></textarea>

@@ -243,3 +243,13 @@
 .dy-track-check{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12.5px; color:#e5e7eb; margin-top:6px; cursor:pointer; }
 .dy-track-check input{ accent-color:#3b82f6; }
 .dy-track-hint{ color:#6b7280; font-size:11px; flex-basis:100%; padding-left:22px; }
+
+/* 売りの分類・ルール遵守（2026-09-19） */
+.dy-sell-kind label{ font-weight:700; }
+.dy-sell-profit{ color:#86efac; } .dy-sell-loss{ color:#fca5a5; }
+.dy-sell-meta{ gap:8px; }
+.dy-sell-badge{ border-radius:6px; padding:1px 8px; font-size:12px; font-weight:700; }
+.dy-sell-profit.dy-sell-badge, .dy-sell-badge.dy-sell-profit{ background:rgba(74,222,128,.15); color:#86efac; border:1px solid #1e5c2f; }
+.dy-sell-badge.dy-sell-loss{ background:rgba(239,68,68,.15); color:#fca5a5; border:1px solid #7c2d2d; }
+.dy-rule{ font-size:12px; font-weight:700; }
+.dy-rule-ok{ color:#86efac; } .dy-rule-ng{ color:#fcd34d; }

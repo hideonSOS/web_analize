@@ -129,9 +129,21 @@
     const checked = actionRadios.find((r) => r.checked);
     const isBuy = checked && checked.value === 'buy';
     exitSection.hidden = !isBuy;
-    // 売りのときだけ「短期トレードの決済理由」を出す（追跡中の同じ銘柄があれば決済として記録される）
+    // 売りのときだけ「分類（利益確定/損切り）」「ルールどおりにできたか」を出し、タグ・心理は隠す（2026-09-19）
+    const isSell = !!(checked && checked.value === 'sell');
     const sellExtra = document.getElementById('dy-sell-extra');
-    if (sellExtra) sellExtra.hidden = !(checked && checked.value === 'sell');
+    if (sellExtra) {
+      sellExtra.hidden = !isSell;
+      sellExtra.querySelectorAll('input[name="sell_kind"], input[name="rule_followed"]').forEach((r) => { r.required = isSell; });
+    }
+    const tagsField = document.getElementById('dy-tags-field');
+    const moodField = document.getElementById('dy-mood-field');
+    if (tagsField) tagsField.hidden = isSell;
+    if (moodField) moodField.hidden = isSell;
+    const reasonLabel = document.getElementById('dy-reason-label');
+    const reasonBox = document.getElementById('dy-reason');
+    if (reasonLabel) reasonLabel.textContent = isSell ? '売った理由・振り返り' : '判断理由';
+    if (reasonBox) reasonBox.placeholder = isSell ? 'なぜここで売ったか。ルールから外れたなら何が起きたか（あとで書き換えない前提で正直に）' : 'なぜそう判断したか（あとで書き換えない前提で正直に）';
     if (!isBuy) {
       targetInput.value = '';
       stopInput.value = '';

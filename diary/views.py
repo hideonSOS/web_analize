@@ -156,6 +156,14 @@ def create(request):
     action = request.POST.get('action', '')
     if action not in dict(DiaryEntry.ACTION_CHOICES):
         action = 'buy'
+    # 売りの新フォーム（2026-09-19）: 分類（利益確定/損切り）とルール遵守だけ。タグ・心理は売りでは持たない
+    sell_kind = request.POST.get('sell_kind', '') if action == 'sell' else ''
+    if sell_kind not in dict(DiaryEntry.SELL_KINDS):
+        sell_kind = ''
+    rule_followed = None
+    if action == 'sell':
+        rf = request.POST.get('rule_followed', '')
+        rule_followed = True if rf == 'yes' else (False if rf == 'no' else None)
 
     entry = DiaryEntry.objects.create(
         stock=stock,
@@ -167,8 +175,10 @@ def create(request):
         target_price=_float_or_none('target_price'),
         stop_price=_float_or_none('stop_price'),
         action=action,
-        tags=','.join(t for t in request.POST.getlist('tags') if t in TAGS),
-        mood=request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else '',
+        tags='' if action == 'sell' else ','.join(t for t in request.POST.getlist('tags') if t in TAGS),
+        mood='' if action == 'sell' else (request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else ''),
+        sell_kind=sell_kind,
+        rule_followed=rule_followed,
         reason=request.POST.get('reason', '').strip(),
         impression=request.POST.get('impression', '').strip(),
     )
@@ -187,7 +197,8 @@ def create(request):
         else:
             messages.error(request, '短期トレードの追跡には銘柄・株価・株数が必要です（日記の記録は保存しました）。')
     elif action == 'sell':
-        t = C.close_from_entry(entry, request.POST.get('exit_reason', ''), request.POST.get('exit_expected', ''))
+        # 短期の決済理由は「損切り」なら損切り、「利益確定」なら価格から利確／早期利確を判定
+        t = C.close_from_entry(entry, 'stop' if sell_kind == 'loss' else '')
         if t:
             net = t.pnl_pct_net(ContraSetting.get().cost_pct)
             messages.success(request, f'短期トレードの {t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {net:+.2f}%）。')
