@@ -27,17 +27,30 @@ def index(request):
     if q:
         entries = entries.filter(stock_name__icontains=q)
 
+    # 売りの実現損益（2026-09-21 ユーザー決定）: 同じ銘柄の「売りより前の直近の買い」の価格を買値とみなし
+    # （売値 − 買値）× 株数。同一銘柄で売買を繰り返す使い方なので直近の買いで実態に合う。
+    # 旧「概算損益」（売却後の値動き）は売りでは出さず、「売却後 +x%」の%だけ残す
+    buys_by_stock = {}
+    for b in DiaryEntry.objects.filter(action='buy', price__isnull=False).exclude(stock__isnull=True).order_by('recorded_at'):
+        buys_by_stock.setdefault(b.stock_id, []).append(b)
+
     rows = []
     for e in entries:
         change = pnl = rr = None
+        realized = realized_pct = buy_ref = None
         hit = ''
         current_close = e.stock.close if e.stock else None
         if current_close and e.price:
             change = (current_close / e.price - 1) * 100
-            if e.shares:
-                # 概算損益: 買いは値上がりがプラス、売りは売却後の値下がり（回避額）がプラス
-                diff = current_close - e.price
-                pnl = diff * e.shares if e.action == 'buy' else -diff * e.shares if e.action == 'sell' else None
+            if e.shares and e.action == 'buy':
+                pnl = (current_close - e.price) * e.shares      # 買い: 含み損益（概算）
+        if e.action == 'sell' and e.price and e.stock_id:
+            prev = [b for b in buys_by_stock.get(e.stock_id, []) if b.recorded_at < e.recorded_at]
+            if prev:
+                buy_ref = prev[-1]
+                realized_pct = (e.price / buy_ref.price - 1) * 100
+                if e.shares:
+                    realized = (e.price - buy_ref.price) * e.shares
         if e.action == 'buy':
             # リスクリワード比 = (目標 − 記録時株価) ÷ (記録時株価 − 損切り)
             if e.price and e.target_price and e.stop_price and e.price > e.stop_price:
@@ -53,6 +66,7 @@ def index(request):
             'e': e,
             'change': change,
             'pnl': pnl,
+            'realized': realized, 'realized_pct': realized_pct, 'buy_ref': buy_ref,
             'rr': rr,
             'hit': hit,
             'current_close': current_close,
