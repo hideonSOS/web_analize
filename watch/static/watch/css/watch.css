@@ -26,7 +26,7 @@
 
 /* 一覧の1行 */
 .wt-list{ display:grid; gap:10px; }
-.wt-row{ position:relative; border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:12px 14px 12px 34px; }
+.wt-row{ position:relative; border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:12px 16px; }
 .wt-row.reached{ border-color:rgba(74,222,128,.55); box-shadow:0 0 0 1px rgba(74,222,128,.15), 0 0 18px rgba(34,197,94,.12); }
 .wt-handle{ position:absolute; left:10px; top:12px; color:#6b7280; cursor:grab; font-size:16px; user-select:none; }
 .wt-handle:hover{ color:#93c5fd; }
@@ -73,5 +73,5 @@
 .wt-edit input{ background:#0f172a; color:#e5e7eb; border:1px solid #334155; border-radius:6px; padding:5px 8px; font-size:13px; }
 .wt-edit input[type="number"]{ width:120px; } .wt-edit input[type="text"]{ flex:1 1 200px; }
 .wt-empty{ border:1px solid #1f2937; background:#0f172a; border-radius:12px; padding:24px; text-align:center; color:#9ca3af; }
-@media (max-width:600px){ .wt-row{ padding-left:28px; } .wt-add-target{ flex:1 1 140px; } }
+@media (max-width:600px){ .wt-add-target{ flex:1 1 140px; } }
 @media (max-width:600px){ .wt-bar-wrap{ grid-template-columns:1fr; gap:6px; } .wt-end-l{ align-items:flex-start; text-align:left; } .wt-end-r{ align-items:flex-end; text-align:right; } .wt-tick i{ display:none; } }

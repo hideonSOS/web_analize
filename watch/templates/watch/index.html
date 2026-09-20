@@ -29,11 +29,10 @@
   </form>
 
   {% if rows %}
-  <p class="wt-note">⠿ をドラッグで並び替え（保存されます）。ゲージ: 左端＝買値、右端＝1年高値。帯は「買値までの残り」で、株価が下がるほど縮み、空になれば買値到達（緑）。</p>
-  <div class="wt-list" id="wt-list" data-reorder-url="{% url 'watch:reorder' %}">
+  <p class="wt-note">買値に近い順（そろそろ買えそうなものが上・到達済みは最上位）。ゲージ: 左端＝買値、右端＝1年高値。帯は「買値までの残り」で、株価が下がるほど縮み、空になれば買値到達（緑）。</p>
+  <div class="wt-list" id="wt-list">
     {% for r in rows %}
     <section class="wt-row {% if r.reached %}reached{% endif %}" data-pk="{{ r.item.pk }}">
-      <span class="wt-handle" title="ドラッグして並び替え">⠿</span>
       <div class="wt-head">
         <a class="wt-name" href="{% url 'japan_kabu:stock_detail' r.stock.display_code %}" title="カルテ"><b>{{ r.stock.display_code }}</b> {{ r.stock.name|truncatechars:26 }}</a>
         {% if r.is_us %}<span class="wt-us">US</span>{% endif %}
@@ -84,6 +83,5 @@
 
 {% block extra_js %}
 <script>window.WATCH_STOCK_OPTIONS_URL = "{% url 'karte:stock_options' %}";</script>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="{% static 'watch/js/watch.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

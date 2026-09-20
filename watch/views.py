@@ -52,6 +52,9 @@ def _rows():
                 'ticks': [{'pos': p, 'price': left + span * p / 100} for p in (25, 50, 75)] if span > 0 else [],
             }
         rows.append(row)
+    # 並びは「買値までの残り%」が小さい順（＝そろそろ買えそうなものが上。到達済み＝マイナスが最上位）。
+    # 買値未設定や株価無しは末尾（ユーザー指示 2026-09-21。手動の並び替えはやめた）
+    rows.sort(key=lambda r: (r['distance'] is None, r['distance'] if r['distance'] is not None else 0, r['stock'].display_code))
     return rows
 
 
