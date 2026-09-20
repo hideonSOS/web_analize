@@ -1,0 +1,15 @@
+{% extends 'website/base.html' %}
+{% load static %}
+
+{% block title %}監視 | 株分析ツール KABU ANALYZE{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'watch/css/watch.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<main class="wt">
+  <h1 class="wt-title">監視</h1>
+  <p class="wt-lead">機能はこれから追加します。</p>
+</main>
+{% endblock %}

@@ -27,6 +27,7 @@ urlpatterns = [
     path('karte/', include('karte.urls')),
     path('portfolio/', include('portfolio.urls')),
     path('spending/', include('spending.urls')),
+    path('watch/', include('watch.urls')),
 ]
 
 # 開発サーバーからアップロード画像を配信する（本番ではnginx等が担当）
