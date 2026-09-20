@@ -53,7 +53,7 @@
           <div class="wt-fill" style="width:{{ r.bar.fill|floatformat:1 }}%"></div>
           {% for t in r.bar.ticks %}<span class="wt-tick" style="left:{{ t.pos }}%"></span>{% endfor %}
           <span class="wt-now {% if r.bar.fill < 12 %}edge-l{% elif r.bar.fill > 88 %}edge-r{% endif %}" style="left:{{ r.bar.fill|floatformat:1 }}%">
-            <span class="wt-now-pill">現在 {{ r.unit_pre }}{{ r.current|floatformat:2 }}{{ r.unit_suf }}</span><span class="wt-now-tri">▼</span>
+            <span class="wt-now-pill"><span class="k">現在</span>{{ r.unit_pre }}{{ r.current|floatformat:2 }}{{ r.unit_suf }}</span><span class="wt-now-tri">▼</span>
           </span>
         </div>
         <div class="wt-end wt-end-r"><span class="k">1年高値</span><b>{{ r.unit_pre }}{{ r.bar.right|floatformat:2 }}{{ r.unit_suf }}</b></div>

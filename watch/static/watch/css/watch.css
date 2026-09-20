@@ -47,19 +47,23 @@
 .wt-del:hover{ color:#fca5a5; border-color:#7f1d1d; background:rgba(239,68,68,.1); }
 
 /* ゲージ: 左端=買値、右端=1年高値。帯=買値までの残り（下がるほど縮む）。帯の右端に ▼ と現在株価 */
-.wt-bar-wrap{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:46px 0 10px; }
+.wt-bar-wrap{ display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:56px 0 10px; }
 .wt-end{ display:flex; flex-direction:column; gap:1px; font-size:12px; white-space:nowrap; }
-.wt-end .k{ font-size:10px; color:#9ca3af; }
-.wt-end b{ color:#fff; font-size:14px; }
+.wt-end .k{ font-size:11px; color:#9ca3af; }
+.wt-end b{ color:#fff; font-size:15px; }
+/* 買値（左端）は現在価格と並ぶ主役なので大きく・シアン */
+.wt-end-l b.wt-target-val{ font-size:22px; font-weight:800; }
+.wt-end-l .k{ font-size:12px; color:#67e8f9; font-weight:700; }
 .wt-end-l{ text-align:right; align-items:flex-end; }
 .wt-bar{ position:relative; height:22px; border-radius:6px; background:#111827; border:1px solid #334155; }
 .wt-fill{ height:100%; border-radius:6px 0 0 6px; background:linear-gradient(90deg, rgba(251,146,60,.35), rgba(239,68,68,.85)); transition:width .3s; }
 .wt-row.reached .wt-fill{ background:linear-gradient(90deg, rgba(74,222,128,.35), rgba(74,222,128,.85)); }
 .wt-tick{ position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.14); }
 .wt-tick i{ position:absolute; top:100%; left:0; transform:translateX(-50%); font-style:normal; font-size:10px; color:#6b7280; margin-top:3px; white-space:nowrap; }
-.wt-now{ position:absolute; top:-42px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; white-space:nowrap; z-index:2; }
+.wt-now{ position:absolute; top:-52px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; white-space:nowrap; z-index:2; }
 .wt-now.edge-l{ transform:none; align-items:flex-start; } .wt-now.edge-r{ transform:translateX(-100%); align-items:flex-end; }
-.wt-now-pill{ background:#0f172a; border:1px solid #67e8f9; color:#fff; border-radius:8px; padding:3px 10px; font-size:13px; font-weight:700; box-shadow:0 0 10px rgba(34,211,238,.35); margin-bottom:4px; }
+.wt-now-pill{ background:#0f172a; border:1px solid #67e8f9; color:#fff; border-radius:10px; padding:4px 14px; font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; box-shadow:0 0 12px rgba(34,211,238,.4); margin-bottom:4px; }
+.wt-now-pill .k{ font-size:11px; font-weight:700; color:#9ca3af; margin-right:6px; }
 .wt-now-pill i{ font-style:normal; font-weight:400; font-size:10px; color:#9ca3af; margin-left:6px; }
 .wt-now-tri{ color:#22d3ee; font-size:12px; line-height:1; margin-top:0; text-shadow:0 0 8px rgba(34,211,238,.9); }
 .wt-row.reached .wt-now-pill{ border-color:#4ade80; box-shadow:0 0 10px rgba(74,222,128,.4); }
