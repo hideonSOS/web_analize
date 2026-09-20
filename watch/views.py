@@ -1,10 +1,10 @@
 """監視（/watch/）。仕様は models.py の docstring。
 
-横棒の意味: 左端＝1年高値（0%）、右へ行くほど高値から下落。赤い帯＝現在の下落率、シアンの線＝買値
-（目標価格）の位置。現在値が買値以下なら帯が緑になり「買値到達」。
+横棒（ゲージ）の意味（2026-09-21 ユーザー指示で向きを反転。「ゲージが上がる＝下がり切る」では直感が鈍る）:
+  左端＝買値（目標価格）、右端＝1年高値。帯＝「買値までの残り」なので **株価が下がるほど帯が縮む**。
+  帯の右端が現在値。帯が空（現在値≦買値）になったら緑で「買値到達」。買値が未設定なら左端は1年安値。
 """
 import json
-import math
 
 from django.contrib import messages
 from django.http import JsonResponse
@@ -16,7 +16,6 @@ from japan_kabu.prices import bulk_price_stats
 
 from .models import WatchItem
 
-MIN_SCALE = 30      # 横棒の右端は最低でも −30%。下落や買値がそれより深ければ 10% 刻みで広げる
 
 
 def _rows():
@@ -39,14 +38,18 @@ def _rows():
                 row['target_dd'] = (it.target_price / high - 1) * 100    # 買値が高値から何%下か
                 row['distance'] = (cur / it.target_price - 1) * 100      # 現在値が買値より何%上か（マイナスなら到達）
                 row['reached'] = cur <= it.target_price
-            # 横棒の目盛り: 下落率・買値の深い方を 10% 刻みで切り上げ（最低 30%）
-            deepest = max(abs(row['dd']), abs(row['target_dd'] or 0), MIN_SCALE)
-            scale = math.ceil(deepest / 10) * 10
+            # ゲージ: 左端=買値（無ければ1年安値）、右端=1年高値。帯の長さ=買値までの残り（下がるほど縮む）
+            left = it.target_price if it.target_price else y['low']
+            span = high - left
+            pos = (cur - left) / span * 100 if span > 0 else 0.0
             row['bar'] = {
-                'scale': scale,
-                'fill': min(100.0, abs(row['dd']) / scale * 100),
-                'target': (min(100.0, abs(row['target_dd']) / scale * 100) if row['target_dd'] is not None else None),
-                'ticks': [{'pct': p, 'pos': p / scale * 100} for p in range(10, scale + 1, 10)],
+                'left_label': '買値' if it.target_price else '1年安値',
+                'left': left, 'right': high,
+                'fill': max(0.0, min(100.0, pos)),
+                'over_high': cur > high,          # 高値更新中（帯が満タンを超える）
+                # 中間の目盛り（価格）: 25/50/75%
+                # 買値が高値以上（＝もう到達している）のときは目盛りに意味が無いので出さない
+                'ticks': [{'pos': p, 'price': left + span * p / 100} for p in (25, 50, 75)] if span > 0 else [],
             }
         rows.append(row)
     return rows
