@@ -125,6 +125,8 @@ class Command(BaseCommand):
         extra_codes |= set(StockKarte.objects.values_list('stock_id', flat=True))
         extra_codes |= set(DiaryEntry.objects.filter(stock__isnull=False)
                            .values_list('stock_id', flat=True))
+        from watch.models import WatchItem
+        extra_codes |= set(WatchItem.objects.values_list('stock_id', flat=True))   # 監視銘柄（2026-09-21）
         for stock in Stock.objects.filter(code__in=extra_codes, country=country):
             if stock.code in seen:
                 continue

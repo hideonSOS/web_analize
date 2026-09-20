@@ -1,5 +1,66 @@
-/* 監視（/watch/）。他ページと同じ流儀: 黒背景・#1e90ff のネオン見出し */
+/* 監視（/watch/）。黒背景・#1e90ff のネオン見出し（他ページと同じ流儀） */
 .wt{ max-width:1000px; margin:0 auto; padding:16px 12px 40px; }
 .wt-title{ text-align:center; margin:16px 0 4px; font-size:clamp(22px,4.5vw,32px); letter-spacing:3px; color:#1e90ff;
   text-shadow:0 0 12px rgba(30,144,255,.9), 0 0 30px rgba(30,144,255,.4); }
-.wt-lead{ text-align:center; color:#9ca3af; font-size:13px; margin:0 0 18px; }
+.wt-lead{ text-align:center; color:#9ca3af; font-size:13px; margin:0 0 18px; line-height:1.7; }
+.wt-reached-n{ display:inline-block; margin-left:8px; padding:1px 10px; border-radius:999px; background:rgba(74,222,128,.15); color:#86efac; border:1px solid #1e5c2f; font-weight:700; }
+.wt-msg{ border-radius:8px; padding:8px 12px; font-size:13px; margin-bottom:10px; border:1px solid #1e3a5f; color:#e5e7eb; background:#0f172a; }
+.wt-msg-success{ border-color:#1e5c2f; color:#86efac; } .wt-msg-error{ border-color:#7c2d2d; color:#fca5a5; } .wt-msg-info{ color:#93c5fd; }
+.wt-note{ color:#6b7280; font-size:12px; margin:0 0 10px; }
+.wt-legend-target{ color:#22d3ee; font-weight:700; }
+.up{ color:#4ade80; } .down{ color:#f87171; }
+
+/* 追加フォーム */
+.wt-add{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:12px 14px; margin-bottom:16px; }
+.wt-add-stock{ position:relative; flex:1 1 260px; }
+.wt-add input[type="text"], .wt-add input[type="number"]{ width:100%; box-sizing:border-box; background:#0f172a; color:#e5e7eb; border:1px solid #334155; border-radius:8px; padding:9px 12px; font-size:14px; }
+.wt-add input:focus{ outline:none; border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15); }
+.wt-add-target{ display:flex; flex-direction:column; gap:3px; font-size:11px; color:#9ca3af; flex:0 0 170px; }
+.wt-add-note{ flex:1 1 180px; }
+.wt-stock-list{ position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:100; background:#0b1220; border:1px solid #334155; border-radius:10px; max-height:320px; overflow-y:auto; box-shadow:0 12px 30px rgba(0,0,0,.6); }
+.wt-stock-item{ padding:9px 14px; font-size:13px; color:#e5e7eb; cursor:pointer; }
+.wt-stock-item:hover{ background:rgba(59,130,246,.18); }
+.wt-btn{ background:linear-gradient(135deg, #2563eb, #1e40af); color:#fff; border:1px solid #60a5fa; border-radius:10px; padding:10px 18px; font-weight:700; cursor:pointer; box-shadow:0 0 14px rgba(59,130,246,.35); }
+.wt-btn:hover{ filter:brightness(1.1); }
+.wt-btn-sub{ background:none; border:1px solid #334155; color:#93c5fd; border-radius:8px; padding:5px 10px; font-size:12px; cursor:pointer; }
+.wt-btn-sub:hover{ background:rgba(30,144,255,.12); }
+
+/* 一覧の1行 */
+.wt-list{ display:grid; gap:10px; }
+.wt-row{ position:relative; border:1px solid #1f2937; background:#0b1220; border-radius:12px; padding:12px 14px 12px 34px; }
+.wt-row.reached{ border-color:rgba(74,222,128,.55); box-shadow:0 0 0 1px rgba(74,222,128,.15), 0 0 18px rgba(34,197,94,.12); }
+.wt-handle{ position:absolute; left:10px; top:12px; color:#6b7280; cursor:grab; font-size:16px; user-select:none; }
+.wt-handle:hover{ color:#93c5fd; }
+.wt-ghost{ opacity:.4; }
+.wt-head{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:8px; }
+.wt-name{ color:#e5e7eb; text-decoration:none; font-size:15px; }
+.wt-name b{ color:#93c5fd; margin-right:4px; }
+.wt-name:hover{ color:#93c5fd; }
+.wt-us{ font-size:10px; color:#fcd34d; border:1px solid #7c5a1e; border-radius:4px; padding:0 4px; }
+.wt-badge{ font-size:11px; font-weight:700; color:#052e16; background:#4ade80; border-radius:999px; padding:2px 10px; box-shadow:0 0 10px rgba(74,222,128,.6); }
+.wt-item-note{ color:#9ca3af; font-size:12px; }
+.wt-del-form{ margin-left:auto; }
+.wt-inline{ display:inline; margin:0; }
+.wt-del{ background:none; border:1px solid #334155; color:#6b7280; border-radius:6px; padding:2px 6px; cursor:pointer; }
+.wt-del:hover{ color:#fca5a5; border-color:#7f1d1d; background:rgba(239,68,68,.1); }
+
+/* 横棒: 左端=高値、右へ下落。赤の帯=現在の下落率、シアンの線=買値 */
+.wt-bar-wrap{ padding:22px 0 18px; }
+.wt-bar{ position:relative; height:22px; border-radius:6px; background:#111827; border:1px solid #334155; }
+.wt-fill{ height:100%; border-radius:6px 0 0 6px; background:linear-gradient(90deg, rgba(239,68,68,.35), rgba(239,68,68,.85)); transition:width .3s; }
+.wt-row.reached .wt-fill{ background:linear-gradient(90deg, rgba(74,222,128,.35), rgba(74,222,128,.85)); }
+.wt-tick{ position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.12); }
+.wt-tick i{ position:absolute; top:100%; left:0; transform:translateX(-50%); font-style:normal; font-size:10px; color:#6b7280; margin-top:3px; white-space:nowrap; }
+.wt-target-line{ position:absolute; top:-6px; bottom:-6px; width:3px; background:#22d3ee; box-shadow:0 0 8px rgba(34,211,238,.9); transform:translateX(-50%); border-radius:2px; }
+.wt-now{ position:absolute; top:-20px; transform:translateX(-50%); font-size:12px; font-weight:700; color:#fca5a5; white-space:nowrap; }
+.wt-row.reached .wt-now{ color:#86efac; }
+.wt-meta{ display:flex; flex-wrap:wrap; gap:6px 22px; font-size:13px; color:#cbd5e1; }
+.wt-meta b{ color:#fff; }
+.wt-cur{ font-size:16px; }
+.wt-target-val{ color:#67e8f9 !important; }
+.wt-sub{ color:#9ca3af; font-size:12px; }
+.wt-edit{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; font-size:11px; color:#9ca3af; }
+.wt-edit input{ background:#0f172a; color:#e5e7eb; border:1px solid #334155; border-radius:6px; padding:5px 8px; font-size:13px; }
+.wt-edit input[type="number"]{ width:120px; } .wt-edit input[type="text"]{ flex:1 1 200px; }
+.wt-empty{ border:1px solid #1f2937; background:#0f172a; border-radius:12px; padding:24px; text-align:center; color:#9ca3af; }
+@media (max-width:600px){ .wt-row{ padding-left:28px; } .wt-add-target{ flex:1 1 140px; } }

@@ -68,8 +68,10 @@ class Command(BaseCommand):
         if code:
             return list(Stock.objects.filter(display_code=code))
 
+        from watch.models import WatchItem
         used = set(StockKarte.objects.values_list('stock_id', flat=True))
         used |= set(DiaryEntry.objects.values_list('stock_id', flat=True))
+        used |= set(WatchItem.objects.values_list('stock_id', flat=True))   # 監視銘柄（2026-09-21）
         return list(Stock.objects.filter(code__in=used).order_by('country', 'code'))
 
     def _sync(self, stock, start, full=False):

@@ -1,5 +1,5 @@
 {% extends 'website/base.html' %}
-{% load static %}
+{% load static humanize %}
 
 {% block title %}監視 | 株分析ツール KABU ANALYZE{% endblock %}
 
@@ -10,6 +10,76 @@
 {% block content %}
 <main class="wt">
   <h1 class="wt-title">監視</h1>
-  <p class="wt-lead">機能はこれから追加します。</p>
+  <p class="wt-lead">下がりきった銘柄を探す。1年高値からの下落率を横棒で並べ、指定した買値まで下がるのを待つ。
+    {% if reached_n %}<span class="wt-reached-n">買値到達 {{ reached_n }}件</span>{% endif %}</p>
+
+  {% for m in messages %}<div class="wt-msg wt-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
+
+  {% comment %} 追加: 銘柄検索（カルテと同じ JSON）＋買値 {% endcomment %}
+  <form method="post" action="{% url 'watch:add' %}" class="wt-add" id="wt-add">
+    {% csrf_token %}
+    <div class="wt-add-stock">
+      <input type="text" id="wt-stock-search" placeholder="銘柄名かティッカーで検索" autocomplete="off" />
+      <div id="wt-stock-list" class="wt-stock-list" hidden></div>
+      <input type="hidden" name="stock_code" id="wt-stock-code" />
+    </div>
+    <label class="wt-add-target">買値（<span id="wt-unit">$</span>）<input type="number" name="target_price" id="wt-target" step="0.01" min="0" inputmode="decimal" placeholder="ここまで下がったら買う" /></label>
+    <input type="text" name="note" class="wt-add-note" maxlength="200" placeholder="一言（任意）" />
+    <button type="submit" class="wt-btn">＋ 監視に追加</button>
+  </form>
+
+  {% if rows %}
+  <p class="wt-note">⠿ をドラッグで並び替え（保存されます）。横棒: 左端＝1年高値、赤＝現在の下落率、<span class="wt-legend-target">│</span>＝買値の位置。買値以下になると緑。</p>
+  <div class="wt-list" id="wt-list" data-reorder-url="{% url 'watch:reorder' %}">
+    {% for r in rows %}
+    <section class="wt-row {% if r.reached %}reached{% endif %}" data-pk="{{ r.item.pk }}">
+      <span class="wt-handle" title="ドラッグして並び替え">⠿</span>
+      <div class="wt-head">
+        <a class="wt-name" href="{% url 'japan_kabu:stock_detail' r.stock.display_code %}" title="カルテ"><b>{{ r.stock.display_code }}</b> {{ r.stock.name|truncatechars:26 }}</a>
+        {% if r.is_us %}<span class="wt-us">US</span>{% endif %}
+        {% if r.reached %}<span class="wt-badge">買値到達</span>{% endif %}
+        {% if r.item.note %}<span class="wt-item-note">{{ r.item.note }}</span>{% endif %}
+        <form method="post" action="{% url 'watch:delete' r.item.pk %}" class="wt-inline wt-del-form" onsubmit="return confirm('{{ r.stock.display_code }} を監視から外しますか？');">
+          {% csrf_token %}<button type="submit" class="wt-del" title="監視から外す">🗑</button></form>
+      </div>
+      {% if r.bar %}
+      <div class="wt-bar-wrap">
+        <div class="wt-bar">
+          <div class="wt-fill" style="width:{{ r.bar.fill|floatformat:1 }}%"></div>
+          {% for t in r.bar.ticks %}<span class="wt-tick" style="left:{{ t.pos|floatformat:1 }}%"><i>−{{ t.pct }}%</i></span>{% endfor %}
+          {% if r.bar.target is not None %}<span class="wt-target-line" style="left:{{ r.bar.target|floatformat:1 }}%" title="買値 {{ r.unit_pre }}{{ r.item.target_price|floatformat:2 }}{{ r.unit_suf }}"></span>{% endif %}
+          <span class="wt-now" style="left:{{ r.bar.fill|floatformat:1 }}%">{{ r.dd|floatformat:1 }}%</span>
+        </div>
+      </div>
+      <div class="wt-meta">
+        <span>高値(1年) <b>{{ r.unit_pre }}{{ r.high|floatformat:2 }}{{ r.unit_suf }}</b></span>
+        <span>現在 <b class="wt-cur">{{ r.unit_pre }}{{ r.current|floatformat:2 }}{{ r.unit_suf }}</b> <span class="wt-sub">{{ r.as_of|date:"n/j" }}・高値から <b class="down">{{ r.dd|floatformat:1 }}%</b>{% if r.dd3 is not None %}・3年 {{ r.dd3|floatformat:1 }}%{% endif %}</span></span>
+        {% if r.item.target_price %}
+        <span>買値 <b class="wt-target-val">{{ r.unit_pre }}{{ r.item.target_price|floatformat:2 }}{{ r.unit_suf }}</b> <span class="wt-sub">高値から {{ r.target_dd|floatformat:1 }}%</span>
+          {% if r.reached %}<b class="up">到達（買値より {{ r.distance|floatformat:1 }}%）</b>{% else %}<span class="wt-sub">あと <b>{{ r.distance|floatformat:1 }}%</b> 下がれば到達</span>{% endif %}</span>
+        {% else %}<span class="wt-sub">買値が未設定（右の欄で設定）</span>{% endif %}
+      </div>
+      {% else %}
+      <div class="wt-meta"><span class="wt-sub">株価データがまだありません。</span>
+        <form method="post" action="{% url 'watch:fetch_prices' r.item.pk %}" class="wt-inline">{% csrf_token %}<button type="submit" class="wt-btn-sub">株価を取得する（数秒）</button></form></div>
+      {% endif %}
+      <form method="post" action="{% url 'watch:update' r.item.pk %}" class="wt-edit">
+        {% csrf_token %}
+        <label>買値 <input type="number" name="target_price" step="0.01" min="0" inputmode="decimal" value="{{ r.item.target_price|default_if_none:'' }}" placeholder="未設定"></label>
+        <input type="text" name="note" maxlength="200" value="{{ r.item.note }}" placeholder="一言">
+        <button type="submit" class="wt-btn-sub">保存</button>
+      </form>
+    </section>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="wt-empty">まだ監視銘柄がありません。上の検索窓から銘柄を選び、買値を入れて追加してください。</div>
+  {% endif %}
 </main>
+{% endblock %}
+
+{% block extra_js %}
+<script>window.WATCH_STOCK_OPTIONS_URL = "{% url 'karte:stock_options' %}";</script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="{% static 'watch/js/watch.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
