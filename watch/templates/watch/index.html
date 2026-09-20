@@ -39,6 +39,10 @@
         {% if r.is_us %}<span class="wt-us">US</span>{% endif %}
         {% if r.reached %}<span class="wt-badge">買値到達</span>{% endif %}
         {% if r.item.note %}<span class="wt-item-note">{{ r.item.note }}</span>{% endif %}
+        {% comment %} 右上に大きく: 買値まであと何% （到達なら「到達」）。細かいラベルより先にこれを見る（ユーザー要望 2026-09-21） {% endcomment %}
+        {% if r.distance is not None %}
+        <span class="wt-big {% if r.reached %}ok{% endif %}">{% if r.reached %}到達{% else %}あと <b>−{{ r.distance|floatformat:1 }}%</b>{% endif %}</span>
+        {% endif %}
         <form method="post" action="{% url 'watch:delete' r.item.pk %}" class="wt-inline wt-del-form" onsubmit="return confirm('{{ r.stock.display_code }} を監視から外しますか？');">
           {% csrf_token %}<button type="submit" class="wt-del" title="監視から外す">🗑</button></form>
       </div>
@@ -48,20 +52,16 @@
         <div class="wt-end wt-end-l"><span class="k">{{ r.bar.left_label }}</span><b class="{% if r.item.target_price %}wt-target-val{% endif %}">{{ r.unit_pre }}{{ r.bar.left|floatformat:2 }}{{ r.unit_suf }}</b></div>
         <div class="wt-bar">
           <div class="wt-fill" style="width:{{ r.bar.fill|floatformat:1 }}%"></div>
-          {% for t in r.bar.ticks %}<span class="wt-tick" style="left:{{ t.pos }}%"><i>{{ r.unit_pre }}{{ t.price|floatformat:2 }}{{ r.unit_suf }}</i></span>{% endfor %}
+          {% for t in r.bar.ticks %}<span class="wt-tick" style="left:{{ t.pos }}%"></span>{% endfor %}
           <span class="wt-now {% if r.bar.fill < 12 %}edge-l{% elif r.bar.fill > 88 %}edge-r{% endif %}" style="left:{{ r.bar.fill|floatformat:1 }}%">
-            <span class="wt-now-pill">現在 {{ r.unit_pre }}{{ r.current|floatformat:2 }}{{ r.unit_suf }}<i>高値から {{ r.dd|floatformat:1 }}%{% if r.item.target_price and not r.reached %}・買値まで −{{ r.distance|floatformat:1 }}%{% endif %}</i></span><span class="wt-now-tri">▼</span>
+            <span class="wt-now-pill">現在 {{ r.unit_pre }}{{ r.current|floatformat:2 }}{{ r.unit_suf }}</span><span class="wt-now-tri">▼</span>
           </span>
         </div>
         <div class="wt-end wt-end-r"><span class="k">1年高値</span><b>{{ r.unit_pre }}{{ r.bar.right|floatformat:2 }}{{ r.unit_suf }}</b></div>
       </div>
-      <div class="wt-meta">
-        <span>高値(1年) <b>{{ r.unit_pre }}{{ r.high|floatformat:2 }}{{ r.unit_suf }}</b></span>
-        <span>現在 <b class="wt-cur">{{ r.unit_pre }}{{ r.current|floatformat:2 }}{{ r.unit_suf }}</b> <span class="wt-sub">{{ r.as_of|date:"n/j" }}・高値から <b class="down">{{ r.dd|floatformat:1 }}%</b>{% if r.dd3 is not None %}・3年 {{ r.dd3|floatformat:1 }}%{% endif %}</span></span>
-        {% if r.item.target_price %}
-        <span>買値 <b class="wt-target-val">{{ r.unit_pre }}{{ r.item.target_price|floatformat:2 }}{{ r.unit_suf }}</b> <span class="wt-sub">高値から {{ r.target_dd|floatformat:1 }}%</span>
-          {% if r.reached %}<b class="up">到達（買値より {{ r.distance|floatformat:1 }}%）</b>{% else %}<span class="wt-sub">あと <b>{{ r.distance|floatformat:1 }}%</b> 下がれば到達</span>{% endif %}</span>
-        {% else %}<span class="wt-sub">買値が未設定（右の欄で設定）</span>{% endif %}
+      <div class="wt-meta wt-sub">
+        <span>{{ r.as_of|date:"n/j" }}時点・高値から <b class="down">{{ r.dd|floatformat:1 }}%</b></span>
+        {% if r.item.target_price %}<span>買値は高値から {{ r.target_dd|floatformat:1 }}%</span>{% else %}<span>買値が未設定（下の欄で設定）</span>{% endif %}
       </div>
       {% else %}
       <div class="wt-meta"><span class="wt-sub">株価データがまだありません。</span>

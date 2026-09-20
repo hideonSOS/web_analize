@@ -38,13 +38,16 @@
 .wt-us{ font-size:10px; color:#fcd34d; border:1px solid #7c5a1e; border-radius:4px; padding:0 4px; }
 .wt-badge{ font-size:11px; font-weight:700; color:#052e16; background:#4ade80; border-radius:999px; padding:2px 10px; box-shadow:0 0 10px rgba(74,222,128,.6); }
 .wt-item-note{ color:#9ca3af; font-size:12px; }
-.wt-del-form{ margin-left:auto; }
+.wt-big{ margin-left:auto; font-size:15px; color:#cbd5e1; white-space:nowrap; }
+.wt-big b{ font-size:26px; color:#fca5a5; font-variant-numeric:tabular-nums; letter-spacing:.5px; }
+.wt-big.ok{ font-size:24px; font-weight:800; color:#4ade80; text-shadow:0 0 12px rgba(74,222,128,.6); }
+.wt-del-form{ margin-left:8px; }
 .wt-inline{ display:inline; margin:0; }
 .wt-del{ background:none; border:1px solid #334155; color:#6b7280; border-radius:6px; padding:2px 6px; cursor:pointer; }
 .wt-del:hover{ color:#fca5a5; border-color:#7f1d1d; background:rgba(239,68,68,.1); }
 
 /* ゲージ: 左端=買値、右端=1年高値。帯=買値までの残り（下がるほど縮む）。帯の右端に ▼ と現在株価 */
-.wt-bar-wrap{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:34px 0 22px; }
+.wt-bar-wrap{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:46px 0 10px; }
 .wt-end{ display:flex; flex-direction:column; gap:1px; font-size:12px; white-space:nowrap; }
 .wt-end .k{ font-size:10px; color:#9ca3af; }
 .wt-end b{ color:#fff; font-size:14px; }
@@ -54,11 +57,11 @@
 .wt-row.reached .wt-fill{ background:linear-gradient(90deg, rgba(74,222,128,.35), rgba(74,222,128,.85)); }
 .wt-tick{ position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.14); }
 .wt-tick i{ position:absolute; top:100%; left:0; transform:translateX(-50%); font-style:normal; font-size:10px; color:#6b7280; margin-top:3px; white-space:nowrap; }
-.wt-now{ position:absolute; top:-30px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; white-space:nowrap; z-index:2; }
+.wt-now{ position:absolute; top:-42px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; white-space:nowrap; z-index:2; }
 .wt-now.edge-l{ transform:none; align-items:flex-start; } .wt-now.edge-r{ transform:translateX(-100%); align-items:flex-end; }
-.wt-now-pill{ background:#0f172a; border:1px solid #67e8f9; color:#fff; border-radius:8px; padding:2px 8px; font-size:12px; font-weight:700; box-shadow:0 0 10px rgba(34,211,238,.35); }
+.wt-now-pill{ background:#0f172a; border:1px solid #67e8f9; color:#fff; border-radius:8px; padding:3px 10px; font-size:13px; font-weight:700; box-shadow:0 0 10px rgba(34,211,238,.35); margin-bottom:4px; }
 .wt-now-pill i{ font-style:normal; font-weight:400; font-size:10px; color:#9ca3af; margin-left:6px; }
-.wt-now-tri{ color:#22d3ee; font-size:11px; line-height:1; margin-top:-1px; text-shadow:0 0 8px rgba(34,211,238,.9); }
+.wt-now-tri{ color:#22d3ee; font-size:12px; line-height:1; margin-top:0; text-shadow:0 0 8px rgba(34,211,238,.9); }
 .wt-row.reached .wt-now-pill{ border-color:#4ade80; box-shadow:0 0 10px rgba(74,222,128,.4); }
 .wt-row.reached .wt-now-tri{ color:#4ade80; }
 .wt-meta{ display:flex; flex-wrap:wrap; gap:6px 22px; font-size:13px; color:#cbd5e1; }
