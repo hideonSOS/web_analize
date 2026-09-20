@@ -48,15 +48,15 @@
       {% if r.bar %}
       {% comment %} ゲージ: 左端=買値・右端=1年高値。帯=買値までの残り（下がるほど縮む）。帯の右端に現在株価のラベル {% endcomment %}
       <div class="wt-bar-wrap">
-        <div class="wt-end wt-end-l"><span class="k">{{ r.bar.left_label }}</span><b class="{% if r.item.target_price %}wt-target-val{% endif %}">{{ r.unit_pre }}{{ r.bar.left|floatformat:2 }}{{ r.unit_suf }}</b></div>
+        <div class="wt-end wt-end-l"><span class="k">{{ r.bar.left_label }}</span><b class="{% if r.item.target_price %}wt-target-val{% endif %}">{{ r.unit_pre }}{{ r.bar.left|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
         <div class="wt-bar">
           <div class="wt-fill" style="width:{{ r.bar.fill|floatformat:1 }}%"></div>
           {% for t in r.bar.ticks %}<span class="wt-tick" style="left:{{ t.pos }}%"></span>{% endfor %}
           <span class="wt-now {% if r.bar.fill < 12 %}edge-l{% elif r.bar.fill > 88 %}edge-r{% endif %}" style="left:{{ r.bar.fill|floatformat:1 }}%">
-            <span class="wt-now-pill"><span class="k">現在</span>{{ r.unit_pre }}{{ r.current|floatformat:2 }}{{ r.unit_suf }}</span><span class="wt-now-tri">▼</span>
+            <span class="wt-now-pill"><span class="k">現在</span>{{ r.unit_pre }}{{ r.current|floatformat:0|intcomma }}{{ r.unit_suf }}</span><span class="wt-now-tri">▼</span>
           </span>
         </div>
-        <div class="wt-end wt-end-r"><span class="k">1年高値</span><b>{{ r.unit_pre }}{{ r.bar.right|floatformat:2 }}{{ r.unit_suf }}</b></div>
+        <div class="wt-end wt-end-r"><span class="k">1年高値</span><b>{{ r.unit_pre }}{{ r.bar.right|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
       </div>
       <div class="wt-meta wt-sub">
         <span>{{ r.as_of|date:"n/j" }}時点・高値から <b class="down">{{ r.dd|floatformat:1 }}%</b></span>
