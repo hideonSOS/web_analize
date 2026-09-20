@@ -42,14 +42,17 @@ def _rows():
             left = it.target_price if it.target_price else y['low']
             span = high - left
             pos = (cur - left) / span * 100 if span > 0 else 0.0
+            # 目盛りは「買値まであと何%」（ユーザー指示 2026-09-21: 高値からの価格では分かりにくい）。
+            # 右端 = 高値が買値より何%上か。刻みは右端が 30% 以下なら 5%、それ以上は 10%
+            right_pct = (high / left - 1) * 100 if left > 0 and span > 0 else 0.0
+            step = 5 if right_pct <= 30 else 10
+            ticks = [{'pct': p, 'pos': p / right_pct * 100} for p in range(step, int(right_pct) + 1, step)] if right_pct > 0 else []
             row['bar'] = {
                 'left_label': '買値' if it.target_price else '1年安値',
-                'left': left, 'right': high,
+                'left': left, 'right': high, 'right_pct': right_pct,
                 'fill': max(0.0, min(100.0, pos)),
                 'over_high': cur > high,          # 高値更新中（帯が満タンを超える）
-                # 中間の目盛り（価格）: 25/50/75%
-                # 買値が高値以上（＝もう到達している）のときは目盛りに意味が無いので出さない
-                'ticks': [{'pos': p, 'price': left + span * p / 100} for p in (25, 50, 75)] if span > 0 else [],
+                'ticks': ticks,
             }
         rows.append(row)
     # 並びは「買値までの残り%」が小さい順（＝そろそろ買えそうなものが上。到達済み＝マイナスが最上位）。
