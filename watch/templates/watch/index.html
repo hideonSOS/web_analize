@@ -29,7 +29,7 @@
   </form>
 
   {% if rows %}
-  <p class="wt-note">買値に近い順（そろそろ買えそうなものが上・到達済みは最上位）。ゲージ: 左端＝買値、右端＝1年高値。帯は「買値までの残り」で、株価が下がるほど縮み、空になれば買値到達（緑）。</p>
+  <p class="wt-note">買値に近い順（そろそろ買えそうなものが上・到達済みは最上位）。ゲージ: 左端＝買値（0%）、目盛りは「買値まであと何%」で全銘柄共通。帯は株価が下がるほど縮み、空になれば買値到達（緑）。</p>
   <div class="wt-list" id="wt-list">
     {% for r in rows %}
     <section class="wt-row {% if r.reached %}reached{% endif %}" data-pk="{{ r.item.pk }}">
@@ -57,7 +57,7 @@
             <span class="wt-now-pill"><span class="k">現在</span>{{ r.unit_pre }}{{ r.current|floatformat:0|intcomma }}{{ r.unit_suf }}{% if r.distance is not None %}<span class="wt-now-left">{% if r.reached %}到達{% else %}あと −{{ r.distance|floatformat:1 }}%{% endif %}</span>{% endif %}</span><span class="wt-now-tri">▼</span>
           </span>
         </div>
-        <div class="wt-end wt-end-r"><span class="k">1年高値<i>+{{ r.bar.right_pct|floatformat:0 }}%</i></span><b>{{ r.unit_pre }}{{ r.bar.right|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
+        <div class="wt-end wt-end-r"><span class="k">+{{ r.bar.scale }}%</span></div>
       </div>
       <div class="wt-meta wt-sub">
         <span>{{ r.as_of|date:"n/j" }}時点・高値から <b class="down">{{ r.dd|floatformat:1 }}%</b></span>

@@ -5,6 +5,7 @@
   帯の右端が現在値。帯が空（現在値≦買値）になったら緑で「買値到達」。買値が未設定なら左端は1年安値。
 """
 import json
+import math
 
 from django.contrib import messages
 from django.http import JsonResponse
@@ -39,22 +40,24 @@ def _rows():
                 row['distance'] = (cur / it.target_price - 1) * 100      # 現在値が買値より何%上か（マイナスなら到達）
                 row['reached'] = cur <= it.target_price
             # ゲージ: 左端=買値（無ければ1年安値）、右端=1年高値。帯の長さ=買値までの残り（下がるほど縮む）
+            # ゲージは「買値まであと何%」。左端=買値（0%）。右端は全銘柄で同じスケール（後で揃える）
             left = it.target_price if it.target_price else y['low']
-            span = high - left
-            pos = (cur - left) / span * 100 if span > 0 else 0.0
-            # 目盛りは「買値まであと何%」（ユーザー指示 2026-09-21: 高値からの価格では分かりにくい）。
-            # 右端 = 高値が買値より何%上か。刻みは右端が 30% 以下なら 5%、それ以上は 10%
-            right_pct = (high / left - 1) * 100 if left > 0 and span > 0 else 0.0
-            step = 5 if right_pct <= 30 else 10
-            ticks = [{'pct': p, 'pos': p / right_pct * 100} for p in range(step, int(right_pct) + 1, step)] if right_pct > 0 else []
             row['bar'] = {
                 'left_label': '買値' if it.target_price else '1年安値',
-                'left': left, 'right': high, 'right_pct': right_pct,
-                'fill': max(0.0, min(100.0, pos)),
-                'over_high': cur > high,          # 高値更新中（帯が満タンを超える）
-                'ticks': ticks,
+                'left': left,
+                'pct': (cur / left - 1) * 100 if left > 0 else 0.0,   # 現在値が左端より何%上か
             }
         rows.append(row)
+    # 全銘柄で同じ目盛り（ユーザー指示 2026-09-21: 高値を右端にする必要はない・スケールを揃える）。
+    # 右端 = 最も遠い銘柄の「あと%」を 10% 刻みで切り上げ（最低 30%）。刻みは 30% 以下なら 5%、それ以上は 10%
+    pcts = [r['bar']['pct'] for r in rows if r['bar']]
+    scale = max(30, math.ceil(max(pcts + [0]) / 10) * 10)
+    step = 5 if scale <= 30 else 10
+    ticks = [{'pct': p, 'pos': p / scale * 100} for p in range(step, scale + 1, step)]
+    for r in rows:
+        if r['bar']:
+            r['bar'].update({'scale': scale, 'ticks': ticks,
+                             'fill': max(0.0, min(100.0, r['bar']['pct'] / scale * 100))})
     # 並びは「買値までの残り%」が小さい順（＝そろそろ買えそうなものが上。到達済み＝マイナスが最上位）。
     # 買値未設定や株価無しは末尾（ユーザー指示 2026-09-21。手動の並び替えはやめた）
     rows.sort(key=lambda r: (r['distance'] is None, r['distance'] if r['distance'] is not None else 0, r['stock'].display_code))
