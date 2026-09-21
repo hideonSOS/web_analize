@@ -77,10 +77,57 @@
 .wt-edit input{ background:#0f172a; color:#e5e7eb; border:1px solid #334155; border-radius:6px; padding:5px 8px; font-size:13px; }
 .wt-edit input[type="number"]{ width:120px; } .wt-edit input[type="text"]{ flex:1 1 200px; }
 .wt-empty{ border:1px solid #1f2937; background:#0f172a; border-radius:12px; padding:24px; text-align:center; color:#9ca3af; }
-@media (max-width:600px){ .wt-add-target{ flex:1 1 140px; } }
-@media (max-width:600px){ .wt-bar-wrap{ grid-template-columns:1fr; gap:6px; } .wt-end-l{ align-items:flex-start; text-align:left; } .wt-end-r{ align-items:flex-end; text-align:right; } .wt-tick i{ display:none; } }
 
 /* 目盛りは「買値まであと何%」。両端のラベルにも % を添える */
 .wt-end .k i{ font-style:normal; color:#6b7280; margin-left:6px; font-size:10px; }
 .wt-now-left{ display:block; font-size:12px; font-weight:700; color:#fca5a5; margin-top:1px; }
 .wt-row.reached .wt-now-left{ color:#86efac; }
+
+/* ---- スマホ（〜600px）専用レイアウト（2026-09-22）。PC は上の指定のまま ---- */
+.wt-mstrip{ display:none; }
+@media (max-width:600px){
+  .wt{ padding:8px 8px 32px; }
+  .wt-title{ margin:10px 0 2px; }
+  .wt-lead{ font-size:12px; margin-bottom:12px; }
+  .wt-note{ font-size:11px; line-height:1.6; }
+  /* 追加フォームは縦積み・ボタンは全幅 */
+  .wt-add{ padding:10px; gap:8px; }
+  .wt-add-stock, .wt-add-target, .wt-add-note{ flex:1 1 100%; }
+  .wt-btn{ width:100%; padding:12px; }
+  /* 行: 見出しは 銘柄名 ／ 右端に「あと −x%」。一言は次の行に */
+  .wt-row{ padding:10px 12px; }
+  .wt-head{ gap:6px 8px; margin-bottom:6px; }
+  .wt-name{ font-size:14px; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wt-big{ font-size:13px; }
+  .wt-big b{ font-size:22px; }
+  .wt-big.ok{ font-size:20px; }
+  .wt-item-note{ flex-basis:100%; order:10; font-size:11px; }
+  .wt-del-form{ margin-left:4px; }
+  /* 価格ストリップ: 買値（左）｜現在（右）を大きく。吹き出しと両端ラベルは出さない */
+  .wt-mstrip{ display:flex; justify-content:space-between; align-items:flex-end; gap:8px; margin:4px 0 6px; }
+  .wt-mcell{ display:flex; flex-direction:column; gap:1px; }
+  .wt-mcell .k{ font-size:11px; color:#9ca3af; } .wt-mcell .k i{ font-style:normal; color:#6b7280; }
+  .wt-mcell b{ font-size:22px; font-weight:800; color:#fff; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .wt-mcell.r{ text-align:right; align-items:flex-end; }
+  .wt-mcell b.wt-target-val{ color:#67e8f9; }
+  .wt-bar-wrap{ grid-template-columns:1fr; gap:0; padding:6px 0 16px; }
+  .wt-end{ display:none; }
+  .wt-now{ top:auto; bottom:-2px; }                 /* ▼ だけをバーの上端に残す */
+  .wt-now-pill{ display:none; }
+  .wt-now.edge-l, .wt-now.edge-r{ transform:translateX(-50%); }
+  .wt-now-tri{ font-size:14px; }
+  .wt-bar{ height:20px; }
+  .wt-tick i{ font-size:9px; }
+  /* 目盛りの右端（+30% 等）はバーの右下に小さく */
+  .wt-bar::after{ content:attr(data-scale); position:absolute; right:0; top:100%; margin-top:3px; font-size:9px; color:#6b7280; }
+  .wt-meta{ font-size:11px; gap:4px 14px; }
+  /* 編集: 買値＋保存を1行、一言は次の行 */
+  .wt-edit{ gap:6px; }
+  .wt-edit label{ display:flex; align-items:center; gap:6px; flex:1 1 auto; }
+  .wt-edit input[type="number"]{ width:100%; font-size:15px; }
+  .wt-edit input[type="text"]{ flex:1 1 100%; order:10; }
+  .wt-edit .wt-btn-sub{ padding:8px 14px; font-size:13px; }
+  .wt-edit label{ white-space:nowrap; }              /* 「買値」が縦に折れないように */
+  .wt-tick:nth-last-child(2) i{ display:none; }     /* 右端の目盛りは ::after の +30% と重なるので隠す */
+  .wt-badge{ display:none; }                        /* 右上の大きな「到達」と重複するので隠す */
+}

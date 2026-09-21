@@ -46,10 +46,15 @@
           {% csrf_token %}<button type="submit" class="wt-del" title="監視から外す">🗑</button></form>
       </div>
       {% if r.bar %}
-      {% comment %} ゲージ: 左端=買値・右端=1年高値。帯=買値までの残り（下がるほど縮む）。帯の右端に現在株価のラベル {% endcomment %}
+      {% comment %} スマホ専用（2026-09-22）: 吹き出しの代わりに「買値｜現在」を静的に並べる。PC では CSS で非表示 {% endcomment %}
+      <div class="wt-mstrip">
+        <div class="wt-mcell"><span class="k">買値</span><b class="wt-target-val">{{ r.unit_pre }}{{ r.bar.left|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
+        <div class="wt-mcell r"><span class="k">現在 <i>{{ r.as_of|date:"n/j" }}</i></span><b>{{ r.unit_pre }}{{ r.current|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
+      </div>
+      {% comment %} ゲージ: 左端=買値・右端=共通スケール。帯=買値までの残り（下がるほど縮む）。帯の右端に現在株価のラベル {% endcomment %}
       <div class="wt-bar-wrap">
         <div class="wt-end wt-end-l"><span class="k">{{ r.bar.left_label }}<i>0%</i></span><b class="{% if r.item.target_price %}wt-target-val{% endif %}">{{ r.unit_pre }}{{ r.bar.left|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
-        <div class="wt-bar">
+        <div class="wt-bar" data-scale="+{{ r.bar.scale }}%">
           <div class="wt-fill" style="width:{{ r.bar.fill|floatformat:1 }}%"></div>
           {% comment %} 目盛りは「買値まであと何%」 {% endcomment %}
           {% for t in r.bar.ticks %}<span class="wt-tick" style="left:{{ t.pos|floatformat:1 }}%"><i>{{ t.pct }}%</i></span>{% endfor %}
