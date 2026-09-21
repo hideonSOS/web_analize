@@ -24,7 +24,6 @@
       <input type="hidden" name="stock_code" id="wt-stock-code" />
     </div>
     <label class="wt-add-target"><span class="wt-add-label">買値（<span id="wt-unit">$</span>）</span><input type="number" name="target_price" id="wt-target" step="0.01" min="0" inputmode="decimal" placeholder="ここまで下がったら買う" /></label>
-    <input type="text" name="note" class="wt-add-note" maxlength="200" placeholder="一言（任意）" />
     <button type="submit" class="wt-btn">＋ 監視に追加</button>
   </form>
 
@@ -37,7 +36,6 @@
         <a class="wt-name" href="{% url 'japan_kabu:stock_detail' r.stock.display_code %}" title="カルテ"><b>{{ r.stock.display_code }}</b> {{ r.stock.name|truncatechars:26 }}</a>
         {% if r.is_us %}<span class="wt-us">US</span>{% endif %}
         {% if r.reached %}<span class="wt-badge">買値到達</span>{% endif %}
-        {% if r.item.note %}<span class="wt-item-note">{{ r.item.note }}</span>{% endif %}
         {% comment %} 右上に大きく: 買値まであと何% （到達なら「到達」）。細かいラベルより先にこれを見る（ユーザー要望 2026-09-21） {% endcomment %}
         {% if r.distance is not None %}
         <span class="wt-big {% if r.reached %}ok{% endif %}">{% if r.reached %}到達{% else %}あと <b>−{{ r.distance|floatformat:1 }}%</b>{% endif %}</span>
@@ -75,7 +73,6 @@
       <form method="post" action="{% url 'watch:update' r.item.pk %}" class="wt-edit">
         {% csrf_token %}
         <label>買値 <input type="number" name="target_price" step="0.01" min="0" inputmode="decimal" value="{{ r.item.target_price|default_if_none:'' }}" placeholder="未設定"></label>
-        <input type="text" name="note" maxlength="200" value="{{ r.item.note }}" placeholder="一言">
         <button type="submit" class="wt-btn-sub">保存</button>
       </form>
     </section>

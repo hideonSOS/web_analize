@@ -80,8 +80,7 @@ def add(request):
         messages.error(request, '銘柄を候補から選んでください。')
         return redirect('watch:index')
     target = _float(request.POST.get('target_price'))
-    item, created = WatchItem.objects.get_or_create(stock=stock, defaults={'target_price': target,
-                                                                            'note': request.POST.get('note', '').strip()[:200]})
+    item, created = WatchItem.objects.get_or_create(stock=stock, defaults={'target_price': target})
     if not created:
         if target is not None:
             item.target_price = target
@@ -97,12 +96,9 @@ def add(request):
 
 @require_POST
 def update(request, pk):
-    """買値・一言の変更（一覧のインライン編集）"""
+    """買値の変更（一覧のインライン編集）。一言は 2026-09-22 に廃止（列は残置・未使用）"""
     item = get_object_or_404(WatchItem, pk=pk)
-    target = _float(request.POST.get('target_price'))
-    item.target_price = target
-    if 'note' in request.POST:
-        item.note = request.POST.get('note', '').strip()[:200]
+    item.target_price = _float(request.POST.get('target_price'))
     item.save()
     return redirect('watch:index')
 

@@ -11,7 +11,7 @@ from japan_kabu.models import Stock
 class WatchItem(models.Model):
     stock = models.OneToOneField(Stock, on_delete=models.CASCADE, related_name='watch_item')
     target_price = models.FloatField(null=True, blank=True)   # この価格まで下がったら買う（取引通貨: 円 / ドル）
-    note = models.CharField(max_length=200, blank=True)        # 一言（例: 前回 $120 で買って $140 で売った）
+    note = models.CharField(max_length=200, blank=True)        # 一言。2026-09-22 に廃止（フォーム・表示から削除。列は残置）
     sort_order = models.IntegerField(default=0)                # 小さいほど上。0 は追加順
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
