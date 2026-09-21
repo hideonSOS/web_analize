@@ -165,11 +165,11 @@ def build(ym: str | None = None) -> dict:
     if not months:
         return {'has_data': False, 'months': []}
     if ym not in months:
-        # 既定は「直近の完了月」。当月は数日分しか無く前月比が -99% になって
-        # 読めないため、当月がデータの先頭なら1つ前を初期表示にする
-        ym = months[0]
-        if len(months) > 1 and ym == date.today().strftime('%Y-%m'):
-            ym = months[1]
+        # 既定は「当月」（2026-09-22 ユーザー指示。以前は前月比が読めない理由で直近の完了月にしていたが、
+        # 月内の使い方グラフで当月の進み具合を見るのが主用途なので当月を最初に出す）。
+        # 当月のデータがまだ無ければ最新月
+        today_ym = date.today().strftime('%Y-%m')
+        ym = today_ym if today_ym in months else months[0]
 
     qs = Transaction.objects.filter(in_total=True, ym=ym)
     total = int(qs.aggregate(t=Sum('amount'))['t'] or 0)
