@@ -13,5 +13,6 @@ urlpatterns = [
     path('note/<int:pk>/image/', views.note_image, name='note_image'),
     path('<int:pk>/track/', views.track, name='track'),
     path('<int:pk>/review/', views.review, name='review'),
+    path('review/<int:pk>/delete/', views.review_delete, name='review_delete'),
     path('<int:pk>/delete/', views.delete, name='delete'),
 ]

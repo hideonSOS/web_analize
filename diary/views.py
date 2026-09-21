@@ -16,7 +16,7 @@ MOODS = ['強気', '中立', '弱気', '不安', '焦り']
 
 
 def index(request):
-    entries = DiaryEntry.objects.select_related('stock').all()
+    entries = DiaryEntry.objects.select_related('stock').prefetch_related('reviews').all()
 
     action = request.GET.get('action', '')
     if action in dict(DiaryEntry.ACTION_CHOICES):
@@ -325,11 +325,31 @@ def contra(request):
 
 @require_POST
 def review(request, pk):
+    """振り返りを1件追記する（上書きしない・2026-09-22）。entry.review_* は最新の写し"""
+    from .models import DiaryReview
     entry = get_object_or_404(DiaryEntry, pk=pk)
     result = request.POST.get('review_result', '')
-    entry.review_result = result if result in dict(DiaryEntry.RESULT_CHOICES) else ''
-    entry.review_note = request.POST.get('review_note', '').strip()
-    entry.reviewed_at = timezone.now()
+    result = result if result in dict(DiaryEntry.RESULT_CHOICES) else ''
+    note = request.POST.get('review_note', '').strip()
+    if not note and not result:
+        return redirect('diary:index')
+    DiaryReview.objects.create(entry=entry, result=result, note=note)
+    entry.review_result, entry.review_note, entry.reviewed_at = result, note, timezone.now()
+    entry.save(update_fields=['review_result', 'review_note', 'reviewed_at'])
+    return redirect('diary:index')
+
+
+@require_POST
+def review_delete(request, pk):
+    """振り返り1件を削除。残りの最新を entry.review_* に写し直す"""
+    from .models import DiaryReview
+    rv = get_object_or_404(DiaryReview, pk=pk)
+    entry = rv.entry
+    rv.delete()
+    last = entry.reviews.order_by('-created_at', '-id').first()
+    entry.review_result = last.result if last else ''
+    entry.review_note = last.note if last else ''
+    entry.reviewed_at = last.created_at if last else None
     entry.save(update_fields=['review_result', 'review_note', 'reviewed_at'])
     return redirect('diary:index')
 

@@ -177,26 +177,33 @@
     <p class="dy-text">{{ r.e.impression|linebreaksbr }}</p>
     {% endif %}
 
-    {% if r.e.review_note or r.e.review_result %}
+    {% comment %} 振り返りは複数回・追記式（2026-09-22）。古い順に全部出す。1件ずつ削除できる {% endcomment %}
+    {% with reviews=r.e.reviews.all %}
+    {% if reviews %}
     <div class="dy-review">
-      <p class="dy-label">
-        振り返り（{{ r.e.reviewed_at|date:"Y/m/d" }}）
-        {% if r.e.review_result %}<span class="dy-result dy-result-{{ r.e.review_result }}">{{ r.e.get_review_result_display }}</span>{% endif %}
-      </p>
-      <p class="dy-text">{{ r.e.review_note|linebreaksbr }}</p>
+      <p class="dy-label">振り返り <span class="dy-review-n">{{ reviews|length }}回</span></p>
+      {% for rv in reviews %}
+      <div class="dy-review-item">
+        <div class="dy-review-head"><span class="dy-review-date">{{ rv.created_at|date:"Y/m/d" }}</span>
+          {% if rv.result %}<span class="dy-result dy-result-{{ rv.result }}">{{ rv.get_result_display }}</span>{% endif %}
+          <form method="post" action="{% url 'diary:review_delete' rv.pk %}" class="dy-del-form dy-review-del" onsubmit="return confirm('この振り返り（{{ rv.created_at|date:"Y/m/d" }}）を削除しますか？');">{% csrf_token %}<button type="submit" class="dy-review-x" title="この振り返りを削除">×</button></form></div>
+        {% if rv.note %}<p class="dy-text">{{ rv.note|linebreaksbr }}</p>{% endif %}
+      </div>
+      {% endfor %}
     </div>
     {% endif %}
+    {% endwith %}
 
     <details class="dy-actions">
-      <summary>振り返りを{% if r.e.review_note %}更新{% else %}追記{% endif %}</summary>
+      <summary>振り返りを追記</summary>
       <form method="post" action="{% url 'diary:review' r.e.pk %}" class="dy-review-form">
         {% csrf_token %}
         <div class="dy-result-radios">
           {% for val, label in result_choices %}
-          <label><input type="radio" name="review_result" value="{{ val }}" {% if r.e.review_result == val %}checked{% endif %} /> {{ label }}</label>
+          <label><input type="radio" name="review_result" value="{{ val }}" /> {{ label }}</label>
           {% endfor %}
         </div>
-        <textarea name="review_note" rows="3" placeholder="今振り返ってどうだったか。学びは何か">{{ r.e.review_note }}</textarea>
+        <textarea name="review_note" rows="3" placeholder="今振り返ってどうだったか。学びは何か（前回の振り返りは残ります）"></textarea>
         <div class="dy-form-row">
           <button type="submit">振り返りを保存</button>
         </div>

@@ -60,6 +60,24 @@ class DiaryEntry(models.Model):
         return f"{self.recorded_at:%Y-%m-%d} {self.stock_name} {self.get_action_display()}"
 
 
+class DiaryReview(models.Model):
+    """振り返り（2026-09-22 から複数回・追記式。ユーザー指示「何度も積み重ねて保存」）
+
+    1回の振り返り＝1行。古い順に並べてカードに全部出す。DiaryEntry.review_* は
+    「最新の振り返り」の写し（一覧表の評価列など、1件だけ欲しい所で使う）。
+    """
+    entry = models.ForeignKey(DiaryEntry, on_delete=models.CASCADE, related_name='reviews')
+    result = models.CharField(max_length=10, blank=True, choices=DiaryEntry.RESULT_CHOICES)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+    def __str__(self):
+        return f'{self.entry_id} {self.created_at:%Y-%m-%d} {self.result}'
+
+
 class ContraSetting(models.Model):
     """短期トレード／練習の設定（kind ごとに1行）。資金は手入力（遊び・学習目的、ユーザー方針）
 
