@@ -73,9 +73,13 @@
 .wt-cur{ font-size:16px; }
 .wt-target-val{ color:#67e8f9 !important; }
 .wt-sub{ color:#9ca3af; font-size:12px; }
-.wt-edit{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; font-size:11px; color:#9ca3af; }
-.wt-edit input{ background:#0f172a; color:#e5e7eb; border:1px solid #334155; border-radius:6px; padding:5px 8px; font-size:13px; }
-.wt-edit input[type="number"]{ width:120px; } .wt-edit input[type="text"]{ flex:1 1 200px; }
+/* 買値の編集: PC は見出し行（銘柄名の右）。スマホはストリップの左セル（2026-09-22） */
+.wt-edit{ display:flex; gap:6px; align-items:center; margin:0; font-size:11px; color:#9ca3af; }
+.wt-edit label{ display:flex; align-items:center; gap:6px; white-space:nowrap; }
+.wt-edit input{ background:#0f172a; color:#67e8f9; font-weight:700; border:1px solid #334155; border-radius:6px; padding:4px 8px; font-size:14px; width:110px; }
+.wt-edit input:focus{ outline:none; border-color:#22d3ee; }
+.wt-edit-head{ margin-left:8px; }
+.wt-edit-strip{ display:none; }
 .wt-empty{ border:1px solid #1f2937; background:#0f172a; border-radius:12px; padding:24px; text-align:center; color:#9ca3af; }
 
 /* 目盛りは「買値まであと何%」。両端のラベルにも % を添える */
@@ -121,13 +125,12 @@
   /* 目盛りの右端（+30% 等）はバーの右下に小さく */
   .wt-bar::after{ content:attr(data-scale); position:absolute; right:0; top:100%; margin-top:3px; font-size:9px; color:#6b7280; }
   .wt-meta{ font-size:11px; gap:4px 14px; }
-  /* 編集: 買値＋保存を1行、一言は次の行 */
-  .wt-edit{ gap:6px; }
-  .wt-edit label{ display:flex; align-items:center; gap:6px; flex:1 1 auto; }
-  .wt-edit input[type="number"]{ width:100%; font-size:15px; }
-  .wt-edit input[type="text"]{ flex:1 1 100%; order:10; }
-  .wt-edit .wt-btn-sub{ padding:8px 14px; font-size:13px; }
-  .wt-edit label{ white-space:nowrap; }              /* 「買値」が縦に折れないように */
+  /* 編集はストリップの左セル（見出し行のフォームは隠す） */
+  .wt-edit-head{ display:none; }
+  .wt-edit-strip{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+  .wt-strip-in{ display:flex; gap:6px; align-items:center; }
+  .wt-edit-strip input{ width:118px; font-size:20px; font-weight:800; padding:2px 8px; }
+  .wt-edit-strip .wt-btn-sub{ padding:6px 10px; font-size:12px; }
   .wt-tick:nth-last-child(2) i{ display:none; }     /* 右端の目盛りは ::after の +30% と重なるので隠す */
   .wt-badge{ display:none; }                        /* 右上の大きな「到達」と重複するので隠す */
 }

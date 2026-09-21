@@ -35,6 +35,11 @@
       <div class="wt-head">
         <a class="wt-name" href="{% url 'japan_kabu:stock_detail' r.stock.display_code %}" title="カルテ"><b>{{ r.stock.display_code }}</b> {{ r.stock.name|truncatechars:26 }}</a>
         {% if r.is_us %}<span class="wt-us">US</span>{% endif %}
+        {% comment %} 買値の編集は見出し行（銘柄名の右）に置いて縦幅を節約（ユーザー指示 2026-09-22）。スマホでは価格ストリップ側に出す {% endcomment %}
+        <form method="post" action="{% url 'watch:update' r.item.pk %}" class="wt-edit wt-edit-head">
+          {% csrf_token %}<label>買値 <input type="number" name="target_price" step="0.01" min="0" inputmode="decimal" value="{{ r.item.target_price|default_if_none:'' }}" placeholder="未設定"></label>
+          <button type="submit" class="wt-btn-sub">保存</button>
+        </form>
         {% if r.reached %}<span class="wt-badge">買値到達</span>{% endif %}
         {% comment %} 右上に大きく: 買値まであと何% （到達なら「到達」）。細かいラベルより先にこれを見る（ユーザー要望 2026-09-21） {% endcomment %}
         {% if r.distance is not None %}
@@ -46,7 +51,10 @@
       {% if r.bar %}
       {% comment %} スマホ専用（2026-09-22）: 吹き出しの代わりに「買値｜現在」を静的に並べる。PC では CSS で非表示 {% endcomment %}
       <div class="wt-mstrip">
-        <div class="wt-mcell"><span class="k">買値</span><b class="wt-target-val">{{ r.unit_pre }}{{ r.bar.left|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
+        <form method="post" action="{% url 'watch:update' r.item.pk %}" class="wt-mcell wt-edit wt-edit-strip">
+          {% csrf_token %}<span class="k">買値（{{ r.unit_pre }}{{ r.unit_suf }}）</span>
+          <span class="wt-strip-in"><input type="number" name="target_price" step="0.01" min="0" inputmode="decimal" value="{{ r.item.target_price|default_if_none:'' }}" placeholder="未設定"><button type="submit" class="wt-btn-sub">保存</button></span>
+        </form>
         <div class="wt-mcell r"><span class="k">現在 <i>{{ r.as_of|date:"n/j" }}</i></span><b>{{ r.unit_pre }}{{ r.current|floatformat:0|intcomma }}{{ r.unit_suf }}</b></div>
       </div>
       {% comment %} ゲージ: 左端=買値・右端=共通スケール。帯=買値までの残り（下がるほど縮む）。帯の右端に現在株価のラベル {% endcomment %}
@@ -70,11 +78,6 @@
       <div class="wt-meta"><span class="wt-sub">株価データがまだありません。</span>
         <form method="post" action="{% url 'watch:fetch_prices' r.item.pk %}" class="wt-inline">{% csrf_token %}<button type="submit" class="wt-btn-sub">株価を取得する（数秒）</button></form></div>
       {% endif %}
-      <form method="post" action="{% url 'watch:update' r.item.pk %}" class="wt-edit">
-        {% csrf_token %}
-        <label>買値 <input type="number" name="target_price" step="0.01" min="0" inputmode="decimal" value="{{ r.item.target_price|default_if_none:'' }}" placeholder="未設定"></label>
-        <button type="submit" class="wt-btn-sub">保存</button>
-      </form>
     </section>
     {% endfor %}
   </div>
