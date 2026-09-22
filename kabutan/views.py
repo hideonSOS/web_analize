@@ -49,6 +49,23 @@ def screen_context():
                 r.tp_pct = (r.tp_price / r.close - 1) * 100
         near.sort(key=lambda r: r.stock.display_code)
 
+    # 「候補ゼロ」の理由を画面に明示する（2026-09-23 ユーザー要望:
+    # 正常なリスクオフなのか不具合なのかを、聞かなくても画面で区別できること）。
+    # 地合いNG = 判定した全銘柄の unmet に 'mkt' が入っている状態。
+    # 連続日数は保存済みの判定日を新しい順に遡って数える
+    mkt_ng, mkt_ng_streak = False, 0
+    if latest:
+        days = list(ScreenResult.objects.filter(rule_version=RULE_VERSION)
+                    .values_list('date', flat=True).distinct().order_by('-date')[:60])
+        for d in days:
+            unmets = ScreenResult.objects.filter(
+                date=d, rule_version=RULE_VERSION).values_list('unmet', flat=True)
+            if unmets and all('mkt' in u for u in unmets):
+                mkt_ng_streak += 1
+            else:
+                break
+        mkt_ng = mkt_ng_streak > 0
+
     stale_days = (date.today() - latest).days if latest else None
     return {
         'latest': latest,
@@ -58,6 +75,8 @@ def screen_context():
         'n_judged': n_judged,
         'stale': bool(latest and stale_days > STALE_DAYS),
         'stale_days': stale_days,
+        'mkt_ng': mkt_ng,
+        'mkt_ng_streak': mkt_ng_streak,
     }
 
 

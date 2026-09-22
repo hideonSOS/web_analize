@@ -37,8 +37,13 @@
       </div>
       {% endfor %}
     </div>
+  {% elif mkt_ng %}
+    <div class="kb-empty kb-empty-slim">本日の買い候補はありません。
+      <b>理由: 地合いフィルターNG</b>（JPX400合成指数が20日MA未満・{{ mkt_ng_streak }}判定日連続）。
+      指数が回復するまで新規エントリーを見送る設計です。個別条件の判定は動いています（下の「あと1条件」参照）。</div>
   {% else %}
-    <div class="kb-empty kb-empty-slim">本日の買い候補はありません（条件がそろうまで待つのもルールのうち）。</div>
+    <div class="kb-empty kb-empty-slim">本日の買い候補はありません。
+      理由: 地合いはOKですが、全条件（1回目の押し目・5日MA転換・陽線 等）を満たす銘柄がありませんでした。</div>
   {% endif %}
 
   {% if near %}
