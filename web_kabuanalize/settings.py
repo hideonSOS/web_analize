@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'portfolio',
     'watch',
     'spending',
+    'kabutan',
 ]
 
 MIDDLEWARE = [

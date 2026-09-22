@@ -1,0 +1,96 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}スイング候補 | 株分析ツール KABU ANALYZE{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'kabutan/css/kabutan.css' %}?v={% now 'U' %}" />{% endblock %}
+{% block content %}
+<div class="kb-wrap">
+  <h1>スイング候補（株タン手法 {{ rule_version }}）</h1>
+  <p class="kb-sub">
+    押し目買いスイングの日次スクリーニング。ユニバース = JPX日経400（{{ n_jpx400 }}銘柄）∪ カルテ登録銘柄。
+    候補の提示までがこのページの役割で、<strong>売買判断はあなた</strong>。
+  </p>
+
+  {% if not latest %}
+    <div class="kb-empty">まだ判定データがありません。<code>python manage.py import_jpx400</code> →
+      <code>python manage.py run_kabutan_screen --backfill 300</code> を実行してください。</div>
+  {% else %}
+    <p class="kb-meta">判定日: <strong>{{ latest|date:"Y-m-d" }}</strong>（終値ベース・エントリーは翌営業日の寄付想定）
+      ／ 判定 {{ n_judged }}銘柄</p>
+
+    {% if stale %}
+      <div class="kb-stale">⚠️ 判定が {{ stale_days }}日前で止まっています。バッチ（run_kabutan_screen）が
+        動いていない可能性があります。logs/update_*.log を確認してください。</div>
+    {% endif %}
+
+    <h2>買い候補 <span class="kb-count">{{ buys|length }}</span></h2>
+    {% if buys %}
+      <div class="kb-cards">
+        {% for r in buys %}
+        <div class="kb-card kb-buy">
+          <div class="kb-head">
+            <span class="kb-code">{{ r.stock.display_code }}</span>
+            <span class="kb-name">{{ r.stock.name }}</span>
+            {% if r.source != 'jpx400' %}<span class="kb-badge">{% if r.source == 'both' %}カルテ{% else %}カルテのみ{% endif %}</span>{% endif %}
+          </div>
+          <div class="kb-prices">
+            <div><span class="kb-label">終値</span> {{ r.close|floatformat:0|intcomma }}円</div>
+            <div><span class="kb-label">損切り</span> {{ r.stop_price|floatformat:0|intcomma }}円
+              {% if r.stop_pct %}<span class="kb-neg">({{ r.stop_pct|floatformat:1 }}%)</span>{% endif %}</div>
+            <div><span class="kb-label">利確目安</span> {{ r.tp_price|floatformat:0|intcomma }}円
+              {% if r.tp_pct %}<span class="kb-pos">(+{{ r.tp_pct|floatformat:1 }}%)</span>{% endif %}</div>
+          </div>
+          <ul class="kb-conds">
+            {% for c in r.met_labels %}<li>✓ {{ c }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="kb-empty">本日の買い候補はありません（条件がそろうまで待つのもルールのうち）。</div>
+    {% endif %}
+
+    {% if near %}
+      <h2>あと1条件 <span class="kb-count">{{ near|length }}</span></h2>
+      <table class="kb-table">
+        <tr><th>銘柄</th><th>終値</th><th>足りない条件</th></tr>
+        {% for r in near %}
+        <tr>
+          <td>{{ r.stock.display_code }} {{ r.stock.name }}</td>
+          <td class="kb-num">{{ r.close|floatformat:0|intcomma }}円</td>
+          <td>{{ r.unmet_labels.0 }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    <h2>過去14日の候補</h2>
+    {% if history %}
+      <table class="kb-table">
+        <tr><th>判定日</th><th>銘柄</th><th>判定時終値</th><th>損切り</th></tr>
+        {% for r in history %}
+        <tr>
+          <td>{{ r.date|date:"m/d" }}</td>
+          <td>{{ r.stock.display_code }} {{ r.stock.name }}</td>
+          <td class="kb-num">{{ r.close|floatformat:0|intcomma }}円</td>
+          <td class="kb-num">{{ r.stop_price|floatformat:0|intcomma }}円</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <div class="kb-empty">過去14日に候補はありません。</div>
+    {% endif %}
+
+    <details class="kb-rule">
+      <summary>ルール {{ rule_version }} の内容（検証済み）</summary>
+      <ul>
+        <li>エントリー: 上昇環境（終値&gt;100日MA・60日MA上向き・20日MA&gt;60日MA）で、
+            <strong>1回目の押し目</strong>（終値が20日MA±2%）に接近し、5日MAが転換・当日陽線・
+            地合いOK（JPX400合成指数&gt;20日MA）・60日ボラ≥1.2% がすべて成立 → 翌日寄付で買い</li>
+        <li>損切り: 直近10日安値割れ（終値確認）／ 利確目安: 20日MA乖離+10% ／ 含み益で20日MA割れは撤退</li>
+        <li>バックテスト（JPX400全400銘柄・2024-09〜2026-06・489回）: 勝率56.0%・コスト後+2.13%/回・PF2.42。
+            横ばい相場（2024年型）では負ける素性。検証はバックテスト側スクリプトで管理</li>
+      </ul>
+    </details>
+  {% endif %}
+</div>
+{% endblock %}

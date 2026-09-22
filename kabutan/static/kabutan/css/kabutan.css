@@ -1,0 +1,53 @@
+/* kabutan — スイング候補スクリーナー（黒背景 + #1e90ff の共通トーン） */
+.kb-wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+.kb-wrap h1 { color: #1e90ff; }
+.kb-wrap h2 { color: #87cefa; border-bottom: 1px solid #1e90ff33; padding-bottom: 4px; margin-top: 28px; }
+.kb-sub { color: #9ca3af; }
+.kb-meta { color: #e5e7eb; }
+.kb-count { display: inline-block; min-width: 1.6em; text-align: center; background: #1e90ff;
+  color: #000; border-radius: 10px; font-size: .8em; padding: 0 6px; vertical-align: middle; }
+
+.kb-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.kb-card { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; }
+.kb-card.kb-buy { border-color: #1e90ff; box-shadow: 0 0 8px rgba(30,144,255,.25); }
+.kb-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.kb-code { color: #1e90ff; font-weight: bold; font-size: 1.1em; }
+.kb-name { color: #fff; font-weight: bold; }
+.kb-badge { background: #8b5cf6; color: #fff; border-radius: 8px; font-size: .72em; padding: 1px 7px; }
+.kb-prices { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; color: #e5e7eb; }
+.kb-label { color: #9ca3af; font-size: .85em; margin-right: 3px; }
+.kb-pos { color: #34d399; }
+.kb-neg { color: #f87171; }
+.kb-conds { list-style: none; margin: 0; padding: 0; color: #9ca3af; font-size: .85em; }
+.kb-conds li { padding: 1px 0; }
+
+.kb-table { width: 100%; border-collapse: collapse; color: #e5e7eb; }
+.kb-table th { color: #87cefa; text-align: left; border-bottom: 1px solid #1e90ff55; padding: 6px 8px; }
+.kb-table td { border-bottom: 1px solid #1f2937; padding: 6px 8px; }
+.kb-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.kb-empty { background: #0f172a; border: 1px dashed #334155; border-radius: 10px;
+  padding: 16px; color: #9ca3af; }
+.kb-rule { margin-top: 28px; color: #9ca3af; }
+.kb-rule summary { color: #87cefa; cursor: pointer; }
+.kb-rule code { background: #1f2937; padding: 1px 5px; border-radius: 4px; }
+
+/* ---- 監視ページ先頭の候補パネル（_candidates.html） ---- */
+.kb-panel { background: #05070f; border: 1px solid #1e90ff55; border-radius: 12px;
+  padding: 12px 14px; margin: 14px 0 22px; }
+.kb-panel-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.kb-panel-title { color: #87cefa; margin: 0; font-size: 1.05em; border: none; }
+.kb-panel-date { color: #9ca3af; font-size: .85em; }
+.kb-panel-link { color: #1e90ff; margin-left: auto; font-size: .9em; text-decoration: none; }
+.kb-panel .kb-cards { margin-top: 10px; }
+.kb-empty-slim { padding: 10px 14px; margin-top: 10px; }
+.kb-stale { background: #7f1d1d; color: #fecaca; border-radius: 8px;
+  padding: 10px 12px; margin-top: 10px; }
+.kb-near-line { color: #9ca3af; font-size: .88em; margin: 10px 0 0; }
+.kb-near-item { margin-right: 12px; color: #e5e7eb; }
+.kb-near-item small { color: #9ca3af; }
+
+@media (max-width: 600px) {
+  .kb-cards { grid-template-columns: 1fr; }
+  .kb-prices { gap: 10px; }
+}

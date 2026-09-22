@@ -29,6 +29,7 @@ FEATURES = {
     2: {'name': '出来高急増ランキング', 'description': '出来高の統計的異常度（対数z-score）ランキング', 'url': 'japan_kabu:volume'},
     3: {'name': '銘柄カルテ', 'description': '興味ある銘柄だけ登録して調べる。定性分析＋指標（PER/PBR/ROE等）＋株価レンジ', 'url': 'karte:index'},
     4: {'name': '売買日記', 'description': '売買判断の記録と振り返り。その後の値動きを自動表示', 'url': 'diary:index'},
+    5: {'name': 'スイング候補', 'description': '株タン手法（押し目買い）の日次スクリーニング。JPX400∪カルテ銘柄から買い候補を提示', 'url': 'kabutan:index'},
     6: {'name': 'セクター別インパルス', 'description': '独自セクターの日次騰落を時系列で並べモメンタムを見る', 'url': 'japan_kabu:impulse'},
     7: {'name': 'セクター別ドローダウン', 'description': '高値からの下落率で「下がりきったセクター」を探す（逆張りの入口）', 'url': 'japan_kabu:drawdown'},
     8: {'name': 'マクロ指標', 'description': '日米のCPI・失業率の長期時系列と「基準値」の読み方（学習用）', 'url': 'japan_kabu:macro'},

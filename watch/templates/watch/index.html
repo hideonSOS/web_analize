@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'watch/css/watch.css' %}?v={% now 'U' %}" />
+<link rel="stylesheet" href="{% static 'kabutan/css/kabutan.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
 {% block content %}
@@ -14,6 +15,8 @@
     {% if reached_n %}<span class="wt-reached-n">買値到達 {{ reached_n }}件</span>{% endif %}</p>
 
   {% for m in messages %}<div class="wt-msg wt-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
+
+  {% include 'kabutan/_candidates.html' %}
 
   {% comment %} 追加: 銘柄検索（カルテと同じ JSON）＋買値 {% endcomment %}
   <form method="post" action="{% url 'watch:add' %}" class="wt-add" id="wt-add">

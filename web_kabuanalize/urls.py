@@ -28,6 +28,7 @@ urlpatterns = [
     path('portfolio/', include('portfolio.urls')),
     path('spending/', include('spending.urls')),
     path('watch/', include('watch.urls')),
+    path('kabutan/', include('kabutan.urls')),
 ]
 
 # 開発サーバーからアップロード画像を配信する（本番ではnginx等が担当）

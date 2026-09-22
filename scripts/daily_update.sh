@@ -56,6 +56,7 @@ run update_product_prices || status=1  # 投信の基準価額・金銀の円/g�
 run snapshot_assets       || status=1  # 日次の資産スナップショット（資産推移用。価格更新の後に）
 run fetch_zaim            || status=1  # Zaim API → CSV保存 → 支出の取り込み（config.json の zaim 未設定なら何もしない）
 run update_trade_bars     || status=1  # 逆張り取引（保有中）の日足OHLC。日本株の引け後用（米国株は朝の us_index_update.sh）
+run run_kabutan_screen    || status=1  # スイング候補（株タン手法）: 日足差分取得＋日次判定（JPX400∪カルテ）
 # 注: 米国株ランキング(update_us_ranking)は US クローズ確定後のJST朝に
 #     scripts/us_ranking_update.sh で別建て実行する（このバッチには入れない）。
 

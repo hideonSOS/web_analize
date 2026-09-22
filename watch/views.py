@@ -65,11 +65,20 @@ def _rows():
 
 
 def index(request):
+    from kabutan.views import screen_context
+
     rows = _rows()
-    return render(request, 'watch/index.html', {
+    ctx = {
         'rows': rows,
         'reached_n': sum(1 for r in rows if r['reached']),
-    })
+    }
+    # スイング買い候補パネル（2026-09-23 ユーザー指示「買い候補を探すのはいつもこのページ」）。
+    # kabutan 側の障害で監視本体が落ちないよう例外は握る
+    try:
+        ctx.update(screen_context())
+    except Exception:   # noqa: BLE001
+        ctx['latest'] = None
+    return render(request, 'watch/index.html', ctx)
 
 
 @require_POST

@@ -84,6 +84,18 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
+# スイング候補（株タン手法）の再判定。本命は夜バッチ（daily_update.sh 21:10）で、
+# ここは「夜バッチが失敗しても寄り付き前（9:00）までに必ず候補が出る」ための保険。
+# 米クローズ確定後のこの時刻ならJP前日バーも確実に出そろっている。
+# 差分同期＋update_or_create なので成功済みなら数秒で終わる（二重実行は無害）。
+echo "===== $(date '+%F %T') manage.py run_kabutan_screen =====" >> "$LOG"
+if "$PY" manage.py run_kabutan_screen >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'us_ranking_*.log' -mtime +30 -delete 2>/dev/null
 
