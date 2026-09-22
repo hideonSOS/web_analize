@@ -15,7 +15,12 @@
       <code>python manage.py run_kabutan_screen --backfill 300</code> を実行してください。</div>
   {% else %}
     <p class="kb-meta">判定日: <strong>{{ latest|date:"Y-m-d" }}</strong>（終値ベース・エントリーは翌営業日の寄付想定）
-      ／ 判定 {{ n_judged }}銘柄</p>
+      ／ 判定 {{ n_judged }}銘柄{% if last_run %}
+      ／ 最終実行 <strong>{{ last_run.finished_at|date:"Y-m-d H:i" }}</strong>（日足+{{ last_run.bars_added|default_if_none:"—" }}件・BUY{{ last_run.n_buy }}件）{% endif %}</p>
+
+    {% if last_run.note %}
+      <div class="kb-stale">⚠️ 前回実行の備考: {{ last_run.note }}</div>
+    {% endif %}
 
     {% if stale %}
       <div class="kb-stale">⚠️ 判定が {{ stale_days }}日前で止まっています。バッチ（run_kabutan_screen）が

@@ -11,7 +11,7 @@ from django.db.models import Max
 from django.shortcuts import render
 
 from .logic import CONDITION_LABELS, RULE_VERSION
-from .models import Jpx400Member, ScreenResult
+from .models import Jpx400Member, ScreenResult, ScreenRun
 
 # 判定日がこの日数より古ければ画面に赤い警告を出す（バッチ停止に気付くための保険。
 # 「出力が止まっているのに気付かない」防止）。
@@ -67,7 +67,9 @@ def screen_context():
         mkt_ng = mkt_ng_streak > 0
 
     stale_days = (date.today() - latest).days if latest else None
+    last_run = ScreenRun.objects.filter(rule_version=RULE_VERSION).first()
     return {
+        'last_run': last_run,
         'latest': latest,
         'rule_version': RULE_VERSION,
         'buys': buys,

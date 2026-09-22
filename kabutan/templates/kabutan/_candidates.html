@@ -7,9 +7,13 @@
 <section class="kb-panel">
   <div class="kb-panel-head">
     <h2 class="kb-panel-title">スイング買い候補 <span class="kb-count">{{ buys|length }}</span></h2>
-    {% if latest %}<span class="kb-panel-date">判定 {{ latest|date:"n/j" }}・{{ n_judged }}銘柄</span>{% endif %}
+    {% if latest %}<span class="kb-panel-date">判定 {{ latest|date:"n/j" }}・{{ n_judged }}銘柄{% if last_run %}／実行 {{ last_run.finished_at|date:"n/j H:i" }}{% endif %}</span>{% endif %}
     <a class="kb-panel-link" href="{% url 'kabutan:index' %}">詳細 →</a>
   </div>
+
+  {% if last_run.note %}
+    <div class="kb-stale">⚠️ 前回実行の備考: {{ last_run.note }}</div>
+  {% endif %}
 
   {% if stale %}
     <div class="kb-stale">⚠️ 判定が {{ stale_days }}日前（{{ latest|date:"Y-m-d" }}）で止まっています。

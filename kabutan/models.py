@@ -49,6 +49,27 @@ class KabutanBar(models.Model):
         ordering = ['date']
 
 
+class ScreenRun(models.Model):
+    """run_kabutan_screen の実行記録（定期実行が動いたか・いつ・何をしたかを画面に出す用）
+
+    2026-09-23 ユーザー要望「定期実行した時間を併記」。ScreenResult の created_at は
+    update_or_create の再実行で動かないため、実行そのものの記録を別に持つ。
+    """
+    started_at = models.DateTimeField('開始')
+    finished_at = models.DateTimeField('終了', auto_now_add=True)
+    rule_version = models.CharField(max_length=16, default='v1.1')
+    bars_added = models.IntegerField('追加した日足件数', null=True, blank=True)
+    n_judged = models.IntegerField('判定銘柄数', default=0)
+    n_buy = models.IntegerField('BUY候補数', default=0)
+    note = models.CharField('備考（取得失敗など）', max_length=300, blank=True)
+
+    class Meta:
+        ordering = ['-finished_at']
+
+    def __str__(self):
+        return f'{self.finished_at:%Y-%m-%d %H:%M} 判定{self.n_judged} BUY{self.n_buy}'
+
+
 class ScreenResult(models.Model):
     """日次判定の記録（BUY_CANDIDATE だけでなく WAIT も全銘柄分残す）"""
     JUDGMENTS = [

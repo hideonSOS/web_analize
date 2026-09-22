@@ -20,9 +20,11 @@ import pandas as pd
 from django.core.management.base import BaseCommand
 from django.db.models import Max
 
+from django.utils import timezone
+
 from japan_kabu.models import Stock
 from kabutan import logic
-from kabutan.models import Jpx400Member, KabutanBar, ScreenResult
+from kabutan.models import Jpx400Member, KabutanBar, ScreenResult, ScreenRun
 
 DOWNLOAD_CHUNK = 100      # update_us_ranking と同方針
 DEFAULT_BACKFILL = 300    # 初回に遡る暦日数（MA100 + 余裕）
@@ -136,6 +138,8 @@ class Command(BaseCommand):
         return frames
 
     def handle(self, *args, **options):
+        run_started = timezone.now()
+        note = ''
         universe = self._universe()
         stocks = list(Stock.objects.filter(code__in=universe.keys()))
         if not stocks:
@@ -144,15 +148,16 @@ class Command(BaseCommand):
         self.stdout.write(f'ユニバース: {len(stocks)}銘柄 '
                           f'(JPX400∪カルテ) / ルール {logic.RULE_VERSION}')
 
+        bars_added = None
         if not options['no_fetch']:
             # ⚠️ 取得が丸ごと失敗しても保存済みデータで判定は必ず実行する
             #    （「出力が永遠に出ない」を防ぐ。鮮度の異常は画面側の警告で気付ける）
             try:
-                n = self._fetch(stocks, options['backfill'])
-                self.stdout.write(f'日足: +{n}件')
+                bars_added = self._fetch(stocks, options['backfill'])
+                self.stdout.write(f'日足: +{bars_added}件')
             except Exception as e:   # noqa: BLE001
-                self.stderr.write(f'日足取得に失敗（保存済みデータで判定を続行）: '
-                                  f'{type(e).__name__}: {e}')
+                note = f'日足取得に失敗（保存済みデータで判定）: {type(e).__name__}: {e}'[:300]
+                self.stderr.write(note)
 
         frames = self._load_frames(list(universe.keys()))
 
@@ -183,5 +188,8 @@ class Command(BaseCommand):
             ok += 1
             buy += (res['judgment'] == 'BUY')
 
+        # 実行記録（画面に「最終実行 いつ・何をしたか」を出すため）
+        ScreenRun.objects.create(started_at=run_started, rule_version=logic.RULE_VERSION,
+                                 bars_added=bars_added, n_judged=ok, n_buy=buy, note=note)
         self.stdout.write(self.style.SUCCESS(
             f'判定: {ok}銘柄（BUY候補 {buy}件） ルール {logic.RULE_VERSION}'))
