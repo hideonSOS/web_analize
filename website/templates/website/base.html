@@ -45,7 +45,9 @@
             <ul>
               <li><a href="{% url 'karte:index' %}">カルテ</a></li>
               <li><a href="{% url 'watch:index' %}">監視</a></li>
-              <li><a href="{% url 'kabutan:index' %}">スイング候補</a></li>
+              {% comment %} スイング候補はナビに出さない（2026-09-23 ユーザー指示）。
+                入口は監視ページ先頭のパネル（買い候補を探すのはいつも監視ページ、のため）。
+                /kabutan/ 詳細ページ自体はパネルの「詳細 →」から辿れる {% endcomment %}
             </ul>
           </li>
           <li class="nav-group">
