@@ -373,6 +373,7 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'pnl_now_jpy': ((cur - t.entry_price) * t.shares * fx_rate) if (cur and t.currency == 'USD') else None,
             'cur_jpy': (cur * fx_rate) if (cur and t.currency == 'USD') else None,   # 現在値の円換算（2026-09-24）
             # 右上の見出し用: 購入価格から1株あたりいくら動いたか（$ と ¥）。現在値そのものはバー上の吹き出しに出す
+            'entry_jpy': (t.entry_price * fx_rate) if t.currency == 'USD' else None,   # 取得価格の円換算
             'gain_ps': (cur - t.entry_price) if cur else None,
             'gain_ps_jpy': ((cur - t.entry_price) * fx_rate) if (cur and t.currency == 'USD') else None,
             'time': time_gauge((today - t.entry_date).days),

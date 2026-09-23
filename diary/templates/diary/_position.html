@@ -6,7 +6,7 @@
 {% endcomment %}
 <div class="ct-pos-top">
   <div class="ct-pos-name"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:28 }}
-    <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }} 建て・<b>{{ r.days }}日</b>経過・{{ r.t.shares }}株</span></div>
+    <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }} 建て・<b>{{ r.days }}日</b>経過・{{ r.t.shares }}株・取得 <b class="ct-entry-price">{% if r.unit == '$' %}${{ r.t.entry_price|floatformat:2 }}{% else %}{{ r.t.entry_price|floatformat:0|intcomma }}円{% endif %}</b>{% if r.entry_jpy %}（¥{{ r.entry_jpy|floatformat:0|intcomma }}）{% endif %}</span></div>
   <div class="ct-pos-now">
     {% comment %} 右上は「購入価格から1株あたり いくら動いたか」を $ と ¥ の2つだけ（2026-09-24 ユーザー指示）。
       現在値そのものはバー上の吹き出しにある {% endcomment %}
