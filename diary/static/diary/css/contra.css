@@ -285,3 +285,8 @@
 
 /* 現在値の円換算（2026-09-24）: $225.51（¥35,000）+6.6% */
 .ct-jpy-now{ color:#cbd5e1; font-weight:400; font-size:.88em; margin:0 4px 0 2px; }
+
+/* 右上: 購入価格からの1株あたり増減（$と¥）（2026-09-24） */
+.ct-gain{ font-size:14px; color:#cbd5e1; }
+.ct-gain b{ font-size:18px; font-variant-numeric:tabular-nums; }
+.ct-gain.up, .ct-gain.up b{ color:#4ade80; } .ct-gain.down, .ct-gain.down b{ color:#f87171; }

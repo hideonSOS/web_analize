@@ -8,9 +8,10 @@
   <div class="ct-pos-name"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:28 }}
     <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }} 建て・<b>{{ r.days }}日</b>経過・{{ r.t.shares }}株</span></div>
   <div class="ct-pos-now">
-    {% if r.cur %}現在 <b>{{ r.unit }}{{ r.cur|floatformat:2 }}</b>{% if r.cur_jpy %}<span class="ct-jpy-now">（¥{{ r.cur_jpy|floatformat:0|intcomma }}）</span>{% endif %}
-      <span class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{% if r.change > 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
-      <span class="ct-sub">{{ r.cur_date|date:"n/j" }} {% if r.fallback %}終値（日足待ち・株価マスタ）{% else %}終値{% endif %}{% if r.stale %}・<b class="ct-stale">古い</b>{% endif %}</span>
+    {% comment %} 右上は「購入価格から1株あたり いくら動いたか」を $ と ¥ の2つだけ（2026-09-24 ユーザー指示）。
+      現在値そのものはバー上の吹き出しにある {% endcomment %}
+    {% if r.cur %}<span class="ct-gain {% if r.gain_ps > 0 %}up{% elif r.gain_ps < 0 %}down{% endif %}">現在 <b>{% if r.gain_ps > 0 %}+{% elif r.gain_ps < 0 %}−{% endif %}{% if r.unit == '$' %}${{ r.gain_ps|stringformat:".2f"|cut:"-" }}{% else %}{{ r.gain_ps|floatformat:0|cut:"-"|intcomma }}円{% endif %}</b>{% if r.gain_ps_jpy is not None %}（{% if r.gain_ps_jpy > 0 %}+{% elif r.gain_ps_jpy < 0 %}−{% endif %}¥{{ r.gain_ps_jpy|floatformat:0|cut:"-"|intcomma }}）{% endif %}</span>
+      {% if r.stale or r.fallback %}<span class="ct-sub">{% if r.fallback %}日足待ち{% else %}<b class="ct-stale">株価が古い</b>{% endif %}</span>{% endif %}
     {% else %}<span class="ct-sub">日足なし（更新を押す）</span>{% endif %}
   </div>
 </div>
