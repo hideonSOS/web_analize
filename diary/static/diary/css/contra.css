@@ -271,14 +271,14 @@
 .ct-jpy{ color:#9ca3af; font-size:11px; font-weight:400; margin-left:4px; }
 .ct-jpy-cell{ display:block; margin:0; }
 /* タイムリミット: .ct-range の grid の2段目（左右の端が価格バーと一致）。上下の間隔を広めに */
-.ct-time-k, .ct-time-wrap, .ct-time-v{ margin-top:8px; }
+.ct-time-k, .ct-time-wrap, .ct-time-v{ margin-top:20px; }
 .ct-time-k{ text-align:right; color:#9ca3af; white-space:nowrap; }
 .ct-time-k b{ color:#e5e7eb; font-variant-numeric:tabular-nums; }
 .ct-time-v{ color:#9ca3af; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .ct-time-wrap{ position:relative; padding-bottom:14px; }
 .ct-time-track{ position:relative; display:block; height:3px; border-radius:2px; background:#1f2937; }
 .ct-time-fill{ display:block; height:100%; border-radius:2px; background:#3b82f6; transition:width .3s; }
-.ct-time-half{ position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; background:rgba(255,255,255,.35); }
+.ct-time-half{ position:absolute; top:-3px; bottom:-3px; width:1px; background:rgba(255,255,255,.35); }
 .ct-time-tri{ position:absolute; top:5px; transform:translateX(-50%); font-size:10px; line-height:1; color:#60a5fa; }
 .ct-time-wrap.warn .ct-time-fill{ background:#f59e0b; } .ct-time-wrap.warn .ct-time-tri{ color:#fbbf24; } .ct-time-v.warn{ color:#fcd34d; }
 .ct-time-wrap.over .ct-time-fill{ background:#ef4444; box-shadow:0 0 6px rgba(239,68,68,.8); } .ct-time-wrap.over .ct-time-tri{ color:#f87171; } .ct-time-v.over{ color:#f87171; font-weight:700; }

@@ -324,14 +324,16 @@ def _ticks(stop_pct: float, target_pct: float) -> list[dict]:
     return [{'pos': pos(p), 'label': lab(p), 'kind': k} for p, k in items]
 
 
-TIME_LIMIT_DAYS = 30    # タイムリミット（2026-09-24 ユーザー要望）: 15日で半分、30日で満了。細い線ゲージで出す
+TIME_LIMIT_DAYS = 20    # タイムリミット（2026-09-24 ユーザー要望・同日 30→20日に短縮）。細い線ゲージで出す
+TIME_WARN_DAYS = 15     # ここで線が琥珀に変わり、目印を置く（20日の 3/4）
 
 
 def time_gauge(days: int) -> dict:
     """経過日数 → 細い線ゲージの状態。pct=満了までの進み（0〜100）、state=ok/warn/over"""
     pct = max(0.0, min(100.0, days / TIME_LIMIT_DAYS * 100))
-    state = 'over' if days >= TIME_LIMIT_DAYS else ('warn' if days >= TIME_LIMIT_DAYS / 2 else 'ok')
-    return {'pct': pct, 'state': state, 'left': max(0, TIME_LIMIT_DAYS - days), 'limit': TIME_LIMIT_DAYS}
+    state = 'over' if days >= TIME_LIMIT_DAYS else ('warn' if days >= TIME_WARN_DAYS else 'ok')
+    return {'pct': pct, 'state': state, 'left': max(0, TIME_LIMIT_DAYS - days), 'limit': TIME_LIMIT_DAYS,
+            'warn_pos': TIME_WARN_DAYS / TIME_LIMIT_DAYS * 100}
 
 
 def open_rows(setting: ContraSetting, today: date | None = None, strategy: str = 'contra') -> list[dict]:

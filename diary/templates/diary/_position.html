@@ -35,11 +35,11 @@
   <span class="ct-range-target">利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }}</span>
   {% comment %}
     タイムリミット（2026-09-24・同日に位置調整）: 価格バーと同じ grid の2段目に置き、左右の端をバーと揃える。
-    細い線・15日で半分（白い印）・30日で満了。現在の経過位置は線の下の ▲
+    細い線・20日で満了・15日（3/4）に白い印。現在の経過位置は線の下の ▲
   {% endcomment %}
   <span class="ct-time-k {{ r.time.state }}">期限 <b>{{ r.days }}日</b></span>
   <div class="ct-time-wrap {{ r.time.state }}">
-    <span class="ct-time-track"><span class="ct-time-fill" style="width:{{ r.time.pct|floatformat:1 }}%"></span><i class="ct-time-half"></i></span>
+    <span class="ct-time-track"><span class="ct-time-fill" style="width:{{ r.time.pct|floatformat:1 }}%"></span><i class="ct-time-half" style="left:{{ r.time.warn_pos|floatformat:1 }}%" title="15日"></i></span>
     <span class="ct-time-tri" style="left:{{ r.time.pct|floatformat:1 }}%">▲</span>
   </div>
   <span class="ct-time-v {{ r.time.state }}">{% if r.time.state == 'over' %}満了{% else %}あと{{ r.time.left }}日{% endif %}</span>
