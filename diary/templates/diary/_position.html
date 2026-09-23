@@ -33,6 +33,16 @@
     </div>
   </div>
   <span class="ct-range-target">利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }}</span>
+  {% comment %}
+    タイムリミット（2026-09-24・同日に位置調整）: 価格バーと同じ grid の2段目に置き、左右の端をバーと揃える。
+    細い線・15日で半分（白い印）・30日で満了。現在の経過位置は線の下の ▲
+  {% endcomment %}
+  <span class="ct-time-k {{ r.time.state }}">期限 <b>{{ r.days }}日</b></span>
+  <div class="ct-time-wrap {{ r.time.state }}">
+    <span class="ct-time-track"><span class="ct-time-fill" style="width:{{ r.time.pct|floatformat:1 }}%"></span><i class="ct-time-half"></i></span>
+    <span class="ct-time-tri" style="left:{{ r.time.pct|floatformat:1 }}%">▲</span>
+  </div>
+  <span class="ct-time-v {{ r.time.state }}">{% if r.time.state == 'over' %}満了{% else %}あと{{ r.time.left }}日{% endif %}</span>
 </div>
 <div class="ct-pos-meta">
   {% if r.cur %}
@@ -44,12 +54,6 @@
   {% endif %}
   {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → {{ close_hint }}</span>{% endif %}
   {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
-</div>
-{% comment %} タイムリミット（2026-09-24）: 価格のレンジバーと区別した細い線。15日で半分、30日で満了 {% endcomment %}
-<div class="ct-time {{ r.time.state }}">
-  <span class="ct-time-k">期限</span>
-  <span class="ct-time-track"><span class="ct-time-fill" style="width:{{ r.time.pct|floatformat:1 }}%"></span><i class="ct-time-half"></i></span>
-  <span class="ct-time-v">{% if r.time.state == 'over' %}満了（{{ r.days }}日）{% else %}{{ r.days }}日／{{ r.time.limit }}日・あと{{ r.time.left }}日{% endif %}</span>
 </div>
 {% comment %}
   掘り下げ（ユーザー要望 2026-09-10）: 普段は 現在値・レンジバー・距離 だけ。なぜ買ったか・想定・
