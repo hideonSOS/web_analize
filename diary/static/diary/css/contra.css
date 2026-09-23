@@ -266,3 +266,15 @@
 .ct-sim-gauge-l{ display:block; text-align:right; margin-top:4px; font-size:10px; color:#6b7280; }
 /* スマホ: 損切り・利確を横並び、買値はその下に全幅 */
 @media (max-width:640px){ .ct-sim-top{ grid-template-columns:1fr 1fr; } .ct-sim-box.entry{ grid-column:1 / -1; order:3; } .ct-sim-box b{ font-size:22px; } .ct-sim-in label.main input{ width:140px; } }
+
+/* 円換算の併記（2026-09-24）とタイムリミットの細い線 */
+.ct-jpy{ color:#9ca3af; font-size:11px; font-weight:400; margin-left:4px; }
+.ct-jpy-cell{ display:block; margin:0; }
+.ct-time{ display:flex; align-items:center; gap:10px; margin-top:8px; font-size:11px; color:#9ca3af; }
+.ct-time-k{ flex:0 0 auto; }
+.ct-time-track{ position:relative; flex:1 1 auto; height:3px; border-radius:2px; background:#1f2937; overflow:visible; }
+.ct-time-fill{ display:block; height:100%; border-radius:2px; background:#3b82f6; transition:width .3s; }
+.ct-time-half{ position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; background:rgba(255,255,255,.35); }
+.ct-time-v{ flex:0 0 auto; font-variant-numeric:tabular-nums; }
+.ct-time.warn .ct-time-fill{ background:#f59e0b; } .ct-time.warn .ct-time-v{ color:#fcd34d; }
+.ct-time.over .ct-time-fill{ background:#ef4444; box-shadow:0 0 6px rgba(239,68,68,.8); } .ct-time.over .ct-time-v{ color:#f87171; font-weight:700; }

@@ -40,7 +40,7 @@
         <div class="ct-total">
           <div class="ct-total-main">トータル
             <b class="{% if tt.pct > 0 %}up{% elif tt.pct < 0 %}down{% endif %}">{% if tt.pct > 0 %}+{% endif %}{{ tt.pct|floatformat:1 }}%</b>
-            <span class="ct-total-amt {% if tt.amount > 0 %}up{% elif tt.amount < 0 %}down{% endif %}">{% if tt.amount > 0 %}+{% endif %}{{ tt.unit }}{{ tt.amount|floatformat:0|intcomma }}</span>
+            <span class="ct-total-amt {% if tt.amount > 0 %}up{% elif tt.amount < 0 %}down{% endif %}">{% if tt.amount > 0 %}+{% endif %}{{ tt.unit }}{{ tt.amount|floatformat:0|intcomma }}</span>{% if tt.amount_jpy is not None and tt.n %}<span class="ct-jpy">（{% if tt.amount_jpy > 0 %}+{% endif %}¥{{ tt.amount_jpy|floatformat:0|intcomma }}・$1={{ tt.fx_rate|floatformat:1 }}円）</span>{% endif %}
             <span class="ct-sub">コスト込み・{{ tt.n }}件</span></div>
           <div class="ct-total-sub">
             <span class="up">利確 +{{ tt.target.pct|floatformat:1 }}%（{{ tt.target.n }}件・{{ tt.unit }}{{ tt.target.amount|floatformat:0|intcomma }}）</span>
@@ -64,7 +64,7 @@
           <td>{{ r.t.days_held }}</td>
           <td>{{ r.t.get_exit_reason_display }}</td>
           <td class="ct-net"><b>{{ r.net|floatformat:1 }}%</b></td>
-          <td>{{ r.unit }}{{ r.amount|floatformat:0|intcomma }}</td>
+          <td>{{ r.unit }}{{ r.amount|floatformat:0|intcomma }}{% if r.amount_jpy is not None %}<span class="ct-jpy ct-jpy-cell">¥{{ r.amount_jpy|floatformat:0|intcomma }}</span>{% endif %}</td>
         </tr>
         {% endfor %}
       </table>

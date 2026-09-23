@@ -40,10 +40,16 @@
     {% elif r.drawdown is not None %}<span>損切りまで進行 <b class="down">{{ r.drawdown|floatformat:0 }}%</b></span>{% endif %}
     <span>損切りまで <b class="{% if r.to_stop < 1.5 %}down{% endif %}">{{ r.to_stop|floatformat:1 }}%</b></span>
     <span>利確まで <b>{{ r.to_target|floatformat:1 }}%</b></span>
-    <span>含み <b class="{% if r.pnl_now > 0 %}up{% elif r.pnl_now < 0 %}down{% endif %}">{{ r.unit }}{{ r.pnl_now|floatformat:0|intcomma }}</b></span>
+    <span>含み <b class="{% if r.pnl_now > 0 %}up{% elif r.pnl_now < 0 %}down{% endif %}">{{ r.unit }}{{ r.pnl_now|floatformat:0|intcomma }}</b>{% if r.pnl_now_jpy is not None %}<span class="ct-jpy">（{% if r.pnl_now_jpy > 0 %}+{% endif %}¥{{ r.pnl_now_jpy|floatformat:0|intcomma }}）</span>{% endif %}</span>
   {% endif %}
   {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → {{ close_hint }}</span>{% endif %}
   {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
+</div>
+{% comment %} タイムリミット（2026-09-24）: 価格のレンジバーと区別した細い線。15日で半分、30日で満了 {% endcomment %}
+<div class="ct-time {{ r.time.state }}">
+  <span class="ct-time-k">期限</span>
+  <span class="ct-time-track"><span class="ct-time-fill" style="width:{{ r.time.pct|floatformat:1 }}%"></span><i class="ct-time-half"></i></span>
+  <span class="ct-time-v">{% if r.time.state == 'over' %}満了（{{ r.days }}日）{% else %}{{ r.days }}日／{{ r.time.limit }}日・あと{{ r.time.left }}日{% endif %}</span>
 </div>
 {% comment %}
   掘り下げ（ユーザー要望 2026-09-10）: 普段は 現在値・レンジバー・距離 だけ。なぜ買ったか・想定・

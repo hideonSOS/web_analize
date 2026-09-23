@@ -324,9 +324,20 @@ def _ticks(stop_pct: float, target_pct: float) -> list[dict]:
     return [{'pos': pos(p), 'label': lab(p), 'kind': k} for p, k in items]
 
 
+TIME_LIMIT_DAYS = 30    # タイムリミット（2026-09-24 ユーザー要望）: 15日で半分、30日で満了。細い線ゲージで出す
+
+
+def time_gauge(days: int) -> dict:
+    """経過日数 → 細い線ゲージの状態。pct=満了までの進み（0〜100）、state=ok/warn/over"""
+    pct = max(0.0, min(100.0, days / TIME_LIMIT_DAYS * 100))
+    state = 'over' if days >= TIME_LIMIT_DAYS else ('warn' if days >= TIME_LIMIT_DAYS / 2 else 'ok')
+    return {'pct': pct, 'state': state, 'left': max(0, TIME_LIMIT_DAYS - days), 'limit': TIME_LIMIT_DAYS}
+
+
 def open_rows(setting: ContraSetting, today: date | None = None, strategy: str = 'contra') -> list[dict]:
     """保有中の取引を UI 用に。現在値・損切り/利確までの距離・ザラ場で触れたか・経過日数"""
     today = today or date.today()
+    fx_rate = latest_fx()[1]
     rows = []
     for t in (Trade.objects.filter(exit_date__isnull=True, strategy=strategy)
               .select_related('stock').order_by('entry_date')):
@@ -356,6 +367,9 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'last_low': last['low'] if last else None, 'last_high': last['high'] if last else None,
             'change': change,
             'pnl_now': (cur - t.entry_price) * t.shares if cur else None,
+            # 米国株は円換算を併記（2026-09-24 ユーザー要望。最新ドル円 latest_fx。戦略の判定には使わない）
+            'pnl_now_jpy': ((cur - t.entry_price) * t.shares * fx_rate) if (cur and t.currency == 'USD') else None,
+            'time': time_gauge((today - t.entry_date).days),
             'to_stop': (cur / t.stop_price - 1) * 100 if cur else None,     # 損切りまでの余裕（%）
             'to_target': (t.target_price / cur - 1) * 100 if cur else None,  # 利確までの距離（%）
             'hi': hi, 'lo': lo,
@@ -412,6 +426,7 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
             by_reason[t.exit_reason]['n'] += 1
             by_reason[t.exit_reason]['sum'] += net
         rows.append({'t': t, 'net': net, 'gross': t.pnl_pct, 'amount': t.pnl_amount,
+                     'amount_jpy': (t.pnl_amount * latest_fx()[1]) if t.currency == 'USD' else None,
                      'win': is_win, 'unit': '$' if t.currency == 'USD' else '円'})
     n = len(closed)
     rule_n = wins + losses                       # 勝率の分母＝ルール決済の件数
@@ -440,6 +455,9 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
         total[key]['amount'] += amt
         total[key]['n'] += 1
     total['unit'] = '$'   # 米国株前提（日本株が混ざると通貨が混ざる。混ざったら分けて出すこと）
+    fx_date, fx_rate = latest_fx()
+    total['amount_jpy'] = total['amount'] * fx_rate     # 円換算（2026-09-24。表示だけ）
+    total['fx_rate'], total['fx_date'] = fx_rate, fx_date
     avg_win = sum(win_pcts) / len(win_pcts) if win_pcts else 0
     avg_loss = sum(loss_pcts) / len(loss_pcts) if loss_pcts else 0
     expectancy = (sum(win_pcts) + sum(loss_pcts)) / rule_n if rule_n else None
