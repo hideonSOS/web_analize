@@ -371,6 +371,7 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'pnl_now': (cur - t.entry_price) * t.shares if cur else None,
             # 米国株は円換算を併記（2026-09-24 ユーザー要望。最新ドル円 latest_fx。戦略の判定には使わない）
             'pnl_now_jpy': ((cur - t.entry_price) * t.shares * fx_rate) if (cur and t.currency == 'USD') else None,
+            'cur_jpy': (cur * fx_rate) if (cur and t.currency == 'USD') else None,   # 現在値の円換算（2026-09-24）
             'time': time_gauge((today - t.entry_date).days),
             'to_stop': (cur / t.stop_price - 1) * 100 if cur else None,     # 損切りまでの余裕（%）
             'to_target': (t.target_price / cur - 1) * 100 if cur else None,  # 利確までの距離（%）

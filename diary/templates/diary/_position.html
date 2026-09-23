@@ -8,7 +8,7 @@
   <div class="ct-pos-name"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:28 }}
     <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }} 建て・<b>{{ r.days }}日</b>経過・{{ r.t.shares }}株</span></div>
   <div class="ct-pos-now">
-    {% if r.cur %}現在 <b>{{ r.unit }}{{ r.cur|floatformat:2 }}</b>
+    {% if r.cur %}現在 <b>{{ r.unit }}{{ r.cur|floatformat:2 }}</b>{% if r.cur_jpy %}<span class="ct-jpy-now">（¥{{ r.cur_jpy|floatformat:0|intcomma }}）</span>{% endif %}
       <span class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{% if r.change > 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</span>
       <span class="ct-sub">{{ r.cur_date|date:"n/j" }} {% if r.fallback %}終値（日足待ち・株価マスタ）{% else %}終値{% endif %}{% if r.stale %}・<b class="ct-stale">古い</b>{% endif %}</span>
     {% else %}<span class="ct-sub">日足なし（更新を押す）</span>{% endif %}
@@ -20,7 +20,7 @@
     {% comment %} 現在値: バーの上に ▼ と騰落%、バーを貫くシアンのスリット（ユーザー要望 2026-09-10） {% endcomment %}
     {% if r.pos is not None %}
     <div class="ct-now-label {% if r.pos < 8 %}edge-l{% elif r.pos > 92 %}edge-r{% endif %}" style="left:{{ r.pos|floatformat:1 }}%">
-      <span class="ct-now-pill">現在 {{ r.unit }}{{ r.cur|floatformat:2 }}<b class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{% if r.change > 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</b></span>
+      <span class="ct-now-pill">現在 {{ r.unit }}{{ r.cur|floatformat:2 }}{% if r.cur_jpy %}<span class="ct-jpy-now">（¥{{ r.cur_jpy|floatformat:0|intcomma }}）</span>{% endif %}<b class="{% if r.change > 0 %}up{% elif r.change < 0 %}down{% endif %}">{% if r.change > 0 %}+{% endif %}{{ r.change|floatformat:1 }}%</b></span>
       <span class="ct-now-tri">▼</span>
     </div>
     {% endif %}
