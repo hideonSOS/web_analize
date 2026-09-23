@@ -296,7 +296,7 @@
 
 /* 取得日からのローソク足（2026-09-24）: .ct-range の grid の中段。横軸は期限の線と同じ */
 .ct-cdl-k{ margin-top:18px; text-align:right; color:#9ca3af; white-space:nowrap; }
-.ct-cdl{ margin-top:18px; height:96px; position:relative; border-left:1px solid #1f2937; border-bottom:1px solid #1f2937; }
+.ct-cdl{ margin-top:18px; height:288px; position:relative; border-left:1px solid #1f2937; border-bottom:1px solid #1f2937; }
 .ct-cdl svg{ display:block; width:100%; height:100%; overflow:visible; }
 .ct-cdl line{ vector-effect:non-scaling-stroke; }
 .ct-cdl .ln-target{ stroke:rgba(74,222,128,.55); stroke-width:1; stroke-dasharray:4 3; }
@@ -307,3 +307,4 @@
 .ct-cdl .cd-up rect{ fill:#22c55e; } .ct-cdl .cd-up .wick{ stroke:#22c55e; }
 .ct-cdl .cd-down rect{ fill:#ef4444; } .ct-cdl .cd-down .wick{ stroke:#ef4444; }
 .ct-cdl .ct-sub{ position:absolute; left:8px; top:40%; }
+@media (max-width:600px){ .ct-cdl{ height:200px; } }   /* スマホは画面に収まるよう控えめに */
