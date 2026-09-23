@@ -38,6 +38,27 @@
     タイムリミット（2026-09-24・同日に位置調整）: 価格バーと同じ grid の2段目に置き、左右の端をバーと揃える。
     細い線・20日で満了・15日（3/4）に白い印。現在の経過位置は線の下の ▲
   {% endcomment %}
+  {% comment %}
+    取得日からのローソク足（2026-09-24）: 価格バーと期限の線の間。横軸は期限の線と同じ（左端=取得日・右端=20日）、
+    縦軸は損切り〜利確。水平線: 緑=利確線／白=建値／赤=損切り線。縦の点線=15日。SVG はサーバーで座標を作る
+  {% endcomment %}
+  <span class="ct-cdl-k">日足</span>
+  <div class="ct-cdl">
+    {% if r.candles %}
+    <svg viewBox="0 0 {{ r.candles.W }} {{ r.candles.H }}" preserveAspectRatio="none" aria-label="取得からの日足">
+      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.target_y }}" y2="{{ r.candles.target_y }}" class="ln-target" />
+      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.entry_y }}" y2="{{ r.candles.entry_y }}" class="ln-entry" />
+      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.stop_y }}" y2="{{ r.candles.stop_y }}" class="ln-stop" />
+      <line x1="{{ r.candles.half_x }}" x2="{{ r.candles.half_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-half" />
+      {% for c in r.candles.items %}
+      <g class="{% if c.up %}cd-up{% else %}cd-down{% endif %}"><title>{{ c.date|date:"n/j" }} 始{{ c.o|floatformat:2 }} 高{{ c.h|floatformat:2 }} 安{{ c.l|floatformat:2 }} 終{{ c.c|floatformat:2 }}</title>
+        <line x1="{{ c.cx }}" x2="{{ c.cx }}" y1="{{ c.hi }}" y2="{{ c.lo }}" class="wick" />
+        <rect x="{{ c.x }}" y="{{ c.body_y }}" width="{{ c.w }}" height="{{ c.body_h }}" /></g>
+      {% endfor %}
+    </svg>
+    {% else %}<span class="ct-sub">日足待ち</span>{% endif %}
+  </div>
+  <span class="ct-cdl-v"></span>
   <span class="ct-time-k {{ r.time.state }}">期限 <b>{{ r.days }}日</b></span>
   <div class="ct-time-wrap {{ r.time.state }}">
     <span class="ct-time-track"><span class="ct-time-fill" style="width:{{ r.time.pct|floatformat:1 }}%"></span><i class="ct-time-half" style="left:{{ r.time.warn_pos|floatformat:1 }}%" title="15日"></i></span>

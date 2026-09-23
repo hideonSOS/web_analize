@@ -309,6 +309,42 @@ def untrack(entry) -> bool:
     return True
 
 
+CANDLE_W, CANDLE_H = 1000, 100   # SVG の座標系（preserveAspectRatio=none で横に伸ばす）
+
+
+def candles(t: Trade, bars: list[dict]) -> dict | None:
+    """取得日からのローソク足（2026-09-24 ユーザー要望）。横軸は期限の線と同じ（左端=取得日・右端=
+    TIME_LIMIT_DAYS）、縦軸は 損切り線〜利確線（はみ出した日があればそこまで広げる）。
+    サーバー側で SVG の座標まで作る（JS なし）。期限を過ぎた日は描かない（期限の線と揃えるため）"""
+    rows = [b for b in bars if b['date'] and b['date'] >= t.entry_date
+            and (b['date'] - t.entry_date).days <= TIME_LIMIT_DAYS
+            and None not in (b['open'], b['high'], b['low'], b['close'])]
+    if not rows:
+        return None
+    ymax = max([t.target_price] + [b['high'] for b in rows])
+    ymin = min([t.stop_price] + [b['low'] for b in rows])
+    pad = (ymax - ymin) * 0.04 or 1
+    ymax, ymin = ymax + pad, ymin - pad
+
+    def y(p):
+        return round((ymax - p) / (ymax - ymin) * CANDLE_H, 2)
+    step = CANDLE_W / TIME_LIMIT_DAYS
+    w = round(step * 0.6, 2)
+    out = []
+    for b in rows:
+        d = (b['date'] - t.entry_date).days
+        cx = round(d * step, 2)
+        top, bot = max(b['open'], b['close']), min(b['open'], b['close'])
+        out.append({'cx': cx, 'x': round(cx - w / 2, 2), 'w': w,
+                    'hi': y(b['high']), 'lo': y(b['low']),
+                    'body_y': y(top), 'body_h': max(0.8, round(y(bot) - y(top), 2)),
+                    'up': b['close'] >= b['open'], 'date': b['date'],
+                    'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
+    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H,
+            'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
+            'half_x': round(TIME_WARN_DAYS * step, 2)}
+
+
 def _ticks(stop_pct: float, target_pct: float) -> list[dict]:
     """レンジバーの目盛り。位置は 損切り線=0% 〜 利確線=100%。
     主目盛り: 損切り／0（建値）／利確の半分／利確。副目盛り: 損切りの半分／利確の 1/4・3/4"""
@@ -377,6 +413,7 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'gain_ps': (cur - t.entry_price) if cur else None,
             'gain_ps_jpy': ((cur - t.entry_price) * fx_rate) if (cur and t.currency == 'USD') else None,
             'time': time_gauge((today - t.entry_date).days),
+            'candles': candles(t, bars),
             'to_stop': (cur / t.stop_price - 1) * 100 if cur else None,     # 損切りまでの余裕（%）
             'to_target': (t.target_price / cur - 1) * 100 if cur else None,  # 利確までの距離（%）
             'hi': hi, 'lo': lo,
