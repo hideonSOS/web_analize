@@ -308,3 +308,25 @@
 .ct-cdl .cd-down rect{ fill:#ef4444; } .ct-cdl .cd-down .wick{ stroke:#ef4444; }
 .ct-cdl .ct-sub{ position:absolute; left:8px; top:40%; }
 @media (max-width:600px){ .ct-cdl{ height:200px; } }   /* スマホは画面に収まるよう控えめに */
+
+/* 建値ストップ（2026-09-24） */
+.ct-be-slit{ position:absolute; top:-4px; bottom:-4px; width:2px; transform:translateX(-50%); background:#fbbf24; box-shadow:0 0 6px rgba(251,191,36,.8); }
+.ct-be-slit i{ position:absolute; top:-15px; left:50%; transform:translateX(-50%); font-style:normal; font-size:11px; }
+.ct-be-slit.moved{ background:#22d3ee; box-shadow:0 0 6px rgba(34,211,238,.8); }
+.ct-be-box{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:12px; border-radius:10px; padding:8px 12px; font-size:12.5px; }
+.ct-be-box.wait{ color:#9ca3af; border:1px dashed #334155; }
+.ct-be-box.reached{ color:#fde68a; border:1px solid #f59e0b; background:rgba(245,158,11,.10); box-shadow:0 0 14px rgba(245,158,11,.25); }
+.ct-be-box.reached b{ color:#fff; }
+.ct-be-box.moved{ color:#a5f3fc; border:1px solid #0e7490; background:rgba(34,211,238,.08); }
+.ct-be-msg{ flex:1 1 320px; line-height:1.7; }
+.ct-be-btn{ background:linear-gradient(135deg, #f59e0b, #b45309); color:#fff; border:1px solid #fbbf24; border-radius:10px; padding:10px 18px; font-weight:800; cursor:pointer; box-shadow:0 0 14px rgba(245,158,11,.5); }
+.ct-be-btn:hover{ filter:brightness(1.1); }
+.ct-be-undo{ background:none; border:1px solid #334155; color:#6b7280; border-radius:6px; padding:2px 8px; font-size:11px; cursor:pointer; }
+.ct-be-touch{ color:#f87171; }
+.ct-range-stop.ct-be-moved{ color:#67e8f9; }
+.ct-range-stop.ct-be-moved i{ text-decoration:line-through; }
+.ct-cdl .ln-be{ stroke:rgba(251,191,36,.7); stroke-width:1; stroke-dasharray:6 3; }
+.ct-rule-item.be b{ color:#fbbf24; }
+.ct-be-sum{ color:#a5f3fc; }
+.ct-sim-be{ margin:8px 0 0; font-size:13px; color:#fde68a; border:1px dashed #b45309; border-radius:8px; padding:6px 10px; }
+.ct-sim-be b{ color:#fff; }

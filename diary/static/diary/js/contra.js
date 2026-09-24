@@ -135,6 +135,14 @@
     $('ct-sim-stop-price').textContent = px(sp);
     $('ct-sim-entry-price').textContent = px(p);
     $('ct-sim-target-price').textContent = px(tp);
+    // 建値ストップ（2026-09-24）: +7% に届いたら損切りを建値へ
+    const beEl = $('ct-sim-be'), beP = parseFloat(root.dataset.be);
+    if (beEl) {
+      if (beP > 0 && beP < targetPct) {
+        beEl.hidden = false;
+        beEl.innerHTML = `🛡 <b>${px(p * (1 + beP / 100))}</b>（+${beP}%）に届いたら、損切りを <b>${px(sp)}</b> → 建値 <b>${px(p)}</b> に上げる`;
+      } else { beEl.hidden = true; }
+    }
     // 目盛りバー（価格）
     const tk = ticks(p);
     $('ct-sim-track').innerHTML = tk.map((k) => `<span class="ct-slit ${k.kind}" style="left:${k.pos.toFixed(1)}%"></span>`).join('');

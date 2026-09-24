@@ -277,8 +277,10 @@ def contra(request):
             else:
                 setting.capital, setting.risk_pct = int(cap), risk
                 setting.default_stop_pct, setting.default_target_pct, setting.cost_pct = sp, tp, cost
+                be = _f('be_trigger_pct', setting.be_trigger_pct)
+                setting.be_trigger_pct = be if be is not None and 0 <= be < tp else setting.be_trigger_pct
                 setting.save()
-                messages.success(request, '設定を保存しました。')
+                messages.success(request, '設定を保存しました（新しく追跡する取引から適用）。')
             return redirect('diary:contra')
 
         # ⚠️ エントリー／決済の入力は売買日記に統一した（2026-09-09）。ここには置かない。
@@ -289,6 +291,14 @@ def contra(request):
                 messages.success(request, f'{t.ticker} の購入時スクリーンショットを保存しました。')
             else:
                 messages.error(request, '画像が貼り付けられていません（貼り付け欄をクリックして Ctrl+V）。')
+            return redirect('diary:contra')
+
+        if form_id == 'be_move':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='contra')
+            on = request.POST.get('on', '1') == '1'
+            C.move_to_breakeven(t, on)
+            messages.success(request, f'{t.ticker}: 損切りを建値 {t.entry_price:,.2f} に上げたと記録しました。' if on
+                             else f'{t.ticker}: 建値への変更記録を取り消しました。')
             return redirect('diary:contra')
 
         if form_id == 'note':
@@ -406,8 +416,10 @@ def practice(request):
             else:
                 setting.capital, setting.risk_pct = int(cap), risk
                 setting.default_stop_pct, setting.default_target_pct, setting.cost_pct = sp, tp, cost
+                be = _f('be_trigger_pct', setting.be_trigger_pct)
+                setting.be_trigger_pct = be if be is not None and 0 <= be < tp else setting.be_trigger_pct
                 setting.save()
-                messages.success(request, '練習の設定を保存しました。')
+                messages.success(request, '練習の設定を保存しました（新しく記録する取引から適用）。')
             return redirect('diary:practice')
 
         if form_id == 'open':
@@ -465,6 +477,14 @@ def practice(request):
             t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
             if C.add_note(t, request.POST.get('text', ''), request.POST.get('kind', ''), image=request.POST.get('image', '')):
                 messages.success(request, f'{t.ticker} にコメントを追記しました。')
+            return redirect('diary:practice')
+
+        if form_id == 'be_move':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
+            on = request.POST.get('on', '1') == '1'
+            C.move_to_breakeven(t, on)
+            messages.success(request, f'{t.ticker}: 損切りを建値 {t.entry_price:,.2f} に上げたと記録しました。' if on
+                             else f'{t.ticker}: 建値への変更記録を取り消しました。')
             return redirect('diary:practice')
 
         if form_id == 'delete':

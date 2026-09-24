@@ -10,7 +10,7 @@
   計算は contra.js のみ。DB には触れず、最後の入力を localStorage に覚えるだけ（短期と練習で別キー）。
 {% endcomment %}
 <section class="ct-card ct-sim" id="ct-sim"
-         data-stop="{{ setting.default_stop_pct }}" data-target="{{ setting.default_target_pct }}"
+         data-stop="{{ setting.default_stop_pct }}" data-target="{{ setting.default_target_pct }}" data-be="{{ setting.be_trigger_pct }}"
          data-cost="{{ setting.cost_pct }}" data-capital="{{ setting.capital }}" data-risk="{{ setting.risk_pct }}"
          data-key="{{ sim_key|default:'contra' }}">
   <h2>損切り・利確シミュレーター
@@ -27,6 +27,7 @@
       <div class="ct-sim-box entry"><span class="k">買値</span><b id="ct-sim-entry-price"></b><span class="ct-sim-after" id="ct-sim-entry-sub">建値</span></div>
       <div class="ct-sim-box target"><span class="k">利確ライン（+<span id="ct-sim-target-pct"></span>%）</span><b id="ct-sim-target-price"></b><span class="ct-sim-after">ここに指値の売り</span></div>
     </div>
+    <p class="ct-sim-be" id="ct-sim-be" hidden></p>
     {% comment %} 価格の目盛りバー: 保有中のレンジバーと同じ見た目。−5／−2.5／0／+2.5／+5／+7.5／+10 の価格 {% endcomment %}
     <div class="ct-sim-track-wrap">
       <div class="ct-track ct-sim-track" id="ct-sim-track"></div>

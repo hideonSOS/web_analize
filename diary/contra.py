@@ -97,6 +97,7 @@ def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '') -> T
         country=entry.stock.country, currency='USD' if entry.stock.country == 'US' else 'JPY',
         strategy='contra', entry_date=entry.recorded_at.date(), entry_price=price, shares=int(entry.shares),
         stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
+        be_trigger_pct=(setting.be_trigger_pct if 0 < (setting.be_trigger_pct or 0) < target_pct else None),
         stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
         entry_note=entry.reason, over_risk=int(entry.shares) > limit['shares'], entry_diary=entry,
         risk_scenario=risk_scenario,
@@ -121,7 +122,14 @@ def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '') -> T
 
 def auto_exit_reason(trade: Trade, price: float) -> str:
     """決済価格から理由を推定。
-    損切り線以下=損切り／利確線以上=利確／建値より上で利確線未満=早期利確／それ以外（損失側の裁量）=裁量"""
+    損切り線以下=損切り／利確線以上=利確／建値より上で利確線未満=早期利確／それ以外（損失側の裁量）=裁量。
+    建値ストップ移動後（be_moved_at あり）は、建値付近（+1% 以内・ギャップで下回った場合も）＝建値撤退"""
+    if trade.be_moved_at:
+        if price >= trade.target_price:
+            return 'target'
+        if price <= trade.entry_price * 1.01:
+            return 'breakeven'
+        return 'early'
     if price <= trade.stop_price:
         return 'stop'
     if price >= trade.target_price:
@@ -141,6 +149,8 @@ def close_from_entry(entry, reason: str = '', expected: str = '') -> Trade | Non
         return None
     price = float(entry.price)
     t.exit_date, t.exit_price = entry.recorded_at.date(), price
+    if reason == 'stop' and t.be_moved_at:
+        reason = ''    # 建値へ上げた後の「損切り」は建値撤退として価格から判定する
     t.exit_reason = reason if reason in dict(Trade.EXIT) else auto_exit_reason(t, price)
     # 日記の売りが「利益確定」なのに価格が損切り線以下（ルール外の売り）は裁量として残す
     if reason == '' and getattr(entry, 'sell_kind', '') == 'profit' and t.exit_reason == 'stop':
@@ -166,6 +176,7 @@ def open_practice(setting: ContraSetting, stock, price: float, shares: int, entr
         currency='USD' if stock.country == 'US' else 'JPY', strategy='practice',
         entry_date=entry_date, entry_price=price, shares=int(shares),
         stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
+        be_trigger_pct=(setting.be_trigger_pct if 0 < (setting.be_trigger_pct or 0) < target_pct else None),
         stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
         entry_note=reason, over_risk=int(shares) > limit['shares'], risk_scenario=risk_scenario,
     )
@@ -186,6 +197,37 @@ def open_practice(setting: ContraSetting, stock, price: float, shares: int, entr
     except Exception:   # noqa: BLE001
         pass
     return t
+
+
+def move_to_breakeven(t: Trade, on=True) -> Trade:
+    """「変更した」ボタン: 証券会社で逆指値を建値に変更したことを記録（on=False で取り消し）"""
+    t.be_moved_at = date.today() if on else None
+    t.save(update_fields=['be_moved_at'])
+    return t
+
+
+def breakeven_state(t: Trade, bars: list[dict], cur: float | None) -> dict | None:
+    """建値ストップの状態。wait=まだ届いていない／reached=届いた（逆指値の変更待ち）／moved=変更済み。
+    無効（be_trigger_pct 無し）なら None"""
+    trig = t.be_trigger_pct
+    if not trig or t.stop_pct + t.target_pct <= 0:
+        return None
+    price = t.entry_price * (1 + trig / 100)
+    hit = next((b for b in bars if b['date'] and b['date'] >= t.entry_date and b['high'] is not None
+                and b['high'] >= price), None)
+    if t.be_moved_at:
+        state = 'moved'
+    elif hit or (cur is not None and cur >= price):
+        state = 'reached'
+    else:
+        state = 'wait'
+    # 変更後に安値が建値に触れたか（＝建値で手仕舞いされているはず）
+    touched = bool(t.be_moved_at) and any(b['date'] and b['date'] >= t.be_moved_at and b['low'] is not None
+                                          and b['low'] <= t.entry_price for b in bars)
+    return {'pct': trig, 'price': price, 'state': state, 'hit_date': hit['date'] if hit else None,
+            'hit_high': hit['high'] if hit else None, 'moved_at': t.be_moved_at, 'touched': touched,
+            'pos': (trig + t.stop_pct) / (t.stop_pct + t.target_pct) * 100,
+            'to_go': (price / cur - 1) * 100 if cur else None}
 
 
 def close_trade(t: Trade, price: float, exit_date, reason: str = '', note: str = '', expected: str = '') -> Trade:
@@ -340,9 +382,10 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
                     'body_y': y(top), 'body_h': max(0.8, round(y(bot) - y(top), 2)),
                     'up': b['close'] >= b['open'], 'date': b['date'],
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
+    be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H,
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
-            'half_x': round(TIME_WARN_DAYS * step, 2)}
+            'be_y': be_y, 'half_x': round(TIME_WARN_DAYS * step, 2)}
 
 
 def _ticks(stop_pct: float, target_pct: float) -> list[dict]:
@@ -414,6 +457,7 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'gain_ps_jpy': ((cur - t.entry_price) * fx_rate) if (cur and t.currency == 'USD') else None,
             'time': time_gauge((today - t.entry_date).days),
             'candles': candles(t, bars),
+            'be': breakeven_state(t, bars, cur),
             'to_stop': (cur / t.stop_price - 1) * 100 if cur else None,     # 損切りまでの余裕（%）
             'to_target': (t.target_price / cur - 1) * 100 if cur else None,  # 利確までの距離（%）
             'hi': hi, 'lo': lo,
@@ -436,7 +480,10 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'fallback': fallback,      # 株価マスタの終値で代用中（日足が来れば自動で切り替わる）
         })
     # 触れたものを先頭に（今日やることが上に来る）
-    rows.sort(key=lambda r: (not (r['touched_stop'] or r['touched_target']), r['t'].entry_date))
+    # 触れたもの・建値への変更待ちを先頭に（今日やることが上に来る）
+    rows.sort(key=lambda r: (not (r['touched_stop'] or r['touched_target']
+                                  or (r['be'] and (r['be']['state'] == 'reached' or r['be']['touched']))),
+                             r['t'].entry_date))
     return rows
 
 
@@ -488,11 +535,12 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
              'target': {'pct': 0.0, 'amount': 0.0, 'n': 0},
              'stop': {'pct': 0.0, 'amount': 0.0, 'n': 0},
              'early': {'pct': 0.0, 'amount': 0.0, 'n': 0},
+             'breakeven': {'pct': 0.0, 'amount': 0.0, 'n': 0},
              'other': {'pct': 0.0, 'amount': 0.0, 'n': 0}}
     for t in closed:
         net = t.pnl_pct_net(c)
         amt = _amount_net(t)
-        key = t.exit_reason if t.exit_reason in ('target', 'stop', 'early') else 'other'
+        key = t.exit_reason if t.exit_reason in ('target', 'stop', 'early', 'breakeven') else 'other'
         total['pct'] += net
         total['amount'] += amt
         total[key]['pct'] += net

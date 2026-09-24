@@ -46,6 +46,7 @@
             <span class="up">利確 +{{ tt.target.pct|floatformat:1 }}%（{{ tt.target.n }}件・{{ tt.unit }}{{ tt.target.amount|floatformat:0|intcomma }}）</span>
             <span class="down">損切り {{ tt.stop.pct|floatformat:1 }}%（{{ tt.stop.n }}件・{{ tt.unit }}{{ tt.stop.amount|floatformat:0|intcomma }}）</span>
             {% if tt.early.n %}<span class="up">早期利確 +{{ tt.early.pct|floatformat:1 }}%（{{ tt.early.n }}件・{{ tt.unit }}{{ tt.early.amount|floatformat:0|intcomma }}）</span>{% endif %}
+            {% if tt.breakeven.n %}<span class="ct-be-sum">🛡 建値撤退 {% if tt.breakeven.pct > 0 %}+{% endif %}{{ tt.breakeven.pct|floatformat:1 }}%（{{ tt.breakeven.n }}件）</span>{% endif %}
             {% if tt.other.n %}<span class="ct-stale">裁量・期限 {% if tt.other.pct > 0 %}+{% endif %}{{ tt.other.pct|floatformat:1 }}%（{{ tt.other.n }}件）</span>{% endif %}
           </div>
         </div>
@@ -197,6 +198,7 @@
         <label>1回の損失上限（%）<input type="number" name="risk_pct" value="{{ setting.risk_pct }}" step="0.5" min="0.5" max="10"></label>
         <label>損切り（%）<input type="number" name="default_stop_pct" value="{{ setting.default_stop_pct }}" step="0.5"></label>
         <label>利確（%）<input type="number" name="default_target_pct" value="{{ setting.default_target_pct }}" step="0.5"></label>
+        <label>🛡 建値へ上げる（%・0で無効）<input type="number" name="be_trigger_pct" value="{{ setting.be_trigger_pct }}" step="0.5" min="0"></label>
         <label>片道コスト（%）<input type="number" name="cost_pct" value="{{ setting.cost_pct }}" step="0.05"></label>
         <button class="ct-btn" type="submit">保存</button>
       </form>
@@ -209,6 +211,7 @@
   <section class="ct-rule">
     <span class="ct-rule-item practice">練習</span>
     <span class="ct-rule-item target">利確 <b>+{{ setting.default_target_pct|floatformat:"-1" }}%</b></span>
+    {% if setting.be_trigger_pct %}<span class="ct-rule-item be">🛡 <b>+{{ setting.be_trigger_pct|floatformat:"-1" }}%</b>で建値へ</span>{% endif %}
     <span class="ct-rule-item stop">損切り <b>−{{ setting.default_stop_pct|floatformat:"-1" }}%</b></span>
     <span class="ct-rule-item">最低勝率 <b>{{ be.with_cost|floatformat:0 }}%</b></span>
   </section>

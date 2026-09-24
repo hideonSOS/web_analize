@@ -92,6 +92,9 @@ class ContraSetting(models.Model):
     risk_pct = models.FloatField(default=2.0, help_text='1回の損失の上限（資金の%）')
     default_stop_pct = models.FloatField(default=5.0, help_text='損切り幅の既定（%）')
     default_target_pct = models.FloatField(default=10.0, help_text='利確幅の既定（%）')
+    # 建値ストップ（2026-09-24 ユーザー採用）: 高値がこの%に届いたら損切りを建値へ上げる。0 で無効。
+    # 根拠: ユーザー銘柄15の10年検証で +7%到達→建値 が +7%全利確・+10%全利確より期待値が高かった
+    be_trigger_pct = models.FloatField(default=7.0, help_text='建値ストップの発動（%）。0で無効')
     # moomoo証券ベーシックコースの米国株手数料 = 約定金額の 0.12%（税込 0.132%）・上限 22 米ドル
     # （2026-09-09 実測・ユーザー指定「moomoo に近しい値」）。上限は未考慮（$16,700 超の注文で効く）
     cost_pct = models.FloatField(default=0.132, help_text='片道の手数料（%）。moomoo ベーシック 税込 0.132%')
@@ -115,7 +118,8 @@ class Trade(models.Model):
     """
     STRATEGY = [('contra', '短期'), ('practice', '練習'), ('long', '長期'), ('div', '配当')]
     # early=早期利確: +10% に届く前に利益で降りた（勝率には入れず、損益だけ積算。ユーザー決定 2026-09-09）
-    EXIT = [('stop', '損切り'), ('target', '利確'), ('early', '早期利確'), ('manual', '裁量'), ('time', '期限')]
+    EXIT = [('stop', '損切り'), ('target', '利確'), ('early', '早期利確'), ('breakeven', '建値撤退'),
+            ('manual', '裁量'), ('time', '期限')]
 
     stock = models.ForeignKey(Stock, null=True, blank=True, on_delete=models.SET_NULL)
     stock_name = models.CharField(max_length=100)
@@ -137,6 +141,10 @@ class Trade(models.Model):
     fx_at_entry = models.FloatField(null=True, blank=True)   # 未使用（為替は考えない方針。互換のため残す）
     risk_jpy = models.FloatField(null=True, blank=True)      # 計画時の最大損失（取引の通貨。列名は歴史的事情）
     over_risk = models.BooleanField(default=False)          # 1〜2%ルールを超えて入った（裁量）
+    # 建値ストップ（2026-09-24）: 追跡開始時に設定から固定。高値が建値+この%に届いたら損切りを建値へ上げる。
+    # be_moved_at = 本人が証券会社で逆指値を建値に変更した日（「変更した」ボタンで記録）
+    be_trigger_pct = models.FloatField(null=True, blank=True)
+    be_moved_at = models.DateField(null=True, blank=True)
 
     exit_date = models.DateField(null=True, blank=True)
     exit_price = models.FloatField(null=True, blank=True)

@@ -16,7 +16,11 @@
   </div>
 </div>
 <div class="ct-range">
+  {% if r.be and r.be.state == 'moved' %}
+  <span class="ct-range-stop ct-be-moved">損切り（建値）{{ r.unit }}{{ r.t.entry_price|floatformat:2 }}<i>元 {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}</i></span>
+  {% else %}
   <span class="ct-range-stop">損切り {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}</span>
+  {% endif %}
   <div class="ct-track-wrap">
     {% comment %} 現在値: バーの上に ▼ と騰落%、バーを貫くシアンのスリット（ユーザー要望 2026-09-10） {% endcomment %}
     {% if r.pos is not None %}
@@ -28,6 +32,7 @@
     <div class="ct-track">
       {% for k in r.ticks %}<span class="ct-slit {{ k.kind }}" style="left:{{ k.pos|floatformat:1 }}%"></span>{% endfor %}
       {% if r.pos is not None %}<span class="ct-now-slit" style="left:{{ r.pos|floatformat:1 }}%" title="現在 {{ r.cur }}"></span>{% endif %}
+      {% if r.be %}<span class="ct-be-slit {{ r.be.state }}" style="left:{{ r.be.pos|floatformat:1 }}%" title="+{{ r.be.pct|floatformat:'-1' }}% {{ r.unit }}{{ r.be.price|floatformat:2 }} に届いたら損切りを建値へ"><i>🛡</i></span>{% endif %}
     </div>
     <div class="ct-ticks">
       {% for k in r.ticks %}<span class="ct-tick {{ k.kind }}" style="left:{{ k.pos|floatformat:1 }}%">{{ k.label }}</span>{% endfor %}
@@ -50,6 +55,7 @@
       <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.entry_y }}" y2="{{ r.candles.entry_y }}" class="ln-entry" />
       <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.stop_y }}" y2="{{ r.candles.stop_y }}" class="ln-stop" />
       <line x1="{{ r.candles.half_x }}" x2="{{ r.candles.half_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-half" />
+      {% if r.candles.be_y is not None %}<line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.be_y }}" y2="{{ r.candles.be_y }}" class="ln-be" />{% endif %}
       {% for c in r.candles.items %}
       <g class="{% if c.up %}cd-up{% else %}cd-down{% endif %}"><title>{{ c.date|date:"n/j" }} 始{{ c.o|floatformat:2 }} 高{{ c.h|floatformat:2 }} 安{{ c.l|floatformat:2 }} 終{{ c.c|floatformat:2 }}</title>
         <line x1="{{ c.cx }}" x2="{{ c.cx }}" y1="{{ c.hi }}" y2="{{ c.lo }}" class="wick" />
@@ -77,6 +83,29 @@
   {% if r.touched_stop %}<span class="ct-flag stop">⚠ 安値が損切り線に触れた → {{ close_hint }}</span>{% endif %}
   {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
 </div>
+{% comment %}
+  建値ストップ（2026-09-24）: +7% に届いたら損切りの逆指値を建値に上げる。
+  wait=次の目標を小さく表示／reached=大きな案内＋「変更した」ボタン／moved=変更済み（取り消し可）
+{% endcomment %}
+{% if r.be %}
+{% if r.be.state == 'reached' %}
+<div class="ct-be-box reached">
+  <div class="ct-be-msg"><b>🛡 +{{ r.be.pct|floatformat:"-1" }}% に到達しました</b>{% if r.be.hit_date %}<span class="ct-sub">{{ r.be.hit_date|date:"n/j" }} 高値 {{ r.unit }}{{ r.be.hit_high|floatformat:2 }}</span>{% endif %}<br>
+    証券会社で <b>損切りの逆指値を {{ r.unit }}{{ r.t.stop_price|floatformat:2 }} → 建値 {{ r.unit }}{{ r.t.entry_price|floatformat:2 }}</b> に変更してください。利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }} はそのまま。以後は最悪でも ±0 です。</div>
+  <form method="post" class="ct-inline">{% csrf_token %}<input type="hidden" name="form_id" value="be_move"><input type="hidden" name="id" value="{{ r.t.id }}"><input type="hidden" name="on" value="1">
+    <button type="submit" class="ct-be-btn">変更した</button></form>
+</div>
+{% elif r.be.state == 'moved' %}
+<div class="ct-be-box moved">
+  <span>🛡 損切りを建値 {{ r.unit }}{{ r.t.entry_price|floatformat:2 }} に上げ済み（{{ r.be.moved_at|date:"n/j" }}）・最悪でも ±0</span>
+  {% if r.be.touched %}<b class="ct-be-touch">⚠ 安値が建値に触れた → {{ close_hint }}（建値撤退）</b>{% endif %}
+  <form method="post" class="ct-inline">{% csrf_token %}<input type="hidden" name="form_id" value="be_move"><input type="hidden" name="id" value="{{ r.t.id }}"><input type="hidden" name="on" value="0">
+    <button type="submit" class="ct-be-undo" onclick="return confirm('建値への変更記録を取り消しますか？');">取り消す</button></form>
+</div>
+{% else %}
+<div class="ct-be-box wait"><span>🛡 あと {% if r.be.to_go is not None %}{{ r.be.to_go|floatformat:1 }}%{% endif %}：{{ r.unit }}{{ r.be.price|floatformat:2 }}（+{{ r.be.pct|floatformat:"-1" }}%）に届いたら損切りを建値 {{ r.unit }}{{ r.t.entry_price|floatformat:2 }} へ上げる</span></div>
+{% endif %}
+{% endif %}
 {% comment %}
   掘り下げ（ユーザー要望 2026-09-10）: 普段は 現在値・レンジバー・距離 だけ。なぜ買ったか・想定・
   コメント・スクリーンショットは「なぜ買ったか・経過を見る」を押したときだけ開く（既定は閉じる）。
