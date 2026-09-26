@@ -44,7 +44,15 @@ def _parse_jp_date(text):
 class Command(BaseCommand):
     help = '投信の基準価額・金銀の円/g・ドル円レートを取得してDBへ蓄積する'
 
+    def add_arguments(self, parser):
+        parser.add_argument('--fx-only', action='store_true',
+                            help='ドル円だけ取得する（朝のバッチ用。週末・祝日も最新にするため）')
+
     def handle(self, *args, **options):
+        if options.get('fx_only'):
+            if self._update_fx() is None:
+                raise SystemExit(1)
+            return
         failed = False
         fx = self._update_fx()
         if fx is None:

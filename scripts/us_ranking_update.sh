@@ -76,6 +76,15 @@ fi
 
 # マクロ指標（日米のCPI・失業率）。FRED/DBnomicsから月次系列を取得（数秒・キー不要）。
 # 月次データだが、季節調整の遡及改定に追従するため日次で回す（差分のみ書き込み）
+# ドル円（毎朝。平日夜の daily_update だけだと金曜の値が月曜夜まで入らず、マクロのドル円が古くなった）
+echo "===== $(date '+%F %T') manage.py update_product_prices --fx-only =====" >> "$LOG"
+if "$PY" manage.py update_product_prices --fx-only >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 echo "===== $(date '+%F %T') manage.py update_macro =====" >> "$LOG"
 if "$PY" manage.py update_macro >> "$LOG" 2>&1; then
     echo "----- OK -----" >> "$LOG"

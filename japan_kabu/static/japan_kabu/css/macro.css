@@ -81,3 +81,4 @@
   .mac-chart{ height:280px; }
   .mac-table th{ width:6.5em; }
 }
+.mac-stale{ margin:0 0 14px; padding:10px 14px; border:1px solid #b91c1c; border-radius:10px; background:rgba(185,28,28,.12); color:#fecaca; font-size:13px; line-height:1.6; }

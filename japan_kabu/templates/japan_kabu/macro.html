@@ -159,6 +159,11 @@
   {% if has_data %}
 
   {# ---- 最新値と基準値の照合 ---- #}
+  {% if stale %}
+  {% comment %} 更新が止まった系列の警告（update_macro.MAX_AGE_DAYS。毎朝の取得で判定・2026-09-27） {% endcomment %}
+  <div class="mac-stale">⚠ 更新が止まっている可能性のある指標があります（取得元の停止・書式変更を疑う）:
+    {% for key, d, age, limit in stale %}<b>{{ key }}</b>（最新 {{ d|date:"Y/n/j"|default:"なし" }}）{% if not forloop.last %}、{% endif %}{% endfor %}</div>
+  {% endif %}
   <div class="mac-chips">
     {% for c in chips %}
     <div class="mac-chip mac-{{ c.state }}">

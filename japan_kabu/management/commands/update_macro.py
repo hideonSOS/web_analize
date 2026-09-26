@@ -78,10 +78,43 @@ DAILY_SOURCES = {
     'D_JGB10':  ('mof', '10年'),        # 日本10年国債（財務省「国債金利情報」の日次・前営業日まで）
     'D_JPCALL': ('boj', 'FM01/STRDCLUCON'),  # 無担保コール O/N 平均（日銀 時系列統計 API・日次）
 }
+# 日本の CPI は 2026年8月分から「2025年基準」に切り替わった（総務省。旧 2020年基準は DBnomics の STATJP）。
+# 旧基準のまま前年比を出すと公表値より 0.1pt 高かった（2026-09-27 に発覚: 8月 総合 2.0 vs 公表 1.9、
+# コア 1.8 vs 1.7、コアコア 2.0 vs 1.9）。2026年以降は新基準の前年比になるよう、旧基準の系列に接続する
+# （_splice_2025base）。CSV は 2025年1月から（前年比は 2026年1月から出せる）
+STATJP_2025 = 'https://www.stat.go.jp/data/cpi/2025/csv/zmi2025aa.csv'
+STATJP_2025_CODES = {'JPCPI_ALL': '0001', 'JPCPI_CORE': '0161', 'JPCPI_CORECORE': '0178'}
+SPLICE_FROM = date(2026, 1, 1)
 MOF_ALL = 'https://www.mof.go.jp/jgbs/reference/interest_rate/data/jgbcm_all.csv'   # 前月末まで
 MOF_CUR = 'https://www.mof.go.jp/jgbs/reference/interest_rate/jgbcm.csv'             # 当月分
 BOJ_API = 'https://www.stat-search.boj.or.jp/api/v1/getDataCode?format=csv&lang=jp&db={db}&code={code}&startDate={start}'
 ERA = {'S': 1925, 'H': 1988, 'R': 2018}
+
+# 鮮度の許容日数（最新データの日付＝月次は月初日 から今日までの日数）。これを超えたら「止まっている」とみなす。
+# 毎朝の実行でチェックし、画面のチップにも ⚠ を出す（2026-09-27 ユーザー要望: 毎月また遅れだすと判断を誤る）。
+# 目安: 米 CPI・失業率は翌月中旬に出る → 8月分は 9/15 ごろ。75日＝翌々月の中旬まで出なければ異常
+#       日本の失業率（OECD 経由）は約2か月遅れ → 100日。日次は祝日・週末込みで 7日
+MAX_AGE_DAYS = {
+    'CPIAUCSL': 75, 'CPILFESL': 75, 'UNRATE': 75, 'GS10': 75, 'GS2': 75, 'FEDFUNDS': 75,
+    'JPCPI_ALL': 75, 'JPCPI_CORE': 75, 'JPCPI_CORECORE': 75, 'JPUNRATE': 100,
+    'JP10Y': 100, 'JPCALL': 100, 'USDJPY': 75,
+    'SP500': 40, 'N225': 40, 'GOLD': 40, 'SILVER': 40, 'BTC': 40,
+    'D_DGS10': 7, 'D_DGS2': 7, 'D_DFF': 7, 'D_FEDLO': 7, 'D_FEDUP': 7, 'D_JGB10': 7, 'D_JPCALL': 14,
+}
+
+
+def stale_series(today=None):
+    """[(保存キー, 最新日, 経過日数, 許容日数)] … 許容日数を超えて更新が止まっている系列"""
+    from django.db.models import Max
+    today = today or date.today()
+    latest = dict(MacroIndicator.objects.values('series').annotate(m=Max('date')).values_list('series', 'm'))
+    out = []
+    for key, limit in MAX_AGE_DAYS.items():
+        d = latest.get(key)
+        age = (today - d).days if d else None
+        if age is None or age > limit:
+            out.append((key, d, age, limit))
+    return out
 
 
 class Command(BaseCommand):
@@ -89,6 +122,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         total_new = total_upd = 0
+        try:
+            cpi2025 = self._fetch_statjp_2025()
+        except Exception as e:  # noqa: BLE001  取れなければ旧基準のまま（公表値と 0.1pt ずれうる）
+            self.stderr.write(f'  日本CPI 2025年基準: 取得失敗（旧基準のまま）: {e}')
+            cpi2025 = {}
         for key, (src, sid) in SOURCES.items():
             try:
                 rows = {'fred': self._fetch_fred, 'dbnomics': self._fetch_dbnomics,
@@ -96,6 +134,8 @@ class Command(BaseCommand):
             except Exception as e:  # noqa: BLE001  1系列の失敗で全体を止めない
                 self.stderr.write(f'  {key}: 取得失敗: {e}')
                 continue
+            if cpi2025.get(key):
+                rows = self._splice_2025base(rows, cpi2025[key])
             n_new, n_upd = self._store(key, rows)
             total_new += n_new
             total_upd += n_upd
@@ -116,6 +156,51 @@ class Command(BaseCommand):
             total_upd += n_upd
             self.stdout.write(f'  {key:15} {len(rows)}行  新規{n_new} 改定{n_upd}  最新: {rows[-1][0]} = {rows[-1][1]}')
         self.stdout.write(self.style.SUCCESS(f'マクロ指標: 新規{total_new}行 / 改定{total_upd}行'))
+        stale = stale_series()
+        for key, d, age, limit in stale:
+            self.stderr.write(f'  [STALE] {key}: 最新 {d}（{age}日前・許容 {limit}日）… 取得元の停止・書式変更を疑う')
+        if stale:
+            raise SystemExit(1)     # cron ログで FAILED にする（画面のチップにも ⚠ が出る）
+
+    @staticmethod
+    def _fetch_statjp_2025():
+        """総務省 2025年基準 CPI（全国・月次・cp932）→ {保存キー: {date: 指数}}"""
+        r = requests.get(STATJP_2025, timeout=60)
+        r.raise_for_status()
+        rows = list(csv.reader(io.StringIO(r.content.decode('cp932', errors='ignore'))))
+        codes = next((row for row in rows if row and row[0].startswith('類・品目符号')), None)
+        if not codes:
+            raise ValueError('類・品目符号の行が無い（書式変更の可能性）')
+        out = {}
+        for key, code in STATJP_2025_CODES.items():
+            if code not in codes:
+                raise ValueError(f'符号 {code} が無い')
+            ci = codes.index(code)
+            vals = {}
+            for row in rows:
+                if row and len(row[0]) == 6 and row[0].isdigit() and len(row) > ci and row[ci]:
+                    vals[date(int(row[0][:4]), int(row[0][4:]), 1)] = float(row[ci])
+            out[key] = vals
+        return out
+
+    @staticmethod
+    def _splice_2025base(old_rows, new):
+        """旧基準（2020年=100）の系列の 2026年以降を、新基準の前年比になる値に置き換える
+
+        2026年m月 = 新(2026年m月) × 旧(2025年m月) ÷ 新(2025年m月)。月ごとの係数で接続するので、
+        2025年までの前年比は旧基準の公表値のまま、2026年以降の前年比は新基準の公表値と一致する
+        （2027年以降も同じ月の係数を使うので、前年比は 新/新 になる）。水準は旧基準の目盛りのまま
+        """
+        old = dict(old_rows)
+        factor = {}
+        for d, v in new.items():
+            if d.year == 2025 and old.get(d):
+                factor[d.month] = old[d] / v
+        out = {d: v for d, v in old.items() if d < SPLICE_FROM}
+        for d, v in new.items():
+            if d >= SPLICE_FROM and d.month in factor:
+                out[d] = v * factor[d.month]
+        return sorted(out.items())
 
     @staticmethod
     def _fetch_mof(col):

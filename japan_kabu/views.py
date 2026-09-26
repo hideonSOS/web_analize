@@ -808,9 +808,14 @@ def macro(request):
             chips.append(fx_chip)
         charts.append(fx_chart)
 
+    # 鮮度: 許容日数を超えて止まっている系列があれば画面の上に出す（update_macro と同じ基準）
+    from .management.commands.update_macro import stale_series
+    stale = stale_series()
+
     context = {
         'charts': charts,
         'chips': chips,
+        'stale': stale,
         'has_data': any(c['series'] and c['series'][0]['data'] for c in charts),
         'country': country,
         'countries': MACRO_COUNTRIES,
