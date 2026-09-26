@@ -13,9 +13,8 @@
       {% if key == scope %}<b style="color:#e5e7eb">{{ label }}</b>{% else %}<a class="pf-link" href="{% url 'portfolio:stock_focus' key %}">{{ label }}</a>{% endif %}
       {% if not forloop.last %} ｜ {% endif %}
     {% endfor %}
-    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">← ダッシュボード</a>
-    ／ <a class="pf-link" href="{% url 'portfolio:stocks' %}">個別株の分析（既存） →</a>
   </p>
+  {% include 'portfolio/_subnav.html' with current='' %}
 
   {% if not has_stocks %}
     <div class="pf-card">

@@ -14,9 +14,8 @@
 {% block content %}
 <div class="pf-wrap">
   <h1 class="pf-title">個別株の分析</h1>
-  <p class="pf-sub">ポートフォリオの「攻め」部分を掘り下げる
-    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">← ダッシュボード</a>
-    ／ <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録 →</a></p>
+  <p class="pf-sub">ポートフォリオの「攻め」部分を掘り下げる</p>
+  {% include 'portfolio/_subnav.html' with current='stocks' %}
 
   {% if not has_stocks %}
     <div class="pf-card">
