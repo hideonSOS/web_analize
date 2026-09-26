@@ -58,7 +58,7 @@
           <td><input type="number" step="any" name="avg_cost" form="he{{ h.id }}"
                      value="{{ h.cur.avg_cost|floatformat:'-4' }}"
                      style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"></td>
-          <td>{{ h.baseline_date|date:"Y/n/j" }}</td>
+          <td>{{ h.baseline_at|default:h.baseline_date|date:"Y/n/j" }}</td>
           <td style="white-space:nowrap">
             <form id="he{{ h.id }}" method="post" style="display:inline">
               {% csrf_token %}
