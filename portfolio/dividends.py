@@ -174,6 +174,18 @@ def build(rows, fx_rate, today=None):
     mx = max([x['net'] for x in months] + [1])
     for x in months:
         x['pct'] = x['net'] / mx * 100
+    # 保有比率（配当狙い銘柄の中での評価額の割合。リバランス検討用の横棒・2026-09-27）
+    for i in items:
+        i['value_jpy'] = i['qty'] * (i['close'] or i['cost'] or 0) * (fx_rate if (i['is_us'] and fx_rate) else 1)
+    weight_total = sum(i['value_jpy'] for i in items)
+    weight_max = max([i['value_jpy'] for i in items] + [0])
+    weights = []
+    for i in sorted(items, key=lambda x: -x['value_jpy']):
+        weights.append({
+            'stock': i['stock'], 'value_jpy': i['value_jpy'], 'yield_now': i['yield_now'],
+            'pct': (i['value_jpy'] / weight_total * 100) if weight_total else 0,
+            'width': (i['value_jpy'] / weight_max * 100) if weight_max else 0,
+        })
     total_net = sum(i['annual_net_jpy'] for i in items)
     cost_jpy = sum(i['qty'] * i['cost'] * (fx_rate if (i['is_us'] and fx_rate) else 1) for i in items)
     value_jpy = sum(i['qty'] * (i['close'] or 0) * (fx_rate if (i['is_us'] and fx_rate) else 1) for i in items)
@@ -188,6 +200,10 @@ def build(rows, fx_rate, today=None):
         'fx_rate': fx_rate, 'today': today,
         # 配当狙い銘柄の総額（評価額・取得額。米国株は円換算）
         'value_jpy': value_jpy, 'cost_jpy': cost_jpy, 'count': len(items),
+        'weights': weights,
+        # 均等に持ったときの比率（横棒の目安線。最大の銘柄を 100% 幅とする目盛りに換算）
+        'equal_pct': (100 / len(items)) if items else 0,
+        'equal_width': ((weight_total / len(items)) / weight_max * 100) if (items and weight_max) else 0,
         'pnl_jpy': value_jpy - cost_jpy,
         'pnl_pct': ((value_jpy / cost_jpy - 1) * 100) if cost_jpy else None,
     }

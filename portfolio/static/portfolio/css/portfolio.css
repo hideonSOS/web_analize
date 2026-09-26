@@ -393,3 +393,9 @@ tr.pf-reg-saved td{ animation:pfRegSaved 1.4s ease-out; }
 }
 .dv-tools{ text-align:right; font-size:11px; color:#6b7280; margin:-8px 0 12px; }
 .dv-kpi .s em{ font-style:normal; }
+/* 配当金: 保有比率の横棒（点線＝均等に持ったとき） */
+.dv-w-row{ grid-template-columns:230px 1fr 170px; font-size:14px; }
+.dv-w-track{ position:relative; height:20px; overflow:visible; }
+.dv-w-eq{ position:absolute; top:-3px; bottom:-3px; border-left:2px dashed #fbbf24; opacity:.8; }
+.dv-w-pct{ font-size:16px; color:#e5e7eb; }
+@media (max-width:768px){ .dv-w-row{ grid-template-columns:110px 1fr 120px; font-size:12px; } }
