@@ -10,6 +10,11 @@
   </head>
   <body>
     <!-- ヘッダー -->
+    {% comment %}
+      site_header ブロック: 下位ページで空にするとヘッダーとナビを出さない（画面の上まで使う）。
+      例: ポートフォリオの従属ページ（個別株分析・資産登録・配当金。2026-09-27 ユーザー指示）
+    {% endcomment %}
+    {% block site_header %}
     <header>
       <p class="site-title"><a href="{% url 'website:index' %}">KABU ANALYZE</a></p>
       <button class="ham-btn" id="js-btn">
@@ -69,6 +74,7 @@
         </ul>
       </nav>
     </header>
+    {% endblock %}
 
     {% block content %}{% endblock %}
 

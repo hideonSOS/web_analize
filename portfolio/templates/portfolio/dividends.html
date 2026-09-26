@@ -5,6 +5,9 @@
 <link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
+{% comment %} 資産（ポートフォリオ）の下位ページなのでサイト共通のヘッダー・ナビは出さない（戻りはボタン列の「← 資産」） {% endcomment %}
+{% block site_header %}{% endblock %}
+
 {% block content %}
 <div class="pf-wrap dv">
   {% include 'portfolio/_subnav.html' with current='dividends' %}
