@@ -77,32 +77,30 @@
       </div>
     </div>
 
-    {% comment %} 投資スタイル別は 2026-09-27 に削除（ユーザー指示）。セクター別は全幅 {% endcomment %}
-    <div class="pf-grid2">
-      <!-- 押し目度（ドローダウン）ランキング -->
-      <div class="pf-card">
-        <h2>高値からの下落率 <span class="pf-hint">終値ベース・調整後。深い順</span></h2>
-        <div class="pf-scroll">
-          <table class="pf-table num" style="min-width:0">
-            <tr><th>銘柄</th><th>1年高値比</th><th>3年高値比</th></tr>
-            {% for r in dd_rows %}
-            <tr>
-              <td><span class="pf-code">{{ r.code }}</span>{{ r.name }}</td>
-              <td>{% if r.dd1y is not None %}
-                <span class="{% if r.dd1y < -15 %}pf-neg{% elif r.dd1y > -3 %}pf-pos{% endif %}">{{ r.dd1y|floatformat:1 }}%</span>
-                {% else %}<span class="pf-muted">履歴蓄積中</span>{% endif %}</td>
-              <td>{% if r.dd3y is not None %}{{ r.dd3y|floatformat:1 }}%{% else %}<span class="pf-muted">―</span>{% endif %}</td>
-            </tr>
-            {% endfor %}
-          </table>
-        </div>
-        {% if missing_dd %}
-        <div class="pf-note">
-          「履歴蓄積中」の銘柄は株価履歴が未取得です。夜間バッチ（update_impulse_prices）が
-          保有銘柄の履歴を自動で貯め始めます。
-        </div>
-        {% endif %}
+    {% comment %} 投資スタイル別は 2026-09-27 に削除（ユーザー指示）。セクター別・下落率も全幅 {% endcomment %}
+    <!-- 押し目度（ドローダウン）ランキング -->
+    <div class="pf-card">
+      <h2>高値からの下落率 <span class="pf-hint">終値ベース・調整後。深い順</span></h2>
+      <div class="pf-scroll">
+        <table class="pf-table num" style="min-width:0">
+          <tr><th>銘柄</th><th>1年高値比</th><th>3年高値比</th></tr>
+          {% for r in dd_rows %}
+          <tr>
+            <td><span class="pf-code">{{ r.code }}</span>{{ r.name }}</td>
+            <td>{% if r.dd1y is not None %}
+              <span class="{% if r.dd1y < -15 %}pf-neg{% elif r.dd1y > -3 %}pf-pos{% endif %}">{{ r.dd1y|floatformat:1 }}%</span>
+              {% else %}<span class="pf-muted">履歴蓄積中</span>{% endif %}</td>
+            <td>{% if r.dd3y is not None %}{{ r.dd3y|floatformat:1 }}%{% else %}<span class="pf-muted">―</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
       </div>
+      {% if missing_dd %}
+      <div class="pf-note">
+        「履歴蓄積中」の銘柄は株価履歴が未取得です。夜間バッチ（update_impulse_prices）が
+        保有銘柄の履歴を自動で貯め始めます。
+      </div>
+      {% endif %}
     </div>
 
     <!-- 銘柄明細 -->
