@@ -381,7 +381,7 @@ tr.pf-reg-saved td{ animation:pfRegSaved 1.4s ease-out; }
 .pf-reg-toast.ok{ border-color:#15803d; color:#bbf7d0; }
 .pf-reg-toast.ng{ border-color:#b91c1c; color:#fecaca; }
 /* 資産ページ ⇄ 従属ページ（個別株分析・資産登録・配当金）のボタン列。見た目は「💰 配当金」ボタンに寄せる */
-.pf-subnav{ display:flex; flex-wrap:wrap; gap:10px; margin:4px 0 18px; }
+.pf-subnav{ display:flex; flex-wrap:wrap; gap:10px; margin:14px 0 18px; }
 /* 文字数にかかわらず同じ大きさ（戻るボタンも同じ見た目）。2026-09-27 ユーザー指示 */
 .pf-subnav .pf-nav-btn{ margin-left:0; padding:8px 0; font-size:14px; width:150px; text-align:center;
   box-sizing:border-box; white-space:nowrap; }

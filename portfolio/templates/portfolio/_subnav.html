@@ -4,9 +4,9 @@
   使い方: {% include 'portfolio/_subnav.html' with current='stocks' %}（index / stocks / register / dividends）
   いまのページは塗りつぶして押せない表示にする
 {% endcomment %}
-<nav class="pf-subnav">
+<div class="pf-subnav">
   {% if current != 'index' %}<a class="pf-nav-btn pf-nav-back" href="{% url 'portfolio:index' %}">← 資産</a>{% endif %}
   {% if current == 'stocks' %}<span class="pf-nav-btn is-current">📊 個別株分析</span>{% else %}<a class="pf-nav-btn" href="{% url 'portfolio:stocks' %}">📊 個別株分析</a>{% endif %}
   {% if current == 'register' %}<span class="pf-nav-btn is-current">📝 資産登録</span>{% else %}<a class="pf-nav-btn" href="{% url 'portfolio:register' %}">📝 資産登録</a>{% endif %}
   {% if current == 'dividends' %}<span class="pf-nav-btn is-current">💰 配当金</span>{% else %}<a class="pf-nav-btn" href="{% url 'portfolio:dividends' %}">💰 配当金</a>{% endif %}
-</nav>
+</div>
