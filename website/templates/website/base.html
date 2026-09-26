@@ -41,7 +41,7 @@
               <li><a href="{% url 'portfolio:index' %}">ポートフォリオ</a></li>
               <li><a href="{% url 'diary:index' %}">売買日記</a></li>
               <li><a href="{% url 'diary:contra' %}">短期トレード</a></li>
-              <li><a href="{% url 'diary:practice' %}">練習</a></li>
+              {% comment %} 練習は短期トレードの下位ページ（短期トレードから遷移。2026-09-27 ユーザー指示でナビから外した） {% endcomment %}
               <li><a href="{% url 'portfolio:drill' %}">下落上等</a></li>
               {% comment %} 月次支出は支出分析の下位ページ（支出分析から遷移。2026-09-27 ユーザー指示でナビから外した） {% endcomment %}
               <li><a href="{% url 'spending:index' %}">支出分析</a></li>

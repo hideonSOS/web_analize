@@ -12,7 +12,8 @@
 <main class="dy ct">
   <h1 class="dy-title">練習</h1>
   <p class="dy-lead">買ったつもりで、実際には賭けずにルールを追う練習。売買日記とはつながっていません。
-    軍資金と「なぜ買ったか」を書いて、ゲーム感覚で学ぶ。</p>
+    軍資金と「なぜ買ったか」を書いて、ゲーム感覚で学ぶ。
+    ／ <a class="ct-link" href="{% url 'diary:contra' %}">← 短期トレード</a></p>
 
   {% for m in messages %}<div class="ct-msg ct-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
 

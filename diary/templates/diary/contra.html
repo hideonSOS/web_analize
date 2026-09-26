@@ -12,7 +12,8 @@
 <main class="dy ct">
   <h1 class="dy-title">短期トレード</h1>
   <p class="dy-lead">売買日記で「短期トレードとして追跡する」にチェックした買いを、ルールで機械的に追う。
-    ／ <a class="ct-link" href="{% url 'diary:index' %}">← 売買日記</a></p>
+    ／ <a class="ct-link" href="{% url 'diary:index' %}">← 売買日記</a>
+    ／ <a class="ct-link" href="{% url 'diary:practice' %}">🎮 練習へ →</a></p>
 
   {% for m in messages %}<div class="ct-msg ct-msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
 
