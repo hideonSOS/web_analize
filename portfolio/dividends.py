@@ -126,7 +126,8 @@ def build(rows, fx_rate, today=None):
             'yield_cost': (dps / cost * 100) if (cost and dps) else None,
             'hist': hist, 'no_data': not recs,
         })
-    items.sort(key=lambda x: -x['annual_net_jpy'])
+    # 並びは取得単価ベースの利回りが高い順（ユーザー指示 2026-09-27）。配当データが無い銘柄は末尾
+    items.sort(key=lambda x: -(x['yield_cost'] or -1))
     events = sorted([e for e in events if today <= e['date'] <= today + timedelta(days=120)], key=lambda e: e['date'])
     # 月別（今月から12か月）
     months = []

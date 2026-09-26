@@ -50,20 +50,9 @@
     {% else %}<p class="pf-empty">120日以内の予定はありません。</p>{% endif %}
   </div>
 
-  {% comment %} ---- 月別の入金見込み（12か月） ---- {% endcomment %}
-  <div class="pf-card">
-    <h2>月別の入金見込み <span class="pf-hint">今月から12か月・税引後の円（直近12か月の実績を1年後にずらした目安）</span></h2>
-    <div class="dv-months">
-      {% for m in months %}
-      <div class="dv-month"><span class="dv-bar-wrap"><span class="dv-bar" style="height:{{ m.pct|floatformat:1 }}%"></span></span>
-        <span class="dv-m-amt">{% if m.net %}¥{{ m.net|floatformat:0|intcomma }}{% else %}—{% endif %}</span><span class="dv-m-lab">{{ m.label }}</span></div>
-      {% endfor %}
-    </div>
-  </div>
-
   {% comment %} ---- 銘柄ごと ---- {% endcomment %}
   <div class="pf-card">
-    <h2>銘柄ごとの配当 <span class="pf-hint">行を開くと支払状況の履歴</span></h2>
+    <h2>銘柄ごとの配当 <span class="pf-hint">取得単価ベースの利回りが高い順・行を開くと支払状況の履歴</span></h2>
     {% for i in items %}
     <details class="dv-item">
       <summary>
