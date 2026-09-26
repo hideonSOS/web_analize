@@ -347,3 +347,7 @@ table.pf-reg-table .pf-diary-delta{ font-size:12px; }
 table.pf-reg-table td.pf-reg-diary{ text-align:left; min-width:80px; }
 table.pf-reg-table td.pf-reg-diary .pf-diary-delta{ margin-left:0; }
 table.pf-reg-table .pf-reg-unit{ display:inline-block; width:2.2em; text-align:left; padding-left:4px; }
+/* 中身を一回り大きく。数量は棚卸しで一番見るので特に大きく（2026-09-27 ユーザー指示） */
+table.pf-reg-table, table.pf-reg-table td:first-child{ font-size:16px; }
+.pf-reg-sel, .pf-reg-in{ font-size:16px; }
+.pf-reg-in[name=quantity]{ font-size:19px; font-weight:bold; width:130px; }
