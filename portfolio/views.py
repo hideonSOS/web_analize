@@ -628,14 +628,16 @@ def _holding_groups(holdings, diary_only, setting):
     （区分なしの表は日記のみ銘柄か現金があれば出す）
     """
     groups = []
-    for key, label in [('積立投資枠', '積立投資枠'), ('成長投資枠', '成長投資枠')]:
+    # css: 見出しの色（積立=シアン・成長=緑・区分なし=黄。2026-09-27 ユーザー指示）
+    for key, css in [('積立投資枠', 'tsumitate'), ('成長投資枠', 'growth')]:
         rows = [h for h in holdings if h.account == key]
         if rows:
-            groups.append({'key': key, 'label': label, 'rows': rows, 'count': len(rows)})
+            groups.append({'key': key, 'label': key, 'css': css, 'rows': rows, 'count': len(rows)})
     rest = [h for h in holdings if h.account not in ('積立投資枠', '成長投資枠')]
     count = len(rest) + len(diary_only) + (1 if setting.baseline_cash else 0)
     if count:
-        groups.append({'key': 'none', 'label': '区分なし（NISA以外）', 'rows': rest, 'count': count})
+        groups.append({'key': 'none', 'label': '区分なし（NISA以外）', 'css': 'other', 'rows': rest,
+                       'count': count})
     return groups
 
 

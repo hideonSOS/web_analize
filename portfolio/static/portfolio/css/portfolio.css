@@ -366,3 +366,7 @@ table.pf-reg-table col.c-date{ width:8%; }
 table.pf-reg-table col.c-ops{ width:11%; }
 table.pf-reg-table col.c-diary{ width:6%; }
 table.pf-reg-table .pf-reg-sel{ max-width:100%; }
+/* 表ごとの見出し色: 積立=シアン・成長=緑・区分なし=黄 */
+table.pf-reg-tsumitate th{ color:#22d3ee; box-shadow:inset 0 -2px 0 #155e75; }
+table.pf-reg-growth th{ color:#22c55e; box-shadow:inset 0 -2px 0 #14532d; }
+table.pf-reg-other th{ color:#facc15; box-shadow:inset 0 -2px 0 #713f12; }

@@ -28,7 +28,7 @@
       {% endcomment %}
       {% for g in holding_groups %}
       <div class="pf-reg-group">{{ g.label }}<span>{{ g.count }}件</span></div>
-      <table class="pf-table num pf-reg-table">
+      <table class="pf-table num pf-reg-table pf-reg-{{ g.css }}">
         <colgroup><col class="c-name"><col class="c-acct"><col class="c-style"><col class="c-qty"><col class="c-cost"><col class="c-date"><col class="c-ops"><col class="c-diary"></colgroup>
         <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th><th></th></tr>
         {% comment %}
