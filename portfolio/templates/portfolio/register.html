@@ -23,7 +23,7 @@
     {% if holdings or diary_only or setting.baseline_cash %}
     <div class="pf-reg-scroll">
       <table class="pf-table num pf-reg-table">
-        <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
+        <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th><th></th></tr>
         {% comment %}
           各行は数量・取得単価・口座区分・スタイルをその場で編集して保存できる。
           <tr> をまたぐ <form> は書けないため、HTML5 の form 属性で
@@ -47,8 +47,7 @@
             </select>{% else %}―{% endif %}</td>
           <td><input type="number" step="any" name="quantity" form="he{{ h.id }}"
                      value="{{ h.cur.quantity|floatformat:'-4' }}" class="pf-reg-in">
-              {% if h.product %}{{ h.product.unit_label }}{% else %}株{% endif %}
-              {% if h.cur.delta %}<span class="pf-diary-delta" title="棚卸し {{ h.quantity|floatformat:'-4' }}株 ＋ その後の売買日記">日記 {% if h.cur.delta > 0 %}+{% endif %}{{ h.cur.delta|floatformat:'-4' }}</span>{% endif %}</td>
+              <span class="pf-reg-unit">{% if h.product %}{{ h.product.unit_label }}{% else %}株{% endif %}</span></td>
           <td><input type="number" step="any" name="avg_cost" form="he{{ h.id }}"
                      value="{{ h.cur.avg_cost|floatformat:'-4' }}" class="pf-reg-in"></td>
           <td>{{ h.baseline_at|default:h.baseline_date|date:"Y/n/j" }}</td>
@@ -67,13 +66,13 @@
               <button type="submit" class="pf-reg-del">削除</button>
             </form>
           </td>
+          <td class="pf-reg-diary">{% if h.cur.delta %}<span class="pf-diary-delta" title="棚卸し {{ h.quantity|floatformat:'-4' }}株 ＋ その後の売買日記">日記 {% if h.cur.delta > 0 %}+{% endif %}{{ h.cur.delta|floatformat:'-4' }}</span>{% endif %}</td>
         </tr>
         {% endfor %}
         {% for d in diary_only %}
         {% comment %} 日記だけで持っている銘柄（まだ行が無い）。「登録」でこの数量のまま棚卸しに加える {% endcomment %}
         <tr class="pf-diary-only">
-          <td><span class="pf-code">{{ d.stock.display_code }}</span>{{ d.stock.name }}
-              <span class="pf-diary-delta">日記から</span></td>
+          <td><span class="pf-code">{{ d.stock.display_code }}</span>{{ d.stock.name }}</td>
           <td><select name="account" form="ha{{ forloop.counter }}" class="pf-reg-sel">
               {% for val, label in account_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
             </select></td>
@@ -81,7 +80,7 @@
               {% for val, label in style_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
             </select></td>
           <td><input type="number" step="any" name="quantity" form="ha{{ forloop.counter }}"
-                     value="{{ d.quantity|floatformat:'-4' }}" class="pf-reg-in"> 株</td>
+                     value="{{ d.quantity|floatformat:'-4' }}" class="pf-reg-in"> <span class="pf-reg-unit">株</span></td>
           <td><input type="number" step="any" name="avg_cost" form="ha{{ forloop.counter }}"
                      value="{{ d.avg_cost|floatformat:'-4' }}" class="pf-reg-in"></td>
           <td>―</td>
@@ -93,6 +92,7 @@
               <button type="submit" class="pf-reg-save">登録</button>
             </form>
           </td>
+          <td class="pf-reg-diary"><span class="pf-diary-delta">日記から</span></td>
         </tr>
         {% endfor %}
         {% if setting.baseline_cash %}
@@ -101,6 +101,7 @@
           <td>―</td><td>―</td><td>―</td>
           <td>¥{{ setting.baseline_cash|floatformat:0|intcomma }}</td>
           <td>{{ setting.baseline_cash_date|date:"Y/n/j" }}</td>
+          <td></td>
           <td></td>
         </tr>
         {% endif %}
