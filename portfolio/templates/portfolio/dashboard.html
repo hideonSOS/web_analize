@@ -16,7 +16,8 @@
   <h1 class="pf-title">資産</h1>
   <p class="pf-sub">保有資産と現金の総合ダッシュボード
     ／ <a class="pf-link" href="{% url 'portfolio:stocks' %}">個別株の分析 →</a>
-    ／ <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録・入出金 →</a></p>
+    ／ <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録・入出金 →</a>
+    <a class="pf-nav-btn" href="{% url 'portfolio:dividends' %}">💰 配当金</a></p>
 
   {% for msg in messages %}
     <div class="pf-msg">{{ msg }}</div>

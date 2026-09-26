@@ -10,4 +10,5 @@ urlpatterns = [
     path('stocks/<str:scope>/', views.stock_focus, name='stock_focus'),
     path('register/', views.register, name='register'),
     path('drill/', views.drill, name='drill'),
+    path('dividends/', views.dividends, name='dividends'),
 ]

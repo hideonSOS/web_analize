@@ -848,3 +848,26 @@ def register(request):
         'target_total': target_total,
     }
     return render(request, 'portfolio/register.html', context)
+
+
+def dividends(request):
+    """配当金ページ（2026-09-27）: 投資スタイル「配当狙い」の保有株だけの配当・支払状況。
+    POST form_id=refresh で update_dividends をその場で実行（対象は数銘柄なので数秒〜十数秒）"""
+    from django.core.management import call_command
+
+    from . import dividends as D
+    from .services import current_stock_holdings, latest_fx_rate
+
+    if request.method == 'POST' and request.POST.get('form_id') == 'refresh':
+        try:
+            call_command('update_dividends')
+            messages.success(request, '配当情報を更新しました。')
+        except Exception as e:   # noqa: BLE001
+            messages.error(request, f'更新に失敗: {e}')
+        return redirect('portfolio:dividends')
+    rows, _ = current_stock_holdings()
+    fx, fx_date = latest_fx_rate()
+    data = D.build(rows, fx)
+    data['fx_date'] = fx_date
+    data['style_name'] = D.DIV_STYLE
+    return render(request, 'portfolio/dividends.html', data)

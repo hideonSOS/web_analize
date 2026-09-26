@@ -1,0 +1,99 @@
+{% extends 'website/base.html' %}
+{% load static humanize %}
+{% block title %}配当金 | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'portfolio/css/portfolio.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap dv">
+  <p class="pf-sub"><a class="pf-link" href="{% url 'portfolio:index' %}">← 資産へ戻る</a></p>
+  <h1 class="pf-title">配当金</h1>
+  <p class="pf-sub">投資スタイルが「{{ style_name }}」の保有株だけ。金額は<b>現在の株数で換算した目安</b>、円は $1={{ fx_rate|floatformat:2 }}円（{{ fx_date|date:"n/j" }}）。
+    <form method="post" class="dv-inline">{% csrf_token %}<input type="hidden" name="form_id" value="refresh"><button class="dv-refresh" type="submit">配当情報を更新</button></form></p>
+
+  {% for msg in messages %}<div class="pf-msg">{{ msg }}</div>{% endfor %}
+
+  {% if not items %}
+  <div class="pf-card"><div class="pf-empty">投資スタイル「{{ style_name }}」の保有株がありません。<br>
+    <a class="pf-link" href="{% url 'portfolio:register' %}">資産の登録ページ</a>の一覧で、配当目当ての銘柄のスタイルを「{{ style_name }}」にしてください。</div></div>
+  {% else %}
+
+  {% comment %} ---- 要約 ---- {% endcomment %}
+  <div class="dv-kpis">
+    <div class="dv-kpi main"><span class="k">年間の受取見込み（税引後）</span><b>¥{{ total_net_jpy|floatformat:0|intcomma }}</b>
+      <span class="s">月あたり ¥{{ monthly_net_jpy|floatformat:0|intcomma }}・税引前 ¥{{ total_gross_jpy|floatformat:0|intcomma }}</span></div>
+    <div class="dv-kpi"><span class="k">{{ year }}年の受取済み（推定・税引後）</span><b>¥{{ year_paid_net|floatformat:0|intcomma }}</b>
+      <span class="s">支払済みと判定した配当の合計</span></div>
+    <div class="dv-kpi"><span class="k">利回り</span><b>{% if yield_cost %}{{ yield_cost|floatformat:2 }}%{% else %}—{% endif %}</b>
+      <span class="s">取得単価ベース・現在値ベース {% if yield_now %}{{ yield_now|floatformat:2 }}%{% else %}—{% endif %}（税引前）</span></div>
+    <div class="dv-kpi"><span class="k">次の権利落ち</span>
+      {% if next_event %}<b>{{ next_event.date|date:"n/j" }} {{ next_event.stock.display_code }}</b>
+      <span class="s">{{ next_event.last_day|date:"n/j" }}（前営業日）の引けまで保有で対象{% if '推定' in next_event.label %}・日付は推定{% endif %}</span>
+      {% else %}<b>—</b>{% endif %}</div>
+  </div>
+
+  {% comment %} ---- 今後の予定（120日） ---- {% endcomment %}
+  <div class="pf-card">
+    <h2>今後の予定 <span class="pf-hint">権利落ち日と入金（120日先まで）</span></h2>
+    {% if events %}
+    <div class="dv-events">
+      {% for e in events %}
+      <div class="dv-ev {{ e.kind }}">
+        <span class="dv-ev-date">{{ e.date|date:"n/j (D)" }}</span>
+        <span class="dv-ev-kind">{{ e.label }}</span>
+        <span class="dv-ev-name"><b>{{ e.stock.display_code }}</b> {{ e.stock.name|truncatechars:22 }}</span>
+        <span class="dv-ev-amt">{% if e.is_us %}${{ e.amount|floatformat:2 }}{% else %}{{ e.amount|floatformat:0|intcomma }}円{% endif %}<i>税引後 ¥{{ e.net_jpy|floatformat:0|intcomma }}</i></span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="pf-empty">120日以内の予定はありません。</p>{% endif %}
+  </div>
+
+  {% comment %} ---- 月別の入金見込み（12か月） ---- {% endcomment %}
+  <div class="pf-card">
+    <h2>月別の入金見込み <span class="pf-hint">今月から12か月・税引後の円（直近12か月の実績を1年後にずらした目安）</span></h2>
+    <div class="dv-months">
+      {% for m in months %}
+      <div class="dv-month"><span class="dv-bar-wrap"><span class="dv-bar" style="height:{{ m.pct|floatformat:1 }}%"></span></span>
+        <span class="dv-m-amt">{% if m.net %}¥{{ m.net|floatformat:0|intcomma }}{% else %}—{% endif %}</span><span class="dv-m-lab">{{ m.label }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% comment %} ---- 銘柄ごと ---- {% endcomment %}
+  <div class="pf-card">
+    <h2>銘柄ごとの配当 <span class="pf-hint">行を開くと支払状況の履歴</span></h2>
+    {% for i in items %}
+    <details class="dv-item">
+      <summary>
+        <span class="dv-name"><b>{{ i.stock.display_code }}</b> {{ i.stock.name|truncatechars:24 }}{% if i.nisa %}<span class="dv-tag">NISA</span>{% endif %}</span>
+        <span class="dv-cell"><i>保有</i>{{ i.qty|floatformat:"-2"|intcomma }}株</span>
+        <span class="dv-cell"><i>1株配当（年）</i>{% if i.dps %}{% if i.is_us %}${{ i.dps|floatformat:2 }}{% else %}{{ i.dps|floatformat:1 }}円{% endif %}{% else %}—{% endif %}{% if i.freq %}<small>年{{ i.freq }}回</small>{% endif %}</span>
+        <span class="dv-cell"><i>利回り 取得／現在</i>{% if i.yield_cost %}{{ i.yield_cost|floatformat:2 }}%{% else %}—{% endif %}／{% if i.yield_now %}{{ i.yield_now|floatformat:2 }}%{% else %}—{% endif %}</span>
+        <span class="dv-cell"><i>直近の増減</i>{% if i.change is None %}—{% elif i.change > 0.5 %}<b class="up">増配 +{{ i.change|floatformat:1 }}%</b>{% elif i.change < -0.5 %}<b class="down">減配 {{ i.change|floatformat:1 }}%</b>{% else %}据え置き{% endif %}</span>
+        <span class="dv-cell"><i>次の権利落ち</i>{% if i.next_date %}{{ i.next_date|date:"n/j" }}{% if i.next_est %}<small>推定</small>{% endif %}{% else %}—{% endif %}</span>
+        <span class="dv-cell dv-annual"><i>年間（税引後）</i>¥{{ i.annual_net_jpy|floatformat:0|intcomma }}</span>
+      </summary>
+      {% if i.no_data %}<p class="pf-empty">配当データがまだありません。上の「配当情報を更新」を押してください。</p>
+      {% else %}
+      <table class="dv-hist">
+        <tr><th>権利落ち日</th><th>1株配当</th><th>受取目安（税引前）</th><th>税引後（円）</th><th>支払状況</th></tr>
+        {% for h in i.hist %}
+        <tr class="{{ h.status }}">
+          <td>{{ h.rec.ex_date|date:"Y/n/j" }}</td>
+          <td>{% if h.amount %}{% if i.is_us %}${{ h.amount|floatformat:3 }}{% else %}{{ h.amount|floatformat:1 }}円{% endif %}{% if h.estimated_amount %}<small>見込み</small>{% endif %}{% else %}—{% endif %}</td>
+          <td>{% if i.is_us %}${{ h.gross|floatformat:2 }}{% else %}{{ h.gross|floatformat:0|intcomma }}円{% endif %}</td>
+          <td>¥{{ h.net_jpy|floatformat:0|intcomma }}</td>
+          <td><span class="dv-st {{ h.status }}">{{ h.label }}</span>{% if h.rec.pay_date %}<small>支払日 {{ h.rec.pay_date|date:"n/j" }}</small>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <p class="dv-note">税率の扱い: {% if i.nisa %}NISA（{% if i.is_us %}米国の源泉徴収 10% のみ{% else %}非課税{% endif %}）{% else %}特定口座（{% if i.is_us %}米国 10%＋国内 20.315%{% else %}20.315%{% endif %}）{% endif %}。受取目安は現在の株数で換算。</p>
+      {% endif %}
+    </details>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -54,6 +54,7 @@ run update_us_financials || status=1   # 登録した米国株の決算（yfinan
 run update_daily_prices  || status=1   # 登録銘柄の日次終値（ドローダウン算出用・差分のみ）
 run update_product_prices || status=1  # 投信の基準価額・金銀の円/g・ドル円（ポートフォリオ用）
 run snapshot_assets       || status=1  # 日次の資産スナップショット（資産推移用。価格更新の後に）
+run update_dividends      || status=1  # 配当狙いの保有株の配当履歴・次回予定（配当金ページ用・yfinance）
 run fetch_zaim            || status=1  # Zaim API → CSV保存 → 支出の取り込み（config.json の zaim 未設定なら何もしない）
 run update_trade_bars     || status=1  # 逆張り取引（保有中）の日足OHLC。日本株の引け後用（米国株は朝の us_index_update.sh）
 run run_kabutan_screen    || status=1  # スイング候補（株タン手法）: 日足差分取得＋日次判定（JPX400∪カルテ）

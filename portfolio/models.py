@@ -344,3 +344,25 @@ class AssetSnapshot(models.Model):
 
     def __str__(self):
         return f'{self.date} 総資産 ¥{self.total:,.0f}'
+
+
+class DividendRecord(models.Model):
+    """配当の記録（2026-09-27・配当金ページ用）。yfinance の配当履歴（権利落ち日・1株配当）と、
+    次回の権利落ち日・支払日（Ticker.calendar）を `update_dividends` が入れる。
+    - amount は1株あたり・取引の通貨（米国株=ドル／日本株=円）。yfinance は分割調整済み
+    - 未来の権利落ち日は amount が空のことがある（直近の金額で見積もる）
+    - pay_date は yfinance が直近分しか返さないので、過去分の大半は空（画面は経過日数で「支払済み（推定）」）
+    """
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name='dividends')
+    ex_date = models.DateField()
+    amount = models.FloatField(null=True, blank=True)
+    pay_date = models.DateField(null=True, blank=True)
+    currency = models.CharField(max_length=3, default='USD')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['stock', 'ex_date'], name='uniq_dividend_stock_ex')]
+        ordering = ['stock_id', 'ex_date']
+
+    def __str__(self):
+        return f'{self.stock_id} {self.ex_date} {self.amount}'

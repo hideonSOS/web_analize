@@ -264,3 +264,59 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
 .dr-ammo-supply .v .u{ font-size:11px; font-weight:400; color:#6b7280; }
 .dr-ammo-supply .sub{ font-size:11px; color:#6b7280; }
 .dr-ammo-empty .v{ color:#6b7280; font-size:14px; }
+
+
+/* ══ 配当金（/portfolio/dividends/・2026-09-27） ══ */
+.dv-inline{ display:inline; margin-left:8px; }
+.dv-refresh{ background:none; border:1px solid #334155; color:#93c5fd; border-radius:8px; padding:3px 10px; font-size:11px; cursor:pointer; }
+.dv-refresh:hover{ background:rgba(30,144,255,.12); }
+.dv-kpis{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:12px; margin:12px 0 16px; }
+.dv-kpi{ background:#0b1220; border:1px solid #1e3a5f; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; }
+.dv-kpi .k{ font-size:11px; color:#87cefa; font-weight:bold; letter-spacing:1px; }
+.dv-kpi b{ font-size:22px; color:#fff; font-variant-numeric:tabular-nums; }
+.dv-kpi .s{ font-size:11px; color:#9ca3af; }
+.dv-kpi.main{ border-color:#1e5c2f; box-shadow:0 0 14px rgba(34,197,94,.15); }
+.dv-kpi.main b{ color:#4ade80; font-size:26px; }
+.dv-events{ display:grid; gap:6px; }
+.dv-ev{ display:grid; grid-template-columns:90px 110px 1fr auto; gap:10px; align-items:center; padding:8px 10px; border-radius:8px; background:#0f172a; border-left:3px solid #334155; font-size:13px; color:#e5e7eb; }
+.dv-ev.ex{ border-left-color:#f59e0b; } .dv-ev.pay{ border-left-color:#22c55e; }
+.dv-ev-date{ font-weight:bold; font-variant-numeric:tabular-nums; }
+.dv-ev.ex .dv-ev-kind{ color:#fcd34d; } .dv-ev.pay .dv-ev-kind{ color:#86efac; }
+.dv-ev-name b{ color:#93c5fd; margin-right:4px; }
+.dv-ev-amt{ text-align:right; font-variant-numeric:tabular-nums; }
+.dv-ev-amt i{ display:block; font-style:normal; font-size:10px; color:#9ca3af; }
+.dv-months{ display:grid; grid-template-columns:repeat(12, 1fr); gap:6px; align-items:end; }
+.dv-month{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+.dv-bar-wrap{ display:flex; align-items:flex-end; width:100%; height:110px; background:#0f172a; border-radius:6px; }
+.dv-bar{ display:block; width:100%; background:linear-gradient(180deg, #4ade80, #15803d); border-radius:6px 6px 0 0; min-height:0; }
+.dv-m-amt{ font-size:10px; color:#e5e7eb; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.dv-m-lab{ font-size:11px; color:#87cefa; }
+.dv-item{ border-top:1px solid #1f2937; }
+.dv-item summary{ display:grid; grid-template-columns:minmax(180px,1.6fr) repeat(6, minmax(80px,1fr)); gap:8px; align-items:center; padding:10px 4px; cursor:pointer; list-style:none; }
+.dv-item summary::-webkit-details-marker{ display:none; }
+.dv-item summary:hover{ background:rgba(30,144,255,.05); }
+.dv-name{ color:#e5e7eb; font-size:13px; }
+.dv-name b{ color:#93c5fd; margin-right:4px; }
+.dv-tag{ margin-left:6px; font-size:10px; color:#86efac; border:1px solid #1e5c2f; border-radius:4px; padding:0 4px; }
+.dv-cell{ font-size:13px; color:#e5e7eb; font-variant-numeric:tabular-nums; }
+.dv-cell i{ display:block; font-style:normal; font-size:10px; color:#6b7280; }
+.dv-cell small{ margin-left:4px; font-size:10px; color:#9ca3af; }
+.dv-annual{ color:#4ade80; font-weight:bold; }
+.dv-cell .up{ color:#4ade80; } .dv-cell .down{ color:#f87171; }
+.dv-hist{ width:100%; border-collapse:collapse; font-size:12px; margin:4px 0 8px; }
+.dv-hist th{ text-align:left; color:#87cefa; font-weight:normal; font-size:11px; padding:4px 6px; border-bottom:1px solid #1f2937; }
+.dv-hist td{ padding:5px 6px; color:#e5e7eb; border-bottom:1px solid #111827; font-variant-numeric:tabular-nums; }
+.dv-hist td small{ margin-left:6px; color:#9ca3af; font-size:10px; }
+.dv-hist tr.upcoming td{ color:#fcd34d; }
+.dv-st{ font-size:11px; border-radius:999px; padding:1px 8px; }
+.dv-st.paid{ color:#86efac; border:1px solid #1e5c2f; } .dv-st.pending{ color:#fcd34d; border:1px solid #7c5a1e; } .dv-st.upcoming{ color:#93c5fd; border:1px solid #1e3a5f; }
+.dv-note{ font-size:11px; color:#6b7280; margin:0 0 10px; }
+.pf-nav-btn{ display:inline-block; margin-left:8px; padding:4px 12px; border-radius:8px; border:1px solid #22c55e; color:#86efac; text-decoration:none; font-size:12px; font-weight:bold; box-shadow:0 0 10px rgba(34,197,94,.25); }
+.pf-nav-btn:hover{ background:rgba(34,197,94,.12); }
+@media (max-width:760px){
+  .dv-item summary{ grid-template-columns:1fr 1fr; }
+  .dv-name{ grid-column:1 / -1; }
+  .dv-ev{ grid-template-columns:70px 1fr; }
+  .dv-ev-name{ grid-column:1 / -1; }
+  .dv-months{ grid-template-columns:repeat(6, 1fr); }
+}
