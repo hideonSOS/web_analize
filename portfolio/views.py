@@ -621,6 +621,11 @@ def drill(request):
     return render(request, 'portfolio/drill.html', context)
 
 
+def _group_css(account):
+    """口座区分 -> 登録画面の表（積立=tsumitate・成長=growth・それ以外=other）"""
+    return {'積立投資枠': 'tsumitate', '成長投資枠': 'growth'}.get(account, 'other')
+
+
 def _holding_groups(holdings, diary_only, setting):
     """登録画面の保有一覧を口座区分ごとの表に分ける（上から 積立 → 成長 → 区分なし）
 
@@ -812,15 +817,20 @@ def register(request):
             return redirect('portfolio:register')
 
         elif form_id == 'holding_edit':
-            # 登録済み一覧のインライン編集（数量・取得単価・口座区分）
+            # 登録済み一覧のインライン編集（数量・取得単価・口座区分・スタイル）。
+            # 保存ボタンは fetch で送り（X-Requested-With: fetch）、JSON を返して画面遷移させない
+            # （2026-09-27 ユーザー要望）。JS が無いときは従来どおり messages＋リダイレクト
+            is_ajax = request.headers.get('X-Requested-With') == 'fetch'
             holding = Holding.objects.filter(pk=request.POST.get('holding_id')).first()
+            ok, msg = False, 'この行は見つかりませんでした（別の画面で削除された可能性があります）。'
             if holding:
                 try:
                     holding.quantity = float(request.POST.get('quantity', ''))
                     holding.avg_cost = float(request.POST.get('avg_cost', ''))
                 except ValueError:
-                    messages.error(request, '数量と取得単価は数値で入力してください。')
-                    return redirect('portfolio:register')
+                    holding = None
+                    msg = '数量と取得単価は数値で入力してください。'
+            if holding:
                 account = request.POST.get('account', holding.account)
                 if account in dict(Holding.ACCOUNT_CHOICES):
                     holding.account = account
@@ -834,12 +844,20 @@ def register(request):
                 from django.db import IntegrityError
                 try:
                     holding.save()
-                    messages.success(request, f'{holding} を更新しました。')
+                    ok, msg = True, f'{holding} を更新しました。'
                 except IntegrityError:
-                    messages.error(
-                        request,
-                        '同じ銘柄・同じ口座区分の行が既にあります。片方を削除するか、'
-                        '既存の行の数量を編集してください。')
+                    msg = ('同じ銘柄・同じ口座区分の行が既にあります。片方を削除するか、'
+                           '既存の行の数量を編集してください。')
+            if is_ajax:
+                from django.http import JsonResponse
+                data = {'ok': ok, 'message': msg}
+                if ok:
+                    data.update({
+                        'group': _group_css(holding.account),
+                        'date': f'{today.year}/{today.month}/{today.day}',
+                    })
+                return JsonResponse(data, status=200 if ok else 400)
+            (messages.success if ok else messages.error)(request, msg)
             return redirect('portfolio:register')
 
         elif form_id == 'holding_adopt':

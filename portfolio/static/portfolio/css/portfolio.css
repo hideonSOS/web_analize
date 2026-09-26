@@ -370,3 +370,13 @@ table.pf-reg-table .pf-reg-sel{ max-width:100%; }
 table.pf-reg-tsumitate th{ color:#22d3ee; box-shadow:inset 0 -2px 0 #155e75; }
 table.pf-reg-growth th{ color:#22c55e; box-shadow:inset 0 -2px 0 #14532d; }
 table.pf-reg-other th{ color:#facc15; box-shadow:inset 0 -2px 0 #713f12; }
+/* 保存（画面遷移なし）の手応え: 行を一瞬光らせる＋画面下のトースト */
+.pf-reg-group .pf-reg-unit-ken{ margin-left:2px; }
+@keyframes pfRegSaved { from { background:rgba(34,197,94,.22); } to { background:transparent; } }
+tr.pf-reg-saved td{ animation:pfRegSaved 1.4s ease-out; }
+.pf-reg-toast{ position:fixed; left:50%; bottom:24px; transform:translate(-50%, 20px); opacity:0;
+  pointer-events:none; transition:all .2s; z-index:50; padding:10px 18px; border-radius:10px;
+  font-size:14px; background:#0b1220; border:1px solid #1e3a5f; color:#e5e7eb; max-width:90vw; }
+.pf-reg-toast.show{ opacity:1; transform:translate(-50%, 0); }
+.pf-reg-toast.ok{ border-color:#15803d; color:#bbf7d0; }
+.pf-reg-toast.ng{ border-color:#b91c1c; color:#fecaca; }

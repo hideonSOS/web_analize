@@ -27,8 +27,8 @@
         区分を変えて保存すると次の表示で該当の表へ移る。列幅は colgroup で3つの表をそろえる。
       {% endcomment %}
       {% for g in holding_groups %}
-      <div class="pf-reg-group">{{ g.label }}<span>{{ g.count }}件</span></div>
-      <table class="pf-table num pf-reg-table pf-reg-{{ g.css }}">
+      <div class="pf-reg-group">{{ g.label }}<span data-group-count="{{ g.css }}">{{ g.count }}</span><span class="pf-reg-unit-ken">件</span></div>
+      <table class="pf-table num pf-reg-table pf-reg-{{ g.css }}" data-group="{{ g.css }}">
         <colgroup><col class="c-name"><col class="c-acct"><col class="c-style"><col class="c-qty"><col class="c-cost"><col class="c-date"><col class="c-ops"><col class="c-diary"></colgroup>
         <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th><th></th></tr>
         {% comment %}
@@ -57,9 +57,9 @@
               <span class="pf-reg-unit">{% if h.product %}{{ h.product.unit_label }}{% else %}株{% endif %}</span></td>
           <td><input type="number" step="any" name="avg_cost" form="he{{ h.id }}"
                      value="{{ h.cur.avg_cost|floatformat:'-4' }}" class="pf-reg-in"></td>
-          <td>{{ h.baseline_at|default:h.baseline_date|date:"Y/n/j" }}</td>
+          <td class="pf-reg-date">{{ h.baseline_at|default:h.baseline_date|date:"Y/n/j" }}</td>
           <td style="white-space:nowrap">
-            <form id="he{{ h.id }}" method="post" style="display:inline">
+            <form id="he{{ h.id }}" method="post" style="display:inline" class="pf-reg-editform">
               {% csrf_token %}
               <input type="hidden" name="form_id" value="holding_edit">
               <input type="hidden" name="holding_id" value="{{ h.id }}">
@@ -366,3 +366,61 @@
   </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+/* 登録済みの保有: 保存ボタンは画面遷移させずに送る（2026-09-27 ユーザー要望）。
+   サーバーは X-Requested-With: fetch のとき JSON を返す（views.register の holding_edit）。
+   区分を変えて別の表の行になったら、その表へ行を移す。失敗時はメッセージを出して行はそのまま */
+(function () {
+  var toast = document.createElement('div');
+  toast.className = 'pf-reg-toast';
+  document.body.appendChild(toast);
+  var timer;
+  function say(msg, ok) {
+    toast.textContent = msg;
+    toast.className = 'pf-reg-toast show ' + (ok ? 'ok' : 'ng');
+    clearTimeout(timer);
+    timer = setTimeout(function () { toast.className = 'pf-reg-toast'; }, ok ? 1800 : 5000);
+  }
+  function bump(group, n) {
+    var el = document.querySelector('[data-group-count="' + group + '"]');
+    if (el) el.textContent = String(parseInt(el.textContent, 10) + n);
+  }
+  document.querySelectorAll('form.pf-reg-editform').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = form.querySelector('button');
+      var row = form.closest('tr');
+      var table = form.closest('table');
+      btn.disabled = true;
+      fetch(location.pathname, {
+        method: 'POST', body: new FormData(form),
+        headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin'
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        btn.disabled = false;
+        if (!j.ok) { say(j.message || '保存できませんでした。', false); return; }
+        row.querySelector('.pf-reg-date').textContent = j.date;
+        var diary = row.querySelector('.pf-reg-diary');
+        if (diary) diary.innerHTML = '';          // 保存＝棚卸しなので、日記の増減は数量に取り込まれた
+        var from = table.dataset.group;
+        if (j.group !== from) {
+          var dest = document.querySelector('table[data-group="' + j.group + '"]');
+          if (!dest) { location.reload(); return; }   // 移動先の表がまだ無い（空の表は出していない）
+          dest.tBodies[0].appendChild(row);
+          bump(from, -1); bump(j.group, 1);
+        }
+        row.classList.remove('pf-reg-saved'); void row.offsetWidth; row.classList.add('pf-reg-saved');
+        btn.textContent = '✓ 保存';
+        setTimeout(function () { btn.textContent = '保存'; }, 1500);
+        say(j.message, true);
+      }).catch(function () {
+        btn.disabled = false;
+        say('通信に失敗しました。もう一度保存してください。', false);
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}
+
