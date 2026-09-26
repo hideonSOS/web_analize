@@ -325,3 +325,18 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
 .pf-diary-delta { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px;
   font-size:11px; color:#fbbf24; border:1px solid rgba(251,191,36,.45); white-space:nowrap; }
 .pf-diary-only td { background:rgba(251,191,36,.05); }
+
+/* 登録画面の「登録済みの保有」（棚卸しで一番使う表）: 行の高さ約2倍・文字を大きく（2026-09-27 ユーザー指示） */
+table.pf-reg-table{ font-size:15px; min-width:760px; }
+table.pf-reg-table th{ font-size:12px; padding-bottom:10px; }
+table.pf-reg-table td{ padding:18px 8px; vertical-align:middle; }
+table.pf-reg-table td:first-child{ font-size:15px; color:#e5e7eb; white-space:normal; min-width:180px; line-height:1.4; }
+table.pf-reg-table .pf-code{ font-size:13px; color:#9ca3af; }
+.pf-reg-sel, .pf-reg-in{ background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e5e7eb;
+  font-size:15px; padding:9px 10px; }
+.pf-reg-in{ width:120px; text-align:right; font-variant-numeric:tabular-nums; }
+.pf-reg-save{ background:none; border:1px solid #1e3a5f; border-radius:8px; cursor:pointer; font-size:14px;
+  color:#1e90ff; padding:9px 16px; }
+.pf-reg-save:hover{ background:rgba(30,144,255,.1); }
+.pf-reg-del{ background:none; border:none; cursor:pointer; font-size:14px; color:#f87171; padding:9px 8px; }
+table.pf-reg-table .pf-diary-delta{ font-size:12px; }

@@ -25,7 +25,7 @@
       <span class="pf-hint">{% if setting.link_diary_to_holdings %}売買日記の売買を反映した、いまの数量です。ずれていたら直して保存（＝棚卸し）{% else %}日記との連動はOFF（登録した数量のまま）{% endif %}</span></h2>
     {% if holdings or diary_only or setting.baseline_cash %}
     <div class="pf-scroll">
-      <table class="pf-table num">
+      <table class="pf-table num pf-reg-table">
         <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
         {% comment %}
           各行は数量・取得単価・口座区分・スタイルをその場で編集して保存できる。
@@ -37,41 +37,37 @@
           <td>{% if h.stock %}<span class="pf-code">{{ h.stock.display_code }}</span>{{ h.stock.name }}
               {% else %}<span class="pf-code">{{ h.product.get_category_display }}</span>{{ h.product.display_name }}{% endif %}</td>
           <td>{% if h.product and h.product.category != 'fund' %}―{% else %}
-            <select name="account" form="he{{ h.id }}"
-                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+            <select name="account" form="he{{ h.id }}" class="pf-reg-sel">
               {% for val, label in h.ACCOUNT_CHOICES %}
               <option value="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>{% endif %}</td>
           <td>{% if h.stock %}
-            <select name="style" form="he{{ h.id }}"
-                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+            <select name="style" form="he{{ h.id }}" class="pf-reg-sel">
               {% for val, label in h.STYLE_CHOICES %}
               <option value="{{ val }}" {% if h.style == val %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>{% else %}―{% endif %}</td>
           <td><input type="number" step="any" name="quantity" form="he{{ h.id }}"
-                     value="{{ h.cur.quantity|floatformat:'-4' }}"
-                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right">
+                     value="{{ h.cur.quantity|floatformat:'-4' }}" class="pf-reg-in">
               {% if h.product %}{{ h.product.unit_label }}{% else %}株{% endif %}
               {% if h.cur.delta %}<span class="pf-diary-delta" title="棚卸し {{ h.quantity|floatformat:'-4' }}株 ＋ その後の売買日記">日記 {% if h.cur.delta > 0 %}+{% endif %}{{ h.cur.delta|floatformat:'-4' }}</span>{% endif %}</td>
           <td><input type="number" step="any" name="avg_cost" form="he{{ h.id }}"
-                     value="{{ h.cur.avg_cost|floatformat:'-4' }}"
-                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"></td>
+                     value="{{ h.cur.avg_cost|floatformat:'-4' }}" class="pf-reg-in"></td>
           <td>{{ h.baseline_at|default:h.baseline_date|date:"Y/n/j" }}</td>
           <td style="white-space:nowrap">
             <form id="he{{ h.id }}" method="post" style="display:inline">
               {% csrf_token %}
               <input type="hidden" name="form_id" value="holding_edit">
               <input type="hidden" name="holding_id" value="{{ h.id }}">
-              <button type="submit" class="pf-link" style="background:none;border:1px solid #1e3a5f;border-radius:6px;cursor:pointer;font-size:12px;color:#1e90ff;padding:4px 10px">保存</button>
+              <button type="submit" class="pf-reg-save">保存</button>
             </form>
             <form method="post" style="display:inline"
                   onsubmit="return confirm('この保有行を削除しますか？');">
               {% csrf_token %}
               <input type="hidden" name="form_id" value="holding_delete">
               <input type="hidden" name="holding_id" value="{{ h.id }}">
-              <button type="submit" class="pf-link" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f87171">削除</button>
+              <button type="submit" class="pf-reg-del">削除</button>
             </form>
           </td>
         </tr>
@@ -81,27 +77,23 @@
         <tr class="pf-diary-only">
           <td><span class="pf-code">{{ d.stock.display_code }}</span>{{ d.stock.name }}
               <span class="pf-diary-delta">日記から</span></td>
-          <td><select name="account" form="ha{{ forloop.counter }}"
-                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+          <td><select name="account" form="ha{{ forloop.counter }}" class="pf-reg-sel">
               {% for val, label in account_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
             </select></td>
-          <td><select name="style" form="ha{{ forloop.counter }}"
-                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+          <td><select name="style" form="ha{{ forloop.counter }}" class="pf-reg-sel">
               {% for val, label in style_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
             </select></td>
           <td><input type="number" step="any" name="quantity" form="ha{{ forloop.counter }}"
-                     value="{{ d.quantity|floatformat:'-4' }}"
-                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"> 株</td>
+                     value="{{ d.quantity|floatformat:'-4' }}" class="pf-reg-in"> 株</td>
           <td><input type="number" step="any" name="avg_cost" form="ha{{ forloop.counter }}"
-                     value="{{ d.avg_cost|floatformat:'-4' }}"
-                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"></td>
+                     value="{{ d.avg_cost|floatformat:'-4' }}" class="pf-reg-in"></td>
           <td>―</td>
           <td style="white-space:nowrap">
             <form id="ha{{ forloop.counter }}" method="post" style="display:inline">
               {% csrf_token %}
               <input type="hidden" name="form_id" value="holding_adopt">
               <input type="hidden" name="stock_code" value="{{ d.stock.code }}">
-              <button type="submit" class="pf-link" style="background:none;border:1px solid #1e3a5f;border-radius:6px;cursor:pointer;font-size:12px;color:#1e90ff;padding:4px 10px">登録</button>
+              <button type="submit" class="pf-reg-save">登録</button>
             </form>
           </td>
         </tr>
