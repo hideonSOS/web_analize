@@ -491,6 +491,49 @@ def _macro_sahm(un_rows):
 MACRO_COUNTRIES = [('US', '米国'), ('JP', '日本'), ('SP', '特殊')]
 
 
+def _macro_extend(monthly, daily):
+    """月平均の系列の末尾に、まだ月次が出ていない月の「日次の平均」を足す（当月は途中平均）
+
+    月平均（GS10・FEDFUNDS 等）は翌月まで出ないので、そのままだと最大1か月強古い（2026-09-27 指摘）。
+    日次（D_ 系列）で補う。月次が出ればそちらが優先される（日次から作った月は捨てる）
+    """
+    monthly = list(monthly)
+    last = monthly[-1][0] if monthly else None
+    by = defaultdict(list)
+    for d, v in daily:
+        m = d.replace(day=1)
+        if last is None or m > last:
+            by[m].append(v)
+    for m in sorted(by):
+        monthly.append((m, sum(by[m]) / len(by[m])))
+    return monthly
+
+
+def _macro_rate_chip(label, monthly, daily, judge):
+    """金利のチップ: 値は日次の最新（無ければ月平均）。注記に「前月平均からの変化」を添える"""
+    if daily:
+        d, v = daily[-1]
+        base = [x for x in monthly if x[0] < d.replace(day=1)]
+        state, note = judge(v)
+        if base:
+            note += f'／{base[-1][0].month}月平均 {base[-1][1]:.2f}% から {v - base[-1][1]:+.2f}pt'
+        return {'label': label, 'value': f'{v:.2f}%', 'date': d, 'state': state, 'note': note,
+                'date_fmt': 'day', 'date_suffix': '時点'}
+    if monthly:
+        d, v = monthly[-1]
+        state, note = judge(v)
+        return {'label': label + '（月平均）', 'value': f'{v:.2f}%', 'date': d, 'state': state, 'note': note}
+    return None
+
+
+def _macro_policy_change(up):
+    """誘導目標（上限）が最後に変わった日と、変わる前の値。変更が無ければ None"""
+    for i in range(len(up) - 1, 0, -1):
+        if up[i][1] != up[i - 1][1]:
+            return up[i][0], up[i - 1][1]
+    return None
+
+
 def _macro_fx(series, pack):
     """ドル円（月中平均）のチップとチャート。日米どちらのタブにも同じものを出す（2026-09-08）。
 
@@ -614,31 +657,49 @@ def macro(request):
                           'state': state,
                           'note': '0.50pt以上で景気後退シグナル' + ('（点灯中）' if state == 'alert' else '（未点灯）')})
 
-        gs10 = series.get('GS10', [])
-        gs2 = series.get('GS2', [])
-        if gs10:
-            d, v = gs10[-1]
+        # 金利は日次の最新値で出す（月平均は翌月まで出ず、9月の利上げ・金利急騰が写らなかった。2026-09-27）
+        d10, d2 = series.get('D_DGS10', []), series.get('D_DGS2', [])
+        gs10 = _macro_extend(series.get('GS10', []), d10)
+        gs2 = _macro_extend(series.get('GS2', []), d2)
+
+        def judge10(v):
             state = 'ok' if v < 4.0 else 'warn' if v <= 5.0 else 'alert'
-            note = ('株のバリュエーションに中立圏' if state == 'ok' else
-                    '高め（PERを圧迫する逆風）' if state == 'warn' else '高い（株から債券へ資金が逃げる水準）')
-            chips.append({'label': '10年国債利回り', 'value': f'{v:.2f}%', 'date': d,
-                          'state': state, 'note': note})
-        ff = series.get('FEDFUNDS', [])
-        if ff:
-            d, v = ff[-1]
+            return state, ('株のバリュエーションに中立圏' if state == 'ok' else
+                           '高め（PERを圧迫する逆風）' if state == 'warn' else '高い（株から債券へ資金が逃げる水準）')
+        c = _macro_rate_chip('10年国債利回り', series.get('GS10', []), d10, judge10)
+        if c:
+            chips.append(c)
+        # 政策金利は FRB の誘導目標レンジ（決定した日に切り替わる）。無ければ実効 FF 金利の月平均
+        lo, up = series.get('D_FEDLO', []), series.get('D_FEDUP', [])
+        ff = _macro_extend(series.get('FEDFUNDS', []), series.get('D_DFF', []))
+        if lo and up:
+            d, v = up[-1]
             state = 'ok' if v < 3.5 else 'warn' if v <= 5.0 else 'alert'
             note = ('中立水準（3%前後）の近く' if state == 'ok' else
-                    '引き締め気味（利下げ余地あり）' if state == 'warn' else '強い引き締め（インフレ抑制局面）')
-            chips.append({'label': '政策金利（FF金利）', 'value': f'{v:.2f}%', 'date': d,
-                          'state': state, 'note': note})
-        if gs10 and gs2 and gs10[-1][0] == gs2[-1][0]:
-            d = gs10[-1][0]
-            sp = gs10[-1][1] - gs2[-1][1]
-            state = 'alert' if sp <= 0 else 'warn' if sp <= 0.2 else 'ok'
-            note = ('逆イールド（景気後退の古典的前兆）' if state == 'alert' else
-                    'フラット化（後退警戒の入口）' if state == 'warn' else '順イールド（平常）')
-            chips.append({'label': '長短金利差（10年−2年）', 'value': f'{sp:+.2f}pt', 'date': d,
-                          'state': state, 'note': note})
+                    '引き締め気味' if state == 'warn' else '強い引き締め（インフレ抑制局面）')
+            ch = _macro_policy_change(up)
+            if ch:
+                when, before = ch
+                kind = '利上げ' if v > before else '利下げ'
+                note += f'／直近の変更 {when.year}/{when.month}/{when.day} {kind}（上限 {before:.2f}%→{v:.2f}%）'
+            chips.append({'label': '政策金利（FF誘導目標）', 'value': f'{lo[-1][1]:.2f}–{v:.2f}%', 'date': d,
+                          'state': state, 'note': note, 'date_fmt': 'day', 'date_suffix': '時点'})
+        elif ff:
+            d, v = ff[-1]
+            state = 'ok' if v < 3.5 else 'warn' if v <= 5.0 else 'alert'
+            chips.append({'label': '政策金利（FF金利・月平均）', 'value': f'{v:.2f}%', 'date': d,
+                          'state': state, 'note': '引き締め気味' if state == 'warn' else ''})
+        if d10 and d2:
+            m10, m2 = dict(d10), dict(d2)
+            common = sorted(set(m10) & set(m2))
+            if common:
+                d = common[-1]
+                sp = m10[d] - m2[d]
+                state = 'alert' if sp <= 0 else 'warn' if sp <= 0.2 else 'ok'
+                note = ('逆イールド（景気後退の古典的前兆）' if state == 'alert' else
+                        'フラット化（後退警戒の入口）' if state == 'warn' else '順イールド（平常）')
+                chips.append({'label': '長短金利差（10年−2年）', 'value': f'{sp:+.2f}pt', 'date': d,
+                              'state': state, 'note': note, 'date_fmt': 'day', 'date_suffix': '時点'})
 
         charts = [
             {'el': 'chart-cpi', 'title': 'CPI 前年比（インフレ率）',
@@ -655,10 +716,11 @@ def macro(request):
             {'el': 'chart-rates', 'title': '金利（国債利回り・政策金利）',
              'desc': '10年金利=市場が決める長期金利（株のバリュエーションの分母）。2年金利=政策金利の先行き予想。'
                      'FF金利=FRBが決める政策金利。2年が10年を上回る「逆イールド」（線の上下逆転）は景気後退の古典的な前兆。'
-                     '1980年前後の20%近い金利や、2009-21年のゼロ金利も遡って見られる。',
+                     '1980年前後の20%近い金利や、2009-21年のゼロ金利も遡って見られる。'
+                     'どれも月平均で、月次がまだ出ていない月（当月など）は日次の平均（途中）で補っている。',
              'series': [{'name': '10年国債', 'color': '#1e90ff', 'data': pack(gs10)},
                         {'name': '2年国債', 'color': '#f97316', 'data': pack(gs2)},
-                        {'name': 'FF金利（政策金利）', 'color': '#9ca3af', 'data': pack(series.get('FEDFUNDS', []))}]},
+                        {'name': 'FF金利（政策金利）', 'color': '#9ca3af', 'data': pack(ff)}]},
         ]
         fx_chip, fx_chart = _macro_fx(series, pack)
         if fx_chip:
@@ -697,24 +759,25 @@ def macro(request):
                           'state': state, 'note': note})
         # ⚠️ サム・ルールは米国の経験則なので日本には出さない（テンプレの解説参照）
 
-        jp10 = series.get('JP10Y', [])
-        if jp10:
-            d, v = jp10[-1]
+        # 10年は財務省の日次、政策金利（コール O/N）は日銀 API の日次で最新値を出す（2026-09-27）。
+        # 月次（OECD 経由・約1か月遅れ）はチャートの本体で、まだ出ていない月は日次の平均で補う
+        dj10, dcall = series.get('D_JGB10', []), series.get('D_JPCALL', [])
+        jp10 = _macro_extend(series.get('JP10Y', []), dj10)
+        jpcall = _macro_extend(series.get('JPCALL', []), dcall)
+
+        def judge_jp10(v):
             state = 'ok' if v < 1.0 else 'warn'
-            note = ('低金利圏' if state == 'ok' else
-                    '「金利のある世界」へ正常化中（銀行株に追い風・不動産/グロースに逆風）')
-            chips.append({'label': '10年国債利回り', 'value': f'{v:.2f}%', 'date': d,
-                          'state': state, 'note': note})
-        # 政策金利は無担保コール翌日物の月平均で代用（日銀の誘導目標にほぼ一致。
-        # 中銀金利そのものの系列は 2023-12 で配信停止のため）。約2か月遅れ
-        jpcall = series.get('JPCALL', [])
-        if jpcall:
-            d, v = jpcall[-1]
+            return state, ('低金利圏' if state == 'ok' else
+                           '「金利のある世界」へ正常化中（銀行株に追い風・不動産/グロースに逆風）')
+
+        def judge_call(v):
             state = 'ok' if v < 0.5 else 'warn'
-            note = ('ゼロ金利圏' if v < 0.1 else
-                    '利上げ局面の入口' if state == 'ok' else '利上げ進行中（円高・銀行株高の要因）')
-            chips.append({'label': '政策金利（コールレート）', 'value': f'{v:.2f}%', 'date': d,
-                          'state': state, 'note': note})
+            return state, ('ゼロ金利圏' if v < 0.1 else
+                           '利上げ局面の入口' if state == 'ok' else '利上げ進行中（円高・銀行株高の要因）')
+        for c in (_macro_rate_chip('10年国債利回り', series.get('JP10Y', []), dj10, judge_jp10),
+                  _macro_rate_chip('政策金利（コールレート）', series.get('JPCALL', []), dcall, judge_call)):
+            if c:
+                chips.append(c)
 
         charts = [
             {'el': 'chart-cpi', 'title': 'CPI 前年比（インフレ率）',
@@ -738,7 +801,8 @@ def macro(request):
              'mark': {'v': 1, 'label': 'YCC時代の上限のめやす 1%'}},
         ]
         charts[-1]['title'] = '金利（10年国債利回り・政策金利）'
-        charts[-1]['desc'] += 'グレーが政策金利（無担保コール翌日物の月平均。日銀の誘導目標にほぼ一致）。'
+        charts[-1]['desc'] += ('グレーが政策金利（無担保コール翌日物の月平均。日銀の誘導目標にほぼ一致）。'
+                               '月次がまだ出ていない月は日次（財務省・日銀）の平均で補っている。')
         fx_chip, fx_chart = _macro_fx(series, pack)
         if fx_chip:
             chips.append(fx_chip)

@@ -16,7 +16,7 @@ APIキー不要の公開エンドポイント2系統から取る（requests は�
 """
 import csv
 import io
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import requests
 from django.core.management.base import BaseCommand
@@ -63,6 +63,26 @@ SOURCES = {
     'BTC':           ('yf', 'BTC-USD'),
 }
 
+# 日次の金利（2026-09-27 追加）。⚠️ 月平均の系列は翌月まで出ず、動きの速い局面で大きくずれる
+# （実測: 米10年の 8月平均 4.68% に対し 9/24 の日次は 5.18%、FF 金利は 9月に利上げして 8月平均 3.63%
+#  のまま表示していた）。チップの「最新値」と、チャート末尾の当月（途中）平均はこの日次から作る。
+# 月次チャートの系列そのもの（GS10 等）は従来どおり。保存キーは 'D_' 始まり（月次と混ぜない）。
+# 直近 DAILY_DAYS 日だけ持つ（全期間は不要＝月次で足りる）
+DAILY_DAYS = 800
+DAILY_SOURCES = {
+    'D_DGS10':  ('fred', 'DGS10'),      # 米10年国債利回り（日次・FRED は1〜2営業日遅れ）
+    'D_DGS2':   ('fred', 'DGS2'),       # 米2年国債利回り（日次）
+    'D_DFF':    ('fred', 'DFF'),        # FF 金利の実効値（日次）
+    'D_FEDLO':  ('fred', 'DFEDTARL'),   # FF 金利の誘導目標レンジ下限
+    'D_FEDUP':  ('fred', 'DFEDTARU'),   # 同 上限
+    'D_JGB10':  ('mof', '10年'),        # 日本10年国債（財務省「国債金利情報」の日次・前営業日まで）
+    'D_JPCALL': ('boj', 'FM01/STRDCLUCON'),  # 無担保コール O/N 平均（日銀 時系列統計 API・日次）
+}
+MOF_ALL = 'https://www.mof.go.jp/jgbs/reference/interest_rate/data/jgbcm_all.csv'   # 前月末まで
+MOF_CUR = 'https://www.mof.go.jp/jgbs/reference/interest_rate/jgbcm.csv'             # 当月分
+BOJ_API = 'https://www.stat-search.boj.or.jp/api/v1/getDataCode?format=csv&lang=jp&db={db}&code={code}&startDate={start}'
+ERA = {'S': 1925, 'H': 1988, 'R': 2018}
+
 
 class Command(BaseCommand):
     help = 'マクロ指標（日米のCPI・失業率）をFRED/DBnomicsから取得する'
@@ -81,7 +101,57 @@ class Command(BaseCommand):
             total_upd += n_upd
             last = rows[-1] if rows else None
             self.stdout.write(f'  {key:15} {len(rows)}行  新規{n_new} 改定{n_upd}  最新: {last[0]} = {last[1]}')
+        since = date.today() - timedelta(days=DAILY_DAYS)
+        for key, (src, sid) in DAILY_SOURCES.items():
+            try:
+                rows = {'fred': self._fetch_fred, 'mof': self._fetch_mof, 'boj': self._fetch_boj}[src](sid)
+                rows = [(d, v) for d, v in rows if d >= since]
+                if not rows:
+                    raise ValueError('直近のデータが無い')
+            except Exception as e:  # noqa: BLE001
+                self.stderr.write(f'  {key}: 取得失敗: {e}')
+                continue
+            n_new, n_upd = self._store(key, rows)
+            total_new += n_new
+            total_upd += n_upd
+            self.stdout.write(f'  {key:15} {len(rows)}行  新規{n_new} 改定{n_upd}  最新: {rows[-1][0]} = {rows[-1][1]}')
         self.stdout.write(self.style.SUCCESS(f'マクロ指標: 新規{total_new}行 / 改定{total_upd}行'))
+
+    @staticmethod
+    def _fetch_mof(col):
+        """財務省の国債金利情報（cp932・和暦の日付 R8.9.24）→ [(date, value)]。前月末までの全期間＋当月分"""
+        out = {}
+        for url in (MOF_ALL, MOF_CUR):
+            r = requests.get(url, timeout=60)
+            r.raise_for_status()
+            rows = list(csv.reader(io.StringIO(r.content.decode('cp932', errors='ignore'))))
+            head = next((row for row in rows if row and row[0] == '基準日'), None)
+            if not head or col not in head:
+                raise ValueError(f'列 {col} が見つからない（書式変更の可能性）')
+            ci = head.index(col)
+            for row in rows:
+                if len(row) <= ci or not row[0] or row[0][0] not in ERA:
+                    continue
+                try:
+                    y, m, d = row[0][1:].split('.')
+                    out[date(ERA[row[0][0]] + int(y), int(m), int(d))] = float(row[ci])
+                except ValueError:      # '-'（その年限が無い日）や注記行
+                    continue
+        return sorted(out.items())
+
+    @staticmethod
+    def _fetch_boj(sid):
+        """日銀 時系列統計データ検索サイトの API（CSV）→ [(date, value)]。null（休日）は飛ばす"""
+        db, code = sid.split('/')
+        start = (date.today() - timedelta(days=DAILY_DAYS)).strftime('%Y%m')
+        r = requests.get(BOJ_API.format(db=db, code=code, start=start), timeout=60)
+        r.raise_for_status()
+        out = []
+        for row in csv.reader(io.StringIO(r.content.decode('cp932', errors='ignore'))):
+            if len(row) < 8 or row[0] != code or len(row[6]) != 8 or row[7] in ('', 'null'):
+                continue
+            out.append((datetime.strptime(row[6], '%Y%m%d').date(), float(row[7])))
+        return sorted(out)
 
     @staticmethod
     def _fetch_fred(sid):
