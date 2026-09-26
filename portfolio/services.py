@@ -2,13 +2,17 @@
 
 設計の中心原則（models.py の Holding docstring と対応）:
 - Holding は「棚卸し時点の期首残高」で固定。日々更新しない
-- 現在の保有数 = 期首 + baseline_date より後の売買日記(DiaryEntry)の増減
+- 現在の保有数 = 棚卸しの数量 + 棚卸しより後に記録した売買日記(DiaryEntry)の増減
   （日記は編集不可の設計なので、この導出は再現可能で安定する）
+- 登録画面の数量はこの導出値を表示し、そこで保存した数量が新しい棚卸しになる
+  （登録画面は日記に従属する。2026-09-27 ユーザー決定）
 - 日記で新規に買った銘柄は Holding が無くても自動で保有に現れる
 - 価格は全てDB（Stock.close / ProductPrice / FxRate）から読む。
   ここで外部APIを叩かないこと（表示の高速化と既存機能との方針統一）
 """
 from collections import defaultdict
+
+from django.utils import timezone
 
 from diary.models import DiaryEntry
 from japan_kabu.impulse import IMPULSE_SECTORS
@@ -66,8 +70,46 @@ def _diary_trades_by_stock(after_date=None):
         if e.shares is None or e.price is None:
             unusable.append(e)
             continue
-        trades[e.stock_id].append((e.recorded_at.date(), e.action, e.shares, e.price))
+        trades[e.stock_id].append(
+            (timezone.localtime(e.recorded_at).date(), e.action, e.shares, e.price, e.created_at))
     return trades, unusable
+
+
+def _after_stocktake(base_rows, date, created_at):
+    """この日記が棚卸しの数量にまだ入っていない（＝加算すべき）か
+
+    棚卸し（登録画面での登録・保存）は、その時点で登録画面に出ていた数量＝それまでに
+    記録した日記を反映済みの数量を確定させる操作。なので「棚卸しより後に記録した日記」
+    （created_at > baseline_at）だけを加算する。日時で切るので、棚卸しと同じ日に
+    後から記録した売買も漏れない。ただし棚卸し日より前の日付で後から書き足した日記は、
+    その売買が棚卸しの数量に入っているはずなので加算しない。
+    baseline_at の無い行（2026-09-27 より前の登録）は従来どおり日付で切る。
+    区分ごとに棚卸しが違う場合は最新を採用する（通常は同時に棚卸しする想定）
+    """
+    if not base_rows:
+        return True
+    cutoff_date = max(h.baseline_date for h in base_rows)
+    stamps = [h.baseline_at for h in base_rows if h.baseline_at]
+    if stamps:
+        return created_at > max(stamps) and date >= cutoff_date
+    return date > cutoff_date
+
+
+def _apply_trades(qty, avg, base_rows, entries):
+    """棚卸しの数量・単価に、棚卸し後の日記を適用する -> (数量, 平均取得単価, 日記での増減)"""
+    delta = 0
+    for date, action, shares, price, created_at in entries:
+        if not _after_stocktake(base_rows, date, created_at):
+            continue
+        if action == 'buy':
+            new_qty = qty + shares
+            avg = (qty * avg + shares * price) / new_qty if new_qty else 0.0
+            qty = new_qty
+            delta += shares
+        else:  # sell
+            qty -= shares
+            delta -= shares
+    return qty, avg, delta
 
 
 def current_stock_holdings(setting=None):
@@ -97,19 +139,7 @@ def current_stock_holdings(setting=None):
         base_rows = bases.get(code, [])
         qty = sum(h.quantity for h in base_rows)
         avg = (sum(h.quantity * h.avg_cost for h in base_rows) / qty) if qty else 0.0
-        # baseline_date 当日の売買は「棚卸しで入力した数量に反映済み」とみなし、
-        # 翌日以降のエントリだけを加算する（同日分の二重計上を防ぐ）。
-        # 区分ごとに棚卸し日が違う場合は最新の日付を採用する（通常は同日に棚卸しする想定）
-        cutoff = max((h.baseline_date for h in base_rows), default=None)
-        for date, action, shares, price in trades.get(code, []):
-            if cutoff and date <= cutoff:
-                continue
-            if action == 'buy':
-                new_qty = qty + shares
-                avg = (qty * avg + shares * price) / new_qty if new_qty else 0.0
-                qty = new_qty
-            else:  # sell
-                qty -= shares
+        qty, avg, _ = _apply_trades(qty, avg, base_rows, trades.get(code, []))
         if qty <= 0:
             continue
         rows.append({
@@ -123,6 +153,40 @@ def current_stock_holdings(setting=None):
             'style': next((h.style for h in base_rows if h.style), ''),
         })
     return rows, unusable
+
+
+def register_current_values(holdings, setting=None):
+    """登録画面用: 保有行ごとの「いま」の数量・単価（日記を反映済み）
+
+    返り値: ({holding.pk: {'quantity','avg_cost','delta'}}, [日記だけで持っている銘柄の行])
+    - 登録画面は日記に従属する（2026-09-27 ユーザー決定）。ここで出した数量が入力欄に入り、
+      保存するとそれが新しい棚卸しになる（views.register の holding_edit）
+    - 同じ銘柄に複数行（口座区分違い）があるときは、日記の増減を最後に棚卸しした行に載せる
+      （日記に口座区分が無いため。合計は current_stock_holdings と一致する）
+    - 連動OFFなら棚卸しの数量そのまま
+    """
+    setting = setting or PortfolioSetting.get()
+    trades, _ = _diary_trades_by_stock() if setting.link_diary_to_holdings else ({}, [])
+    values = {h.pk: {'quantity': h.quantity, 'avg_cost': h.avg_cost, 'delta': 0} for h in holdings}
+    by_stock = defaultdict(list)
+    for h in holdings:
+        if h.stock_id:
+            by_stock[h.stock_id].append(h)
+    for code, base_rows in by_stock.items():
+        if code not in trades:
+            continue
+        target = max(base_rows, key=lambda h: (h.baseline_at or h.updated_at, h.pk))
+        qty, avg, delta = _apply_trades(target.quantity, target.avg_cost, base_rows, trades[code])
+        values[target.pk] = {'quantity': qty, 'avg_cost': avg, 'delta': delta}
+    diary_only = []
+    stocks = {s.code: s for s in Stock.objects.filter(code__in=set(trades) - set(by_stock))}
+    for code, entries in trades.items():
+        if code in by_stock or code not in stocks:
+            continue
+        qty, avg, delta = _apply_trades(0.0, 0.0, [], entries)
+        if qty > 0:
+            diary_only.append({'stock': stocks[code], 'quantity': qty, 'avg_cost': avg})
+    return values, diary_only
 
 
 def latest_product_prices():
@@ -155,7 +219,7 @@ def cash_balance(setting=None):
         trades, _ = _diary_trades_by_stock()
         for code, entries in trades.items():
             is_us = code.startswith('US-')
-            for date, action, shares, price in entries:
+            for date, action, shares, price, _ in entries:
                 if cutoff and date <= cutoff:
                     continue
                 amount = shares * price

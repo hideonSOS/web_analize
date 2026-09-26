@@ -127,8 +127,8 @@ class Holding(models.Model):
     """期首残高（棚卸しで登録する保有）
 
     ⚠️ このテーブルは「棚卸し時点の数量」を固定で持つ（quantity を日々更新しない）。
-    現在の保有数 = quantity + baseline_date 以降の売買日記(DiaryEntry)の増減、を
-    表示時に導出する。日記は編集不可の設計なので導出結果は安定し、
+    現在の保有数 = quantity + 棚卸し（baseline_at）より後に記録した売買日記の増減、を
+    表示時に導出する。登録画面はこの導出値を表示し、保存すると新しい棚卸しになる。日記は編集不可の設計なので導出結果は安定し、
     保有テーブルと日記の二重入力・二重管理が発生しない。
 
     stock / product はどちらか一方だけを設定する（CheckConstraintで強制）:
@@ -174,6 +174,10 @@ class Holding(models.Model):
     #   日本株=円, 米国株=ドル, 投信=1万口あたり円, 貴金属=円/g
     avg_cost = models.FloatField()
     baseline_date = models.DateField()  # この日以降の売買日記を保有数に加算する起点
+    # 棚卸しした日時（2026-09-27 追加）。これより後に記録した売買日記だけを加算する。
+    # 登録画面は日記を反映した数量を表示し、保存＝その時点の棚卸しなので、日時で切らないと
+    # 反映済みの日記を二重に足す（WU 23株が31株になった）。null は旧データ（日付で切る）
+    baseline_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

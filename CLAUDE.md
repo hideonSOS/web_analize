@@ -64,7 +64,7 @@ CREATE DATABASE web_kabuanalize ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C
 ### ⚠️ migrations/ を .gitignore に入れないこと
 migrations を除外すると、サーバーで `migrate` してもテーブルが作られず
 「テーブル/カラムが無い」という DB不整合エラーになる。`.gitignore` にも警告を明記済み。
-現在のマイグレーションは全43ファイル（japan_kabu 10・diary 3・karte 13・portfolio 9・
+現在のマイグレーションは全43ファイル（※この数字は古い。portfolio は 0012 まで）（japan_kabu 10・diary 3・karte 13・portfolio 9・
 spending 5・website 3）。**spending と website を数え漏らしていた時期がある**ので、
 デプロイ時は `manage.py showmigrations | grep -c "\[ \]"` で未適用ゼロを確認すること。
 デプロイ後は `python manage.py migrate` を必ず実行する。
@@ -875,6 +875,16 @@ ETagで確実に検知できる。
 | `portfolio` | 資産ダッシュボード(`/portfolio/`)と棚卸し登録(`/portfolio/register/`)。株・投信・金銀・**暗号資産（2026-09-05追加）**・現金を円換算で自動評価。暗号資産は `Product.category='crypto'`（BTC/ETH/XRP/SOL・`CRYPTO_CHOICES`）で、価格は `update_product_prices` が yfinance「銘柄-USD」×ドル円で円/枚を毎晩取得（マイグレーション 0010）。銘柄を足すときは `CRYPTO_CHOICES` と `CRYPTO_TICKERS` の両方。大分類・目標・スナップショットは `ASSET_CLASSES`/`ASSET_CLASS_CHOICES`/`AssetSnapshot.crypto` で自動追従。**サーバー反映手順は `docs/DEPLOY_PORTFOLIO.md`**（migrate→collectstatic→`seed_fund_products`→`update_product_prices`→restart。投信のプルダウン候補はDBデータなのでseedコマンド実行が必須） |
 | `watch` | **監視**(`/watch/`・2026-09-21)。自分で選んだ銘柄の **1年高値からの下落率を横棒**で上から並べ、指定した**買値まで下がるのを待つ**（ユーザーの使い方: 同じ銘柄で売買を繰り返すので、保有の追跡ではなく「下がりきった銘柄を探す」ための一覧）。`WatchItem`（stock 1対1・target_price。note/sort_order は残置・未使用）。**ゲージは左端=買値（0%）、目盛りは「買値まであと何%」で全銘柄共通のスケール**（右端＝最も遠い銘柄の%を10%刻みで切り上げ・最低30%。2026-09-21 ユーザー指示: 高値を右端にする必要はない・スケールを揃える）。帯＝現在値が買値より何%上かで、株価が下がるほど縮む。帯の右端に ▼ と現在株価＋「あと−x%」、右上に大きく「あと −x%」。空になれば緑＋「到達」。買値未設定なら左端は1年安値。価格は整数表示（floatformat:0）。**スマホ（〜600px）は別レイアウト**（2026-09-22）: 吹き出し・両端ラベルを消し、バーの上に「買値｜現在」の静的ストリップ（`.wt-mstrip`・PC は非表示）、▼だけをバーに残す。右端の目盛り%は `.wt-bar::after`（`data-scale`）。追加フォームは縦積み・ボタン全幅、編集は「買値＋保存」1行＋一言。株価はカルテと同じ `DailyPrice`（`bulk_price_stats`）。**監視銘柄は `update_daily_prices` と `update_impulse_prices` の対象に入れてある**（追加時に日足が無ければその場で取得）。銘柄検索は `karte:stock_options` を共用。**並びは「買値までの残り%」が小さい順**（到達済みが最上位・未設定は末尾。2026-09-21 ユーザー指示。手動並び替えは撤去、`sort_order`/`watch:reorder` は残置・未使用） |
 | `spending` | 支出分析(`/spending/`)・月次(`/spending/month/`)・明細(`/spending/transactions/`)。Zaim／楽天e-navi／Amazon注文履歴のCSVを**手動アップロード**して統合台帳を作り、サブスク・貯蓄率・入金力を出す。分析エンジンは `card_insight/`。**詳細は下の「支出分析」節を必ず読むこと**（罠が多い） |
+
+### 📋 登録画面は売買日記に従属する（2026-09-27 ユーザー決定「独立ではなく連動。登録画面が従属」）
+- 登録画面の最上部に「登録済みの保有」一覧（棚卸しで誤差を埋める一番使う画面、とのことで最上部へ移動）。
+  数量・取得単価は **棚卸し＋その後の売買日記を反映した「いま」の値**（`services.register_current_values`）で、
+  日記で増減した分は「日記 +n」のバッジ。日記だけで持っている銘柄（行が無い）も「日記から」行として出て「登録」できる
+- **保存＝その時点の棚卸し**: `Holding.baseline_at`（0012）に保存日時を入れ、**それより後に記録（created_at）した
+  日記だけ**を加算する（`_after_stocktake`）。⚠️ 旧実装は日付（baseline_date）でしか切らず、インライン編集でも
+  baseline_date が動かなかったので、日記を見ながら数量を直すと直前の日記が二重に足された（WU 23→31、1911 30→36、
+  7013 4→5、9503 8→1）。0012 で既存行は baseline_at=updated_at（最後の保存）にして解消。日付で切る経路は baseline_at が null の行だけ
+- 棚卸し日より前の日付で後から書き足した日記は加算しない（その売買は棚卸しの数量に入っているはず）
 
 ### 💰 配当金ページ（`/portfolio/dividends/`・2026-09-27）
 - 対象は **投資スタイル（`Holding.style`）が「配当狙い」の保有株だけ**（ユーザー指示）。株数・取得単価は

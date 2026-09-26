@@ -320,3 +320,8 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
   .dv-ev-name{ grid-column:1 / -1; }
   .dv-months{ grid-template-columns:repeat(6, 1fr); }
 }
+
+/* 登録画面: 日記で増減した分（棚卸し後の売買）の小バッジ */
+.pf-diary-delta { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px;
+  font-size:11px; color:#fbbf24; border:1px solid rgba(251,191,36,.45); white-space:nowrap; }
+.pf-diary-only td { background:rgba(251,191,36,.05); }

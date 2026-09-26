@@ -2,6 +2,7 @@ import math
 from datetime import date
 
 from django.contrib import messages
+from django.utils import timezone
 from django.shortcuts import redirect, render
 
 from .forms import (
@@ -11,7 +12,7 @@ from .forms import (
 from .models import (
     CashFlow, DrillNote, Holding, PortfolioSetting, Product, TargetAllocation,
 )
-from .services import build_portfolio
+from .services import build_portfolio, register_current_values
 
 # ドーナツ・棒グラフの大分類カラー（モックと同じ配色）
 CLASS_COLORS = {
@@ -657,6 +658,7 @@ def register(request):
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
                         'baseline_date': today,
+                        'baseline_at': timezone.now(),
                         'style': form.cleaned_data.get('style') or '',
                         # sector は触らない（自動判定に任せる。手動値があれば保持される）
                     })
@@ -675,6 +677,7 @@ def register(request):
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
                         'baseline_date': today,
+                        'baseline_at': timezone.now(),
                     })
                 messages.success(request, f'{product.display_name} を登録しました。')
                 return redirect('portfolio:register')
@@ -691,6 +694,7 @@ def register(request):
                         'quantity': form.cleaned_data['quantity'],
                         'avg_cost': form.cleaned_data['avg_cost'],
                         'baseline_date': today,
+                        'baseline_at': timezone.now(),
                     })
                 messages.success(request, f'{product.display_name} を登録しました。')
                 return redirect('portfolio:register')
@@ -708,6 +712,7 @@ def register(request):
                         # 入力は「払った合計」。円/枚に直して保存する（貴金属と同じ列で扱うため）
                         'avg_cost': form.avg_cost_per_unit(),
                         'baseline_date': today,
+                        'baseline_at': timezone.now(),
                     })
                 messages.success(request, f'{product.display_name} を登録しました。')
                 return redirect('portfolio:register')
@@ -799,6 +804,10 @@ def register(request):
                 style = request.POST.get('style', holding.style)
                 if style in dict(Holding.STYLE_CHOICES):
                     holding.style = style
+                # 入力欄には日記を反映した「いま」の数量が出ている。保存＝その時点の棚卸し
+                # なので、ここまでの日記は数量に含まれたとみなす（二重計上の防止）
+                holding.baseline_date = today
+                holding.baseline_at = timezone.now()
                 from django.db import IntegrityError
                 try:
                     holding.save()
@@ -810,6 +819,28 @@ def register(request):
                         '既存の行の数量を編集してください。')
             return redirect('portfolio:register')
 
+        elif form_id == 'holding_adopt':
+            # 日記だけで持っている銘柄（登録画面に行が無い）を、その場の数量で棚卸しに加える
+            from japan_kabu.models import Stock
+            stock = Stock.objects.filter(code=request.POST.get('stock_code', '')).first()
+            try:
+                quantity = float(request.POST.get('quantity', ''))
+                avg_cost = float(request.POST.get('avg_cost', ''))
+            except ValueError:
+                stock = None
+            if stock and not Holding.objects.filter(stock=stock).exists():
+                account = request.POST.get('account', '')
+                style = request.POST.get('style', '')
+                Holding.objects.create(
+                    stock=stock, quantity=quantity, avg_cost=avg_cost,
+                    account=account if account in dict(Holding.ACCOUNT_CHOICES) else '',
+                    style=style if style in dict(Holding.STYLE_CHOICES) else '',
+                    baseline_date=today, baseline_at=timezone.now())
+                messages.success(request, f'{stock.display_code} {stock.name} を登録しました。')
+            else:
+                messages.error(request, '登録できませんでした（数量・取得単価を確認してください）。')
+            return redirect('portfolio:register')
+
         elif form_id == 'holding_delete':
             holding = Holding.objects.filter(pk=request.POST.get('holding_id')).first()
             if holding:
@@ -818,9 +849,13 @@ def register(request):
                 messages.success(request, f'{name} を削除しました。')
             return redirect('portfolio:register')
 
-    holdings = (Holding.objects
-                .select_related('stock', 'product')
-                .order_by('id'))
+    holdings = list(Holding.objects
+                    .select_related('stock', 'product')
+                    .order_by('id'))
+    # 登録画面は日記に従属する: 数量・取得単価は日記を反映した「いま」の値を出す
+    current, diary_only = register_current_values(holdings, setting)
+    for h in holdings:
+        h.cur = current[h.pk]
     recent_flows = CashFlow.objects.all()[:5]
 
     # 目標ポートフォリオ入力フォームの現在値（未設定の分類は空欄）
@@ -838,6 +873,10 @@ def register(request):
     context = {
         'forms': forms_map,
         'holdings': holdings,
+        'diary_only': diary_only,
+        'holding_count': len(holdings) + len(diary_only),
+        'account_choices': Holding.ACCOUNT_CHOICES,
+        'style_choices': Holding.STYLE_CHOICES,
         'recent_flows': recent_flows,
         'setting': setting,
         # 商品が0件のときは「登録済みから選ぶ」プルダウンを出さない

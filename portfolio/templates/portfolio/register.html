@@ -15,13 +15,121 @@
     <div class="pf-msg">{{ msg }}</div>
   {% endfor %}
 
+  {% comment %}
+    登録済み一覧はページ最上部（2026-09-27 ユーザー指示: 棚卸しで誤差を埋める一番使う画面）。
+    数量・取得単価は日記を反映した「いま」の値（register_current_values）。保存＝その時点の棚卸し。
+  {% endcomment %}
+  <div class="pf-card">
+    <h2>登録済みの保有（{{ holding_count }}件
+      {% if setting.baseline_cash %} ＋ 現金{% endif %}）
+      <span class="pf-hint">{% if setting.link_diary_to_holdings %}売買日記の売買を反映した、いまの数量です。ずれていたら直して保存（＝棚卸し）{% else %}日記との連動はOFF（登録した数量のまま）{% endif %}</span></h2>
+    {% if holdings or diary_only or setting.baseline_cash %}
+    <div class="pf-scroll">
+      <table class="pf-table num">
+        <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
+        {% comment %}
+          各行は数量・取得単価・口座区分・スタイルをその場で編集して保存できる。
+          <tr> をまたぐ <form> は書けないため、HTML5 の form 属性で
+          行末の保存フォーム（id="he<行id>"）へ入力欄を紐づける方式。
+        {% endcomment %}
+        {% for h in holdings %}
+        <tr>
+          <td>{% if h.stock %}<span class="pf-code">{{ h.stock.display_code }}</span>{{ h.stock.name }}
+              {% else %}<span class="pf-code">{{ h.product.get_category_display }}</span>{{ h.product.display_name }}{% endif %}</td>
+          <td>{% if h.product and h.product.category != 'fund' %}―{% else %}
+            <select name="account" form="he{{ h.id }}"
+                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+              {% for val, label in h.ACCOUNT_CHOICES %}
+              <option value="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>{% endif %}</td>
+          <td>{% if h.stock %}
+            <select name="style" form="he{{ h.id }}"
+                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+              {% for val, label in h.STYLE_CHOICES %}
+              <option value="{{ val }}" {% if h.style == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>{% else %}―{% endif %}</td>
+          <td><input type="number" step="any" name="quantity" form="he{{ h.id }}"
+                     value="{{ h.cur.quantity|floatformat:'-4' }}"
+                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right">
+              {% if h.product %}{{ h.product.unit_label }}{% else %}株{% endif %}
+              {% if h.cur.delta %}<span class="pf-diary-delta" title="棚卸し {{ h.quantity|floatformat:'-4' }}株 ＋ その後の売買日記">日記 {% if h.cur.delta > 0 %}+{% endif %}{{ h.cur.delta|floatformat:'-4' }}</span>{% endif %}</td>
+          <td><input type="number" step="any" name="avg_cost" form="he{{ h.id }}"
+                     value="{{ h.cur.avg_cost|floatformat:'-4' }}"
+                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"></td>
+          <td>{{ h.baseline_date|date:"Y/n/j" }}</td>
+          <td style="white-space:nowrap">
+            <form id="he{{ h.id }}" method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="holding_edit">
+              <input type="hidden" name="holding_id" value="{{ h.id }}">
+              <button type="submit" class="pf-link" style="background:none;border:1px solid #1e3a5f;border-radius:6px;cursor:pointer;font-size:12px;color:#1e90ff;padding:4px 10px">保存</button>
+            </form>
+            <form method="post" style="display:inline"
+                  onsubmit="return confirm('この保有行を削除しますか？');">
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="holding_delete">
+              <input type="hidden" name="holding_id" value="{{ h.id }}">
+              <button type="submit" class="pf-link" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f87171">削除</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        {% for d in diary_only %}
+        {% comment %} 日記だけで持っている銘柄（まだ行が無い）。「登録」でこの数量のまま棚卸しに加える {% endcomment %}
+        <tr class="pf-diary-only">
+          <td><span class="pf-code">{{ d.stock.display_code }}</span>{{ d.stock.name }}
+              <span class="pf-diary-delta">日記から</span></td>
+          <td><select name="account" form="ha{{ forloop.counter }}"
+                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+              {% for val, label in account_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select></td>
+          <td><select name="style" form="ha{{ forloop.counter }}"
+                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
+              {% for val, label in style_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+            </select></td>
+          <td><input type="number" step="any" name="quantity" form="ha{{ forloop.counter }}"
+                     value="{{ d.quantity|floatformat:'-4' }}"
+                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"> 株</td>
+          <td><input type="number" step="any" name="avg_cost" form="ha{{ forloop.counter }}"
+                     value="{{ d.avg_cost|floatformat:'-4' }}"
+                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"></td>
+          <td>―</td>
+          <td style="white-space:nowrap">
+            <form id="ha{{ forloop.counter }}" method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="form_id" value="holding_adopt">
+              <input type="hidden" name="stock_code" value="{{ d.stock.code }}">
+              <button type="submit" class="pf-link" style="background:none;border:1px solid #1e3a5f;border-radius:6px;cursor:pointer;font-size:12px;color:#1e90ff;padding:4px 10px">登録</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if setting.baseline_cash %}
+        <tr>
+          <td><span class="pf-code">￥</span>現金（期首）</td>
+          <td>―</td><td>―</td><td>―</td>
+          <td>¥{{ setting.baseline_cash|floatformat:0|intcomma }}</td>
+          <td>{{ setting.baseline_cash_date|date:"Y/n/j" }}</td>
+          <td></td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+    {% else %}
+    <div class="pf-note" style="margin-top:0">まだ何も登録されていません。下のフォームから棚卸しを始めてください。</div>
+    {% endif %}
+  </div>
+
+
   <div class="pf-card">
     <div class="pf-note" style="margin-top:0">
       <b style="color:#87cefa">売買日記との役割分担:</b>
       日記＝売買した「とき」の記録／ここ＝「いま」何をいくつ持っているかの登録。
-      保有はこのページの登録が正で、売買したら数量をここで更新します。
-      同じ銘柄・商品（同じ口座区分）を再登録すると棚卸しのやり直し（上書き）になります。
-      日記から保有数を自動反映したい場合は、下の「売買日記との連動」でONにできます（既定OFF）。
+      日記で売買すると上の一覧の数量も自動で変わります（「売買日記との連動」がONのとき）。
+      証券会社の画面とずれていたら、一覧の数量を直して保存すると、その時点の棚卸しになります。
+      同じ銘柄・商品（同じ口座区分）を再登録しても棚卸しのやり直し（上書き）です。
     </div>
   </div>
 
@@ -162,78 +270,6 @@
       </div>
       <button class="pf-btn" type="submit">保存する</button>
     </form>
-  </div>
-
-  <!-- 登録済み一覧（入力フォーム・目標設定の下に配置。件数が増えても入力が遠くならないように） -->
-  <div class="pf-card">
-    <h2>登録済みの期首残高（{{ holdings|length }}件
-      {% if setting.baseline_cash %} ＋ 現金{% endif %}）</h2>
-    {% if holdings or setting.baseline_cash %}
-    <div class="pf-scroll">
-      <table class="pf-table num">
-        <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
-        {% comment %}
-          各行は数量・取得単価・口座区分・スタイルをその場で編集して保存できる。
-          <tr> をまたぐ <form> は書けないため、HTML5 の form 属性で
-          行末の保存フォーム（id="he<行id>"）へ入力欄を紐づける方式。
-        {% endcomment %}
-        {% for h in holdings %}
-        <tr>
-          <td>{% if h.stock %}<span class="pf-code">{{ h.stock.display_code }}</span>{{ h.stock.name }}
-              {% else %}<span class="pf-code">{{ h.product.get_category_display }}</span>{{ h.product.display_name }}{% endif %}</td>
-          <td>{% if h.product and h.product.category != 'fund' %}―{% else %}
-            <select name="account" form="he{{ h.id }}"
-                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
-              {% for val, label in h.ACCOUNT_CHOICES %}
-              <option value="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>{% endif %}</td>
-          <td>{% if h.stock %}
-            <select name="style" form="he{{ h.id }}"
-                    style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px">
-              {% for val, label in h.STYLE_CHOICES %}
-              <option value="{{ val }}" {% if h.style == val %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>{% else %}―{% endif %}</td>
-          <td><input type="number" step="any" name="quantity" form="he{{ h.id }}"
-                     value="{{ h.quantity|floatformat:'-4' }}"
-                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right">
-              {% if h.product %}{{ h.product.unit_label }}{% else %}株{% endif %}</td>
-          <td><input type="number" step="any" name="avg_cost" form="he{{ h.id }}"
-                     value="{{ h.avg_cost|floatformat:'-4' }}"
-                     style="width:96px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e5e7eb;padding:5px 6px;font-size:12px;text-align:right"></td>
-          <td>{{ h.baseline_date|date:"Y/n/j" }}</td>
-          <td style="white-space:nowrap">
-            <form id="he{{ h.id }}" method="post" style="display:inline">
-              {% csrf_token %}
-              <input type="hidden" name="form_id" value="holding_edit">
-              <input type="hidden" name="holding_id" value="{{ h.id }}">
-              <button type="submit" class="pf-link" style="background:none;border:1px solid #1e3a5f;border-radius:6px;cursor:pointer;font-size:12px;color:#1e90ff;padding:4px 10px">保存</button>
-            </form>
-            <form method="post" style="display:inline"
-                  onsubmit="return confirm('この保有行を削除しますか？');">
-              {% csrf_token %}
-              <input type="hidden" name="form_id" value="holding_delete">
-              <input type="hidden" name="holding_id" value="{{ h.id }}">
-              <button type="submit" class="pf-link" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f87171">削除</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-        {% if setting.baseline_cash %}
-        <tr>
-          <td><span class="pf-code">￥</span>現金（期首）</td>
-          <td>―</td><td>―</td><td>―</td>
-          <td>¥{{ setting.baseline_cash|floatformat:0|intcomma }}</td>
-          <td>{{ setting.baseline_cash_date|date:"Y/n/j" }}</td>
-          <td></td>
-        </tr>
-        {% endif %}
-      </table>
-    </div>
-    {% else %}
-    <div class="pf-note" style="margin-top:0">まだ何も登録されていません。上のフォームから棚卸しを始めてください。</div>
-    {% endif %}
   </div>
 
   <!-- 売買日記との連動設定 -->
