@@ -351,3 +351,6 @@ table.pf-reg-table .pf-reg-unit{ display:inline-block; width:2.2em; text-align:l
 table.pf-reg-table, table.pf-reg-table td:first-child{ font-size:16px; }
 .pf-reg-sel, .pf-reg-in{ font-size:16px; }
 .pf-reg-in[name=quantity]{ font-size:19px; font-weight:bold; width:130px; }
+/* 口座区分の見分け: 成長投資枠は薄いライトグリーン、積立投資枠は白のまま（2026-09-27 ユーザー指示） */
+select.pf-acct[data-acct="成長投資枠"], select.pf-acct option[data-acct="成長投資枠"]{ color:#a7f3d0; }
+select.pf-acct option{ color:#e5e7eb; background:#0f172a; }

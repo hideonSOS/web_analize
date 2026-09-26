@@ -34,9 +34,9 @@
           <td>{% if h.stock %}<span class="pf-code">{{ h.stock.display_code }}</span>{{ h.stock.name }}
               {% else %}<span class="pf-code">{{ h.product.get_category_display }}</span>{{ h.product.display_name }}{% endif %}</td>
           <td>{% if h.product and h.product.category != 'fund' %}―{% else %}
-            <select name="account" form="he{{ h.id }}" class="pf-reg-sel">
+            <select name="account" form="he{{ h.id }}" class="pf-reg-sel pf-acct" data-acct="{{ h.account }}">
               {% for val, label in h.ACCOUNT_CHOICES %}
-              <option value="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
+              <option value="{{ val }}" data-acct="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>{% endif %}</td>
           <td>{% if h.stock %}
@@ -73,8 +73,8 @@
         {% comment %} 日記だけで持っている銘柄（まだ行が無い）。「登録」でこの数量のまま棚卸しに加える {% endcomment %}
         <tr class="pf-diary-only">
           <td><span class="pf-code">{{ d.stock.display_code }}</span>{{ d.stock.name }}</td>
-          <td><select name="account" form="ha{{ forloop.counter }}" class="pf-reg-sel">
-              {% for val, label in account_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          <td><select name="account" form="ha{{ forloop.counter }}" class="pf-reg-sel pf-acct" data-acct="">
+              {% for val, label in account_choices %}<option value="{{ val }}" data-acct="{{ val }}">{{ label }}</option>{% endfor %}
             </select></td>
           <td><select name="style" form="ha{{ forloop.counter }}" class="pf-reg-sel">
               {% for val, label in style_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
@@ -355,4 +355,10 @@
     {% endif %}
   </div>
 </div>
+{% comment %} 口座区分の色: 選び直したら文字色も追従させる（成長投資枠＝薄い緑・積立＝白） {% endcomment %}
+<script>
+document.querySelectorAll('select.pf-acct').forEach(function (sel) {
+  sel.addEventListener('change', function () { sel.dataset.acct = sel.value; });
+});
+</script>
 {% endblock %}
