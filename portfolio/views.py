@@ -254,11 +254,13 @@ def stocks(request):
     from django.urls import reverse
     scatter_spec = {
         'points': [
-            {'name': r['name'], 'weight': round(r['weight'], 2),
+            {'name': r['name'], 'code': r['code'], 'weight': round(r['weight'], 2),
              'pnl_pct': round(r['pnl_pct'], 2), 'value': round(r['value']),
              'url': reverse('japan_kabu:stock_detail', args=[r['code']])}
             for r in rows if r['pnl_pct'] is not None
         ],
+        # 区画の縦線: 全銘柄を均等に持ったときの構成比（これより右＝主力として多めに持っている）
+        'equal_weight': round(100 / len(rows), 2) if rows else 0,
     }
 
     # 押し目度ランキング（深い順。履歴なしは末尾。Noneを含むdictsortは使えない）

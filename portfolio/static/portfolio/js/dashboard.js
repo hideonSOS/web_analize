@@ -93,9 +93,25 @@
     return;
   }
   var maxV = Math.max.apply(null, spec.points.map(function (p) { return p.value; }));
+  // 4つの区画: 縦線＝均等に持ったときの構成比（100÷銘柄数）、横線＝損益 0%。
+  // 区画ごとに色と名前を直接描く（2026-09-27 ユーザー指摘: 見出し右端の注記が「右上」の説明に読めて、
+  // 一番儲かっている PFE が見直し候補に見えた。注記ではなくグラフの中で区画を名指しする）
+  var eq = spec.equal_weight;
+  var ws = spec.points.map(function (p) { return p.weight; });
+  var ps = spec.points.map(function (p) { return p.pnl_pct; });
+  var xMax = Math.ceil(Math.max.apply(null, ws.concat([eq * 2])) * 1.12 / 5) * 5;
+  var yHi = Math.max.apply(null, ps.concat([5])) * 1.15, yLo = Math.min.apply(null, ps.concat([-5])) * 1.15;
+  var yStep = Math.max(5, Math.ceil((yHi - yLo) / 6 / 5) * 5);     // 目盛りが 0 を通るきりの良い間隔
+  var yMax = Math.ceil(yHi / yStep) * yStep, yMin = Math.floor(yLo / yStep) * yStep;
+  function area(x0, y0, x1, y1, name, color, pos) {
+    return [{ coord: [x0, y0], name: name,
+              itemStyle: { color: color },
+              label: { position: pos, color: '#cbd5e1', fontSize: 11, fontWeight: 'bold' } },
+            { coord: [x1, y1] }];
+  }
   var chart = echarts.init(dom);
   chart.setOption({
-    grid: { left: 48, right: 24, top: 24, bottom: 40 },
+    grid: { left: 48, right: 56, top: 40, bottom: 40 },
     tooltip: {
       trigger: 'item', confine: true,
       backgroundColor: '#0f172a', borderColor: '#334155',
@@ -108,12 +124,14 @@
       },
     },
     xAxis: {
+      min: 0, max: xMax, interval: 5,
       name: '構成比%', nameTextStyle: { color: '#6b7280', fontSize: 10 },
       axisLabel: { color: '#6b7280', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
       splitLine: { lineStyle: { color: '#111827' } },
     },
     yAxis: {
+      min: yMin, max: yMax, interval: yStep,
       name: '損益率%', nameTextStyle: { color: '#6b7280', fontSize: 10 },
       axisLabel: { color: '#6b7280', fontSize: 10 },
       axisLine: { lineStyle: { color: '#334155' } },
@@ -127,18 +145,29 @@
       },
       label: {
         show: true, position: 'top', color: '#87cefa', fontSize: 10,
-        formatter: function (p) { return p.data.name; },
+        // 点の横は短いコード（PFE・2502）。正式名はホバー／タップで出す（名前だと重なって読めない）
+        formatter: function (p) { return p.data.code || p.data.name; },
       },
       emphasis: { itemStyle: { shadowBlur: 12, shadowColor: 'rgba(30,144,255,.6)' } },
       markLine: {
         silent: true, symbol: 'none',
-        lineStyle: { color: '#334155', type: 'dashed' },
+        lineStyle: { color: '#475569', type: 'dashed' },
         label: { show: false },
-        data: [{ yAxis: 0 }],
+        data: [{ yAxis: 0 }, { xAxis: eq, label: { show: true, formatter: '均等 ' + eq.toFixed(1) + '%',
+                                                   color: '#6b7280', fontSize: 10, position: 'end' } }],
+      },
+      markArea: {
+        silent: true,
+        data: [
+          area(eq, 0, xMax, yMax, '主力で含み益（稼ぎ頭・偏りすぎに注意）', 'rgba(34,197,94,.08)', 'insideTopRight'),
+          area(eq, yMin, xMax, 0, '主力で含み損（見直し候補）', 'rgba(239,68,68,.12)', 'insideBottomRight'),
+          area(0, 0, eq, yMax, '少額で含み益', 'rgba(34,197,94,.03)', 'insideTopLeft'),
+          area(0, yMin, eq, 0, '少額で含み損', 'rgba(239,68,68,.04)', 'insideBottomLeft'),
+        ],
       },
       data: spec.points.map(function (p) {
         return {
-          name: p.name,
+          name: p.name, code: p.code,
           value: [p.weight, p.pnl_pct, p.value],
           itemStyle: {
             color: p.pnl_pct >= 0 ? 'rgba(74,222,128,.75)' : 'rgba(248,113,113,.75)',
