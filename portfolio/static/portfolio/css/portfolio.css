@@ -351,6 +351,18 @@ table.pf-reg-table .pf-reg-unit{ display:inline-block; width:2.2em; text-align:l
 table.pf-reg-table, table.pf-reg-table td:first-child{ font-size:16px; }
 .pf-reg-sel, .pf-reg-in{ font-size:16px; }
 .pf-reg-in[name=quantity]{ font-size:19px; font-weight:bold; width:130px; }
-/* 口座区分の見分け: 成長投資枠は薄いライトグリーン、積立投資枠は白のまま（2026-09-27 ユーザー指示） */
-select.pf-acct[data-acct="成長投資枠"], select.pf-acct option[data-acct="成長投資枠"]{ color:#a7f3d0; }
-select.pf-acct option{ color:#e5e7eb; background:#0f172a; }
+/* 口座区分ごとの表（積立 → 成長 → 区分なし）。列幅は3つの表でそろえる */
+.pf-reg-group{ font-size:17px; font-weight:bold; color:#e5e7eb; letter-spacing:1px; padding:22px 4px 8px;
+  border-bottom:1px solid #1e3a5f; }
+.pf-reg-group:first-child{ padding-top:4px; }
+.pf-reg-group span{ margin-left:10px; font-size:13px; font-weight:normal; color:#6b7280; }
+table.pf-reg-table{ table-layout:fixed; min-width:1100px; }
+table.pf-reg-table col.c-name{ width:19%; }
+table.pf-reg-table col.c-acct{ width:13%; }
+table.pf-reg-table col.c-style{ width:10%; }
+table.pf-reg-table col.c-qty{ width:19%; }
+table.pf-reg-table col.c-cost{ width:14%; }
+table.pf-reg-table col.c-date{ width:8%; }
+table.pf-reg-table col.c-ops{ width:11%; }
+table.pf-reg-table col.c-diary{ width:6%; }
+table.pf-reg-table .pf-reg-sel{ max-width:100%; }

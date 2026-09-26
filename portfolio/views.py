@@ -621,6 +621,24 @@ def drill(request):
     return render(request, 'portfolio/drill.html', context)
 
 
+def _holding_groups(holdings, diary_only, setting):
+    """登録画面の保有一覧を口座区分ごとの表に分ける（上から 積立 → 成長 → 区分なし）
+
+    区分なしの表には、日記だけで持っている銘柄と現金（期首）も入る。空の表は出さない
+    （区分なしの表は日記のみ銘柄か現金があれば出す）
+    """
+    groups = []
+    for key, label in [('積立投資枠', '積立投資枠'), ('成長投資枠', '成長投資枠')]:
+        rows = [h for h in holdings if h.account == key]
+        if rows:
+            groups.append({'key': key, 'label': label, 'rows': rows, 'count': len(rows)})
+    rest = [h for h in holdings if h.account not in ('積立投資枠', '成長投資枠')]
+    count = len(rest) + len(diary_only) + (1 if setting.baseline_cash else 0)
+    if count:
+        groups.append({'key': 'none', 'label': '区分なし（NISA以外）', 'rows': rest, 'count': count})
+    return groups
+
+
 def register(request):
     """資産の登録（棚卸し）と入出金の記録
 
@@ -875,6 +893,7 @@ def register(request):
         'holdings': holdings,
         'diary_only': diary_only,
         'holding_count': len(holdings) + len(diary_only),
+        'holding_groups': _holding_groups(holdings, diary_only, setting),
         'account_choices': Holding.ACCOUNT_CHOICES,
         'style_choices': Holding.STYLE_CHOICES,
         'recent_flows': recent_flows,

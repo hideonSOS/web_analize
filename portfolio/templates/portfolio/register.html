@@ -22,21 +22,28 @@
   <div class="pf-card">
     {% if holdings or diary_only or setting.baseline_cash %}
     <div class="pf-reg-scroll">
+      {% comment %}
+        口座区分ごとに表を分ける（2026-09-27 ユーザー指示: 上から 積立投資枠 → 成長投資枠 → 区分なし）。
+        区分を変えて保存すると次の表示で該当の表へ移る。列幅は colgroup で3つの表をそろえる。
+      {% endcomment %}
+      {% for g in holding_groups %}
+      <div class="pf-reg-group">{{ g.label }}<span>{{ g.count }}件</span></div>
       <table class="pf-table num pf-reg-table">
+        <colgroup><col class="c-name"><col class="c-acct"><col class="c-style"><col class="c-qty"><col class="c-cost"><col class="c-date"><col class="c-ops"><col class="c-diary"></colgroup>
         <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th><th></th></tr>
         {% comment %}
           各行は数量・取得単価・口座区分・スタイルをその場で編集して保存できる。
           <tr> をまたぐ <form> は書けないため、HTML5 の form 属性で
           行末の保存フォーム（id="he<行id>"）へ入力欄を紐づける方式。
         {% endcomment %}
-        {% for h in holdings %}
+        {% for h in g.rows %}
         <tr>
           <td>{% if h.stock %}<span class="pf-code">{{ h.stock.display_code }}</span>{{ h.stock.name }}
               {% else %}<span class="pf-code">{{ h.product.get_category_display }}</span>{{ h.product.display_name }}{% endif %}</td>
           <td>{% if h.product and h.product.category != 'fund' %}―{% else %}
-            <select name="account" form="he{{ h.id }}" class="pf-reg-sel pf-acct" data-acct="{{ h.account }}">
+            <select name="account" form="he{{ h.id }}" class="pf-reg-sel">
               {% for val, label in h.ACCOUNT_CHOICES %}
-              <option value="{{ val }}" data-acct="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
+              <option value="{{ val }}" {% if h.account == val %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>{% endif %}</td>
           <td>{% if h.stock %}
@@ -69,12 +76,13 @@
           <td class="pf-reg-diary">{% if h.cur.delta %}<span class="pf-diary-delta" title="棚卸し {{ h.quantity|floatformat:'-4' }}株 ＋ その後の売買日記">日記 {% if h.cur.delta > 0 %}+{% endif %}{{ h.cur.delta|floatformat:'-4' }}</span>{% endif %}</td>
         </tr>
         {% endfor %}
+        {% if g.key == 'none' %}
         {% for d in diary_only %}
         {% comment %} 日記だけで持っている銘柄（まだ行が無い）。「登録」でこの数量のまま棚卸しに加える {% endcomment %}
         <tr class="pf-diary-only">
           <td><span class="pf-code">{{ d.stock.display_code }}</span>{{ d.stock.name }}</td>
-          <td><select name="account" form="ha{{ forloop.counter }}" class="pf-reg-sel pf-acct" data-acct="">
-              {% for val, label in account_choices %}<option value="{{ val }}" data-acct="{{ val }}">{{ label }}</option>{% endfor %}
+          <td><select name="account" form="ha{{ forloop.counter }}" class="pf-reg-sel">
+              {% for val, label in account_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
             </select></td>
           <td><select name="style" form="ha{{ forloop.counter }}" class="pf-reg-sel">
               {% for val, label in style_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
@@ -105,7 +113,9 @@
           <td></td>
         </tr>
         {% endif %}
+        {% endif %}
       </table>
+      {% endfor %}
     </div>
     {% else %}
     <div class="pf-note" style="margin-top:0">まだ何も登録されていません。下のフォームから棚卸しを始めてください。</div>
@@ -355,10 +365,4 @@
     {% endif %}
   </div>
 </div>
-{% comment %} 口座区分の色: 選び直したら文字色も追従させる（成長投資枠＝薄い緑・積立＝白） {% endcomment %}
-<script>
-document.querySelectorAll('select.pf-acct').forEach(function (sel) {
-  sel.addEventListener('change', function () { sel.dataset.acct = sel.value; });
-});
-</script>
 {% endblock %}
