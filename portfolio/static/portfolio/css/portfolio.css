@@ -392,3 +392,4 @@ tr.pf-reg-saved td{ animation:pfRegSaved 1.4s ease-out; }
   .pf-subnav .pf-nav-btn{ width:auto; }
 }
 .dv-tools{ text-align:right; font-size:11px; color:#6b7280; margin:-8px 0 12px; }
+.dv-kpi .s em{ font-style:normal; }

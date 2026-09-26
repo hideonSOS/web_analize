@@ -24,8 +24,10 @@
 
   {% comment %} ---- 要約 ---- {% endcomment %}
   <div class="dv-kpis">
-    <div class="dv-kpi main"><span class="k">年間の受取見込み（税引後）</span><b>¥{{ total_net_jpy|floatformat:0|intcomma }}</b>
-      <span class="s">月あたり ¥{{ monthly_net_jpy|floatformat:0|intcomma }}・税引前 ¥{{ total_gross_jpy|floatformat:0|intcomma }}</span></div>
+    {% comment %} 先頭は配当狙い銘柄の総額（2026-09-27 ユーザー指示で年間の受取見込みから差し替え） {% endcomment %}
+    <div class="dv-kpi main"><span class="k">配当狙い銘柄の総額（評価額）</span><b>¥{{ value_jpy|floatformat:0|intcomma }}</b>
+      <span class="s">{{ count }}銘柄・取得額 ¥{{ cost_jpy|floatformat:0|intcomma }}・含み損益
+        <em class="{% if pnl_jpy >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if pnl_jpy >= 0 %}+{% endif %}¥{{ pnl_jpy|floatformat:0|intcomma }}{% if pnl_pct is not None %}（{% if pnl_pct >= 0 %}+{% endif %}{{ pnl_pct|floatformat:1 }}%）{% endif %}</em></span></div>
     <div class="dv-kpi"><span class="k">{{ year }}年の受取済み（推定・税引後）</span><b>¥{{ year_paid_net|floatformat:0|intcomma }}</b>
       <span class="s">支払済みと判定した配当の合計</span></div>
     <div class="dv-kpi"><span class="k">利回り</span><b>{% if yield_cost %}{{ yield_cost|floatformat:2 }}%{% else %}—{% endif %}</b>

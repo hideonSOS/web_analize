@@ -186,4 +186,8 @@ def build(rows, fx_rate, today=None):
         'yield_now': (total_gross_jpy / value_jpy * 100) if value_jpy else None,
         'next_event': next((e for e in events if e['kind'] == 'ex'), None),
         'fx_rate': fx_rate, 'today': today,
+        # 配当狙い銘柄の総額（評価額・取得額。米国株は円換算）
+        'value_jpy': value_jpy, 'cost_jpy': cost_jpy, 'count': len(items),
+        'pnl_jpy': value_jpy - cost_jpy,
+        'pnl_pct': ((value_jpy / cost_jpy - 1) * 100) if cost_jpy else None,
     }
