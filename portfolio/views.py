@@ -724,9 +724,12 @@ def register(request):
             form = CryptoHoldingForm(request.POST)
             if form.is_valid():
                 product = form.get_or_create_product()
+                # 暗号資産は NISA 対象外。登録画面で区分（例: 暗号）を付け替えた行があれば、それを上書きする
+                # （区分 '' で探すと別の行ができて二重計上になる）
+                existing = Holding.objects.filter(product=product).first()
                 Holding.objects.update_or_create(
                     product=product,
-                    account='',                      # 暗号資産に口座区分は無い（NISA対象外）
+                    account=existing.account if existing else '',
                     defaults={
                         'quantity': form.cleaned_data['quantity'],
                         # 入力は「払った合計」。円/枚に直して保存する（貴金属と同じ列で扱うため）

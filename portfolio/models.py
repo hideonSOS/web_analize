@@ -149,6 +149,11 @@ class Holding(models.Model):
         ('', '指定なし'),
         ('積立投資枠', '積立投資枠'),
         ('成長投資枠', '成長投資枠'),
+        # NISA 以外の口座（2026-09-27 ユーザー追加）。登録画面では「区分なし」の表に入る
+        ('楽天', '楽天'),
+        ('暗号', '暗号'),
+        ('Moo', 'Moo'),
+        ('SBI', 'SBI'),
     ]
     account = models.CharField(max_length=20, blank=True, default='', choices=ACCOUNT_CHOICES)
 
