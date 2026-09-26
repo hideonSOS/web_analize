@@ -385,7 +385,8 @@ tr.pf-reg-saved td{ animation:pfRegSaved 1.4s ease-out; }
 /* 文字数にかかわらず同じ大きさ（戻るボタンも同じ見た目）。2026-09-27 ユーザー指示 */
 .pf-subnav .pf-nav-btn{ margin-left:0; padding:8px 0; font-size:14px; width:150px; text-align:center;
   box-sizing:border-box; white-space:nowrap; }
-.pf-subnav .pf-nav-btn.is-current{ background:rgba(34,197,94,.22); color:#dcfce7; cursor:default; }
+/* いま開いているページはグレーアウト（押せない）。ほかは緑のまま */
+.pf-subnav .pf-nav-btn.is-current{ background:#1f2937; border-color:#374151; color:#6b7280; box-shadow:none; cursor:default; }
 @media (max-width:520px){
   .pf-subnav{ display:grid; grid-template-columns:1fr 1fr; }
   .pf-subnav .pf-nav-btn{ width:auto; }
