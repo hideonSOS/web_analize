@@ -7,7 +7,6 @@
 
 {% block content %}
 <div class="pf-wrap">
-  <h1 class="pf-title">個別株分析（{{ scope_label }}）</h1>
   <p class="pf-sub">
     {% for key, label in scope_tabs %}
       {% if key == scope %}<b style="color:#e5e7eb">{{ label }}</b>{% else %}<a class="pf-link" href="{% url 'portfolio:stock_focus' key %}">{{ label }}</a>{% endif %}
