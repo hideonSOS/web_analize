@@ -14,8 +14,8 @@ from datetime import date, datetime, timedelta
 from django.core.management.base import BaseCommand
 
 from japan_kabu.models import Stock
+from portfolio.dividends import DIV_STYLE, plausible_next
 from portfolio.models import DividendRecord
-from portfolio.dividends import DIV_STYLE
 
 
 def _symbol(stock):
@@ -77,8 +77,17 @@ class Command(BaseCommand):
             cal = t.calendar or {}
         except Exception:   # noqa: BLE001
             cal = {}
-        if isinstance(cal, dict):
+        if isinstance(cal, dict) and cal:     # 取得失敗（空）のときは既存の予定を消さない
             ex, pay = _d(cal.get('Ex-Dividend Date')), _d(cal.get('Dividend Date'))
+            past = list(DividendRecord.objects.filter(stock=stock, amount__isnull=False)
+                        .values_list('ex_date', flat=True))
+            known = ex and DividendRecord.objects.filter(stock=stock, ex_date=ex, amount__isnull=False).exists()
+            if ex and not known and not plausible_next(ex, past):
+                self.stdout.write(f'  {stock.display_code}: calendar の権利落ち {ex} は直前({max(past)})から近すぎるので採らない')
+                ex = None
+            # 採らなかった・取り消された予定（金額未定の未来行）を掃除する
+            stale = DividendRecord.objects.filter(stock=stock, amount__isnull=True, ex_date__gt=date.today())
+            (stale.exclude(ex_date=ex) if ex else stale).delete()
             if ex:
                 rec, _ = DividendRecord.objects.get_or_create(stock=stock, ex_date=ex, defaults={'currency': cur})
                 if pay and 0 <= (pay - ex).days <= 120:

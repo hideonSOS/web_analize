@@ -21,6 +21,36 @@ TAX = {('JP', True): 0.0, ('JP', False): 0.20315,
 PAY_LAG_DAYS = {'US': 30, 'JP': 80}          # 支払日が不明なときの「権利落ち→入金」目安
 
 
+def typical_interval(ex_dates):
+    """権利落ちの間隔（日）の中央値。2回未満なら None"""
+    ds = sorted(ex_dates)
+    gaps = sorted((b - a).days for a, b in zip(ds, ds[1:]) if (b - a).days > 0)
+    return gaps[len(gaps) // 2] if gaps else None
+
+
+def plausible_next(ex, past_dates):
+    """calendar の「次の権利落ち日」がありえる日付か
+
+    yfinance の calendar は他社・古い情報が混ざることがある（2026-09-27 に OWL で、8/13 に落ちたばかり
+    なのに 9/30 が「次回」と出ていた。実際の OWL は四半期決算と同時に発表・11月ごろ）。直前の権利落ちから
+    いつもの間隔の6割も経っていない日付は採らない
+    """
+    past = [d for d in past_dates if d < ex]
+    step = typical_interval(past_dates)
+    if not past or not step:
+        return True
+    return (ex - max(past)).days >= step * 0.6
+
+
+def _estimate_next(past, today):
+    """次の権利落ち日の推定: 1年前の同じ回の日付＋364日（曜日がそろう）
+
+    平均間隔で足すと、年内で間隔が揃わない会社（PFE は 1月・5月・7月・11月）で2週間ずれる
+    """
+    cands = [d.ex_date + timedelta(days=364) for d in past if d.ex_date + timedelta(days=364) > today]
+    return min(cands) if cands else None
+
+
 def _tax_rate(stock):
     rows = list(Holding.objects.filter(stock=stock).values_list('account', 'quantity'))
     total = sum(q for _, q in rows) or 0
@@ -66,7 +96,10 @@ def build(rows, fx_rate, today=None):
         tax, nisa_ratio = _tax_rate(s)
         recs = recs_by.get(s.code, [])
         past = [d for d in recs if d.ex_date <= today and d.amount]
-        future = [d for d in recs if d.ex_date > today]
+        # 金額未定の予定は、いつもの間隔と合わないもの（calendar の誤り）を捨てる
+        future = [d for d in recs if d.ex_date > today
+                  and (d.amount or plausible_next(d.ex_date, [p.ex_date for p in past]))]
+        recs = [d for d in recs if d.ex_date <= today or d in future]
         last = past[-1] if past else None
         ttm = [d for d in past if d.ex_date > today - timedelta(days=365)]
         dps = sum(d.amount for d in ttm)            # 直近12か月の1株配当
@@ -77,11 +110,12 @@ def build(rows, fx_rate, today=None):
             prev = [d for d in past if 330 <= (last.ex_date - d.ex_date).days <= 400]
             if prev and prev[-1].amount:
                 change = (last.amount / prev[-1].amount - 1) * 100
-        # 次回の権利落ち: calendar の予定 → 無ければ直近＋平均間隔で推定
+        # 次回の権利落ち: calendar の予定 → 無ければ1年前の同じ回から推定
         nxt, nxt_est = (future[0], False) if future else (None, False)
         nxt_date = nxt.ex_date if nxt else None
         if not nxt_date and last and freq:
-            nxt_date, nxt_est = last.ex_date + timedelta(days=round(365 / freq)), True
+            nxt_date = _estimate_next(past, today) or (last.ex_date + timedelta(days=round(365 / freq)))
+            nxt_est = True
         nxt_amount = (nxt.amount if (nxt and nxt.amount) else (last.amount if last else None))
         annual_gross = dps * qty                    # 取引通貨
         annual_net_jpy = annual_gross * rate * (1 - tax)
