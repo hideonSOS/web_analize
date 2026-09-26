@@ -58,48 +58,27 @@
       </div>
     </div>
 
+    <!-- セクター別集計 -->
+    <div class="pf-card">
+      <h2>セクター別 <span class="pf-hint">登録時に選んだテーマ別の評価額と損益</span></h2>
+      <div class="pf-hbar-list num">
+        {% for s in sectors %}
+        <div class="pf-hbar-row">
+          <div class="pf-hbar-name">{{ s.name }}</div>
+          <div class="pf-hbar-track">
+            <div class="pf-hbar-fill" style="width:{{ s.width|floatformat:1 }}%; background:#1e90ff"></div>
+          </div>
+          <div class="pf-hbar-amt">¥{{ s.value|floatformat:0|intcomma }}
+            <span class="fx">{{ s.weight|floatformat:0 }}%
+              {% if s.pnl_pct is not None %} / <span class="{% if s.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if s.pnl_pct >= 0 %}+{% endif %}{{ s.pnl_pct|floatformat:1 }}%</span>{% endif %}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% comment %} 投資スタイル別は 2026-09-27 に削除（ユーザー指示）。セクター別は全幅 {% endcomment %}
     <div class="pf-grid2">
-      <!-- セクター別集計 -->
-      <div class="pf-card">
-        <h2>セクター別 <span class="pf-hint">登録時に選んだテーマ別の評価額と損益</span></h2>
-        <div class="pf-hbar-list num">
-          {% for s in sectors %}
-          <div class="pf-hbar-row">
-            <div class="pf-hbar-name">{{ s.name }}</div>
-            <div class="pf-hbar-track">
-              <div class="pf-hbar-fill" style="width:{{ s.width|floatformat:1 }}%; background:#1e90ff"></div>
-            </div>
-            <div class="pf-hbar-amt">¥{{ s.value|floatformat:0|intcomma }}
-              <span class="fx">{{ s.weight|floatformat:0 }}%
-                {% if s.pnl_pct is not None %} / <span class="{% if s.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if s.pnl_pct >= 0 %}+{% endif %}{{ s.pnl_pct|floatformat:1 }}%</span>{% endif %}</span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <!-- 投資スタイル別集計 -->
-      <div class="pf-card">
-        <h2>投資スタイル別 <span class="pf-hint">グロース/大型/配当狙い…自分の戦略の軸</span></h2>
-        <div class="pf-hbar-list num">
-          {% for s in styles %}
-          <div class="pf-hbar-row">
-            <div class="pf-hbar-name">{{ s.name }}</div>
-            <div class="pf-hbar-track">
-              <div class="pf-hbar-fill" style="width:{{ s.width|floatformat:1 }}%; background:#8b5cf6"></div>
-            </div>
-            <div class="pf-hbar-amt">¥{{ s.value|floatformat:0|intcomma }}
-              <span class="fx">{{ s.weight|floatformat:0 }}%
-                {% if s.pnl_pct is not None %} / <span class="{% if s.pnl_pct >= 0 %}pf-pos{% else %}pf-neg{% endif %}">{% if s.pnl_pct >= 0 %}+{% endif %}{{ s.pnl_pct|floatformat:1 }}%</span>{% endif %}</span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-        <div class="pf-note">
-          スタイルは登録フォームまたは登録済み一覧の編集で設定します（未設定は「（未分類）」）。
-        </div>
-      </div>
-
       <!-- 押し目度（ドローダウン）ランキング -->
       <div class="pf-card">
         <h2>高値からの下落率 <span class="pf-hint">終値ベース・調整後。深い順</span></h2>
