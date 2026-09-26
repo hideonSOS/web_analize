@@ -37,9 +37,10 @@
           <li class="nav-group">
             <span class="nav-cap">記録</span>
             <ul>
+              {% comment %} ポートフォリオを先頭、次に売買日記（2026-09-27 ユーザー指示） {% endcomment %}
+              <li><a href="{% url 'portfolio:index' %}">ポートフォリオ</a></li>
               <li><a href="{% url 'diary:index' %}">売買日記</a></li>
               <li><a href="{% url 'diary:practice' %}">練習</a></li>
-              <li><a href="{% url 'portfolio:index' %}">ポートフォリオ</a></li>
               <li><a href="{% url 'portfolio:drill' %}">下落上等</a></li>
               <li><a href="{% url 'spending:index' %}">支出分析</a></li>
               <li><a href="{% url 'spending:month' %}">月次支出</a></li>
