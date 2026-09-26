@@ -328,7 +328,8 @@ table.pf-stack-legend{ width:100%; border-collapse:collapse; font-size:13px; }
 
 /* 登録画面の「登録済みの保有」（棚卸しで一番使う表）: 行の高さ約2倍・文字を大きく（2026-09-27 ユーザー指示） */
 table.pf-reg-table{ font-size:15px; min-width:760px; }
-table.pf-reg-table th{ font-size:12px; padding-bottom:10px; }
+table.pf-reg-table th{ font-size:24px; color:#22c55e; font-weight:bold; letter-spacing:2px; padding:14px 8px;
+  position:sticky; top:0; z-index:2; background:#0b1220; box-shadow:inset 0 -2px 0 #14532d; }
 table.pf-reg-table td{ padding:18px 8px; vertical-align:middle; }
 table.pf-reg-table td:first-child{ font-size:15px; color:#e5e7eb; white-space:normal; min-width:180px; line-height:1.4; }
 table.pf-reg-table .pf-code{ font-size:13px; color:#9ca3af; }
@@ -340,3 +341,5 @@ table.pf-reg-table .pf-code{ font-size:13px; color:#9ca3af; }
 .pf-reg-save:hover{ background:rgba(30,144,255,.1); }
 .pf-reg-del{ background:none; border:none; cursor:pointer; font-size:14px; color:#f87171; padding:9px 8px; }
 table.pf-reg-table .pf-diary-delta{ font-size:12px; }
+/* 表だけをスクロールさせる枠（縦スクロールバーは右端・見出しは枠の上端に固定） */
+.pf-reg-scroll{ max-height:72vh; overflow:auto; scrollbar-color:#1e3a5f #0b1220; }

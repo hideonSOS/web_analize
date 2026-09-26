@@ -20,11 +20,8 @@
     数量・取得単価は日記を反映した「いま」の値（register_current_values）。保存＝その時点の棚卸し。
   {% endcomment %}
   <div class="pf-card">
-    <h2>登録済みの保有（{{ holding_count }}件
-      {% if setting.baseline_cash %} ＋ 現金{% endif %}）
-      <span class="pf-hint">{% if setting.link_diary_to_holdings %}売買日記の売買を反映した、いまの数量です。ずれていたら直して保存（＝棚卸し）{% else %}日記との連動はOFF（登録した数量のまま）{% endif %}</span></h2>
     {% if holdings or diary_only or setting.baseline_cash %}
-    <div class="pf-scroll">
+    <div class="pf-reg-scroll">
       <table class="pf-table num pf-reg-table">
         <tr><th>資産</th><th>区分</th><th>スタイル</th><th>数量</th><th>取得単価</th><th>棚卸し日</th><th></th></tr>
         {% comment %}
