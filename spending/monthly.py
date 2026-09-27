@@ -107,9 +107,16 @@ def bank_recurring(min_months: int = BANK_SCHEDULE_MIN_MONTHS) -> list[dict]:
                  category=('category', 'first'))
             .reset_index())
     g = g[g['months'] >= min_months]
+    # 月ごとの合計 → 中央値と直近の月の実額（2026-09-27 ユーザー指摘: ソフトバンクの 8月の引き落としは
+    # ¥7,173 なのにカレンダーは 12か月平均の ¥11,312 だった。1月の ¥37,114 など高い月に平均が引っ張られる）
+    per_month = pay.groupby(['name', 'ym'])['amount'].sum()
+    med = per_month.groupby(level=0).median()
+    last_ym = per_month.reset_index().sort_values('ym').groupby('name').tail(1).set_index('name')
     return [{
         'name': r['name'], 'day': int(round(r['day'])),
         'amount': int(round(r['total'] / r['months'])),
+        'median': int(round(med[r['name']])),
+        'last_amount': int(last_ym.loc[r['name'], 'amount']),
         'months': int(r['months']), 'n': int(r['n']),
         'last': pd.Timestamp(r['last']).strftime('%Y-%m-%d'),
         'treat': r['treat'], 'category': r['category'],
@@ -135,8 +142,12 @@ def _bank_schedule(setting, today, is_current):
     treat_label = {'expense': '', 'card_settlement': 'カード', 'cash_withdrawal': 'ATM',
                    'investment_transfer': '投資'}
     palette = TEMPLATE_PALETTE
+    # カレンダーの額は「中央値」（平均だと一度きりの高額月＝機種代・年払いに引っ張られる）。
+    # 前回の実額と日付も並べる（次に引かれる額の手がかりは直近の実額）
     rows = [{
-        'day': r['day'], 'name': r['name'], 'amount': r['amount'],
+        'day': r['day'], 'name': r['name'], 'amount': r['median'], 'mean': r['amount'],
+        'last_amount': r['last_amount'],
+        'last_md': f"{int(r['last'][5:7])}/{int(r['last'][8:10])}",
         'months': r['months'], 'n': r['n'], 'last': r['last'],
         'kind': r['treat'], 'kind_label': treat_label.get(r['treat'], ''),
         'color': palette[i % len(palette)],

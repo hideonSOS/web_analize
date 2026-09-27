@@ -219,3 +219,4 @@
 .sp-fresh td, .sp-fresh th{ padding:5px 8px; }
 .sp-fresh-bad td{ color:#fca5a5; }
 .sp-fresh-bad td b{ color:#f87171; }
+.sp-sched-lastdate{ font-size:11px; margin-left:2px; }
