@@ -54,6 +54,7 @@ run update_us_prices     || status=1   # 登録した米国株の株価（yfinan
 # 新しく登録した銘柄はカルテの「決算を取得する」ボタンで即時に取れる
 if [ "$(date +%u)" = "1" ]; then
     run update_us_financials || status=1   # 登録した米国株の決算（SEC EDGAR・保険で yfinance）
+    run update_jp_pretax     || status=1   # 日本株の税引前利益(yfinance)・経常利益(J-Quants)＝デュポン5分解用
 fi
 # 日々の差分は朝の update_impulse_prices（一括 download）が担当。ここでは履歴が1年に満たない
 # 新規銘柄の3年分だけ埋める（2026-09-27。全銘柄を1本ずつ取り直すのは朝と完全重複だった）

@@ -46,6 +46,9 @@ TAGS = {
               ('us-gaap', 'SalesRevenueNet'),
               ('us-gaap', 'RevenuesNetOfInterestExpense')],
     'op': [('us-gaap', 'OperatingIncomeLoss')],
+    # 税引前利益（デュポン5分解用・2026-09-27）。企業により揺れるので2つの定番タグを先勝ちで
+    'pretax': [('us-gaap', 'IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest'),
+               ('us-gaap', 'IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments')],
     'np': [('us-gaap', 'NetIncomeLoss'),
            ('us-gaap', 'ProfitLoss'),
            ('us-gaap', 'NetIncomeLossAvailableToCommonStockholdersBasic')],
@@ -60,7 +63,7 @@ TAGS = {
     'div': [('us-gaap', 'CommonStockDividendsPerShareDeclared'),
             ('us-gaap', 'CommonStockDividendsPerShareCashPaid')],
 }
-DURATION_ITEMS = ('sales', 'op', 'np', 'eps', 'div')   # 期間項目（それ以外は時点項目）
+DURATION_ITEMS = ('sales', 'op', 'pretax', 'np', 'eps', 'div')   # 期間項目（それ以外は時点項目）
 
 _ticker_map = None
 _last_call = 0.0
@@ -278,6 +281,7 @@ def build_reports(facts, splits=None):
                 'per_type': kind, 'per_end': end,
                 'sales': dur_val('sales', kind, end),
                 'op': dur_val('op', kind, end),
+                'pretax': dur_val('pretax', kind, end),
                 'np': np_,
                 # EPS: Q4 補完は近似になるので入れない（指標は np/株数で計算するので未使用）。1株あたりなので分割調整
                 'eps': per_share(dur['eps'][kind], end),
@@ -316,6 +320,7 @@ TAGS_20F = {
     'sales': ['Revenue', 'Revenues', 'RevenueFromContractsWithCustomers'],
     'op': ['ProfitLossFromOperatingActivities', 'OperatingIncomeLoss'],
     'np': ['ProfitLossAttributableToOwnersOfParent', 'ProfitLoss', 'NetIncomeLoss'],
+    'pretax': ['ProfitLossBeforeTax'],
     'eps': ['DilutedEarningsLossPerShare', 'BasicEarningsLossPerShare', 'EarningsPerShareDiluted'],
     'total_assets': ['Assets'],
     'equity': ['EquityAttributableToOwnersOfParent', 'Equity', 'StockholdersEquity'],
@@ -391,7 +396,7 @@ def reports_from_20f(cik):
                 for tag, cref, uref, text in facts:
                     if tag != local:
                         continue
-                    end = fy_ctx.get(cref) if item in ('sales', 'op', 'np', 'eps') else inst_ctx.get(cref)
+                    end = fy_ctx.get(cref) if item in ('sales', 'op', 'pretax', 'np', 'eps') else inst_ctx.get(cref)
                     if end is None:
                         continue
                     try:
@@ -410,7 +415,7 @@ def reports_from_20f(cik):
             v = lambda item: (by[item].get(end) or (None, None))[1]   # noqa: E731
             rows[end] = {
                 'per_type': 'FY', 'per_end': end,
-                'sales': v('sales'), 'op': v('op'), 'np': v('np'), 'eps': v('eps'),
+                'sales': v('sales'), 'op': v('op'), 'pretax': v('pretax'), 'np': v('np'), 'eps': v('eps'),
                 'total_assets': v('total_assets'), 'equity': v('equity'), 'shares': v('shares'),
                 'div_ann': None,     # 20-F の1株配当タグは企業ごとに定義が揺れる（PayPay は子会社分が混ざる）ので使わない
                 'currency': ccy or 'USD',

@@ -132,6 +132,7 @@ class Command(BaseCommand):
                     'fy_end': r['per_end'],
                     'disc_date': r['per_end'] + timedelta(days=90),   # 20-F は期末の約3か月後
                     'sales': self._as_int(r['sales']), 'op': self._as_int(r['op']), 'np': self._as_int(r['np']),
+                    'pretax': self._as_int(r.get('pretax')),
                     'eps': r['eps'],
                     'total_assets': self._as_int(assets), 'equity': self._as_int(equity),
                     'equity_ratio': (equity / assets) if (equity and assets) else None,
@@ -170,6 +171,7 @@ class Command(BaseCommand):
                     'disc_date': r['per_end'] + timedelta(days=40),
                     'sales': self._as_int(r['sales']),
                     'op': self._as_int(r['op']),
+                    'pretax': self._as_int(r.get('pretax')),
                     'np': self._as_int(r['np']),
                     'eps': r['eps'],
                     'total_assets': self._as_int(assets),
@@ -249,6 +251,7 @@ class Command(BaseCommand):
                         'disc_date': per_end + timedelta(days=40),
                         'sales': self._as_int(_pick(inc, ['Total Revenue', 'Operating Revenue'], col)),
                         'op': self._as_int(_pick(inc, ['Operating Income'], col)),
+                        'pretax': self._as_int(_pick(inc, ['Pretax Income'], col)),
                         'np': self._as_int(np_),
                         'eps': _pick(inc, ['Diluted EPS', 'Basic EPS'], col),
                         'total_assets': self._as_int(assets),

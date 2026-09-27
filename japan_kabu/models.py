@@ -58,6 +58,13 @@ class FinancialReport(models.Model):
     sales = models.BigIntegerField(null=True, blank=True)         # 売上高（円）
     op = models.BigIntegerField(null=True, blank=True)            # 営業利益（円）
     np = models.BigIntegerField(null=True, blank=True)            # 純利益（円）
+    # デュポン5分解の税負担率・金利負担率用（2026-09-27）。
+    # pretax = 税引前利益。米国株は EDGAR（IncomeLossFromContinuingOperationsBeforeIncomeTaxes…）、20-F は
+    #   ProfitLossBeforeTax、日本株は yfinance の Pretax Income（通期・直近4〜5期。update_jp_pretax）
+    # ordinary = 経常利益（日本株・J-Quants の OdP）。⚠️ IFRS 採用企業（ソニー・トヨタ・アサヒ等）には無い。
+    #   J-Quants に税引前利益の項目が無いので、pretax が取れない年だけ代わりに使う（画面に「経常利益で代用」と出す）
+    pretax = models.BigIntegerField(null=True, blank=True)
+    ordinary = models.BigIntegerField(null=True, blank=True)
     eps = models.FloatField(null=True, blank=True)
     bps = models.FloatField(null=True, blank=True)
     total_assets = models.BigIntegerField(null=True, blank=True)  # 総資産（TA）

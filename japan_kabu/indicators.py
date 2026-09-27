@@ -308,6 +308,67 @@ TREND_QUARTERS = 8   # 四半期の業績推移に出す期数（2年分）
 TREND_YEARS = 5
 
 
+DUPONT_YEARS = 5
+# 金融業（リース・銀行・保険・証券）は総資産が大きく、レバレッジ10倍前後・回転率0.1回台が普通。
+# 事業会社と同じ物差しで良し悪しを判断しないよう注記を出す
+FINANCIAL_SECTORS = ('銀行業', 'その他金融業', '証券、商品先物取引業', '保険業', '金融（除く銀行）', '銀行',
+                     'Financials', 'Financial Services')
+
+
+def _dupont(fy_reps, is_us):
+    """ROE のデュポン5分解（通期・直近 DUPONT_YEARS 期・新しい期が先頭）
+
+    ROE ＝ ①税負担率（純利益÷税引前利益）× ②金利負担率（税引前利益÷営業利益）× ③売上高営業利益率
+          × ④総資産回転率（売上高÷総資産）× ⑤財務レバレッジ（総資産÷自己資本）
+    ⚠️ 掛け算が ROE と一致するよう **期末の値** で計算する（上の6指標の ROE は Yahoo・決算短信に合わせた
+       期首期末平均なので、少しずれる）。日本株の自己資本は EqAR×総資産（_jp_own_equity）。
+    税引前利益が無い年（J-Quants には項目が無く、yfinance も直近4〜5期だけ）は経常利益で代用し
+    ordinary=True を立てる（特別損益が①に入る近似）。分母が0以下の項は意味をなさないので None。
+    """
+    out = []
+    for r in reversed(fy_reps):
+        if r.np is None or r.sales is None:
+            continue
+        equity = r.equity if is_us else _jp_own_equity(r)
+        pretax, ordinary = r.pretax, False
+        if pretax is None and r.ordinary is not None:
+            pretax, ordinary = r.ordinary, True
+        op, sales, assets = r.op, r.sales, r.total_assets
+        f = {
+            'tax': (r.np / pretax) if (pretax and pretax > 0) else None,
+            'interest': (pretax / op) if (pretax is not None and op and op > 0) else None,
+            'margin': (op / sales * 100) if (op is not None and sales and sales > 0) else None,
+            'turnover': (sales / assets) if (assets and assets > 0) else None,
+            'leverage': (assets / equity) if (assets and equity and equity > 0) else None,
+            'roe': (r.np / equity * 100) if (equity and equity > 0) else None,
+        }
+        notes = []
+        if pretax is None:
+            notes.append('税引前利益が未取得')
+        elif pretax <= 0:
+            notes.append('税引前が赤字のため①は出さない')
+        if op is not None and op <= 0:
+            notes.append('営業赤字のため②は出さない')
+        if f['tax'] is not None and (f['tax'] < 0 or f['tax'] > 1.5):
+            notes.append('①が異常値（特別損益・税効果の影響）')
+        parts = [f[k] for k in ('tax', 'interest', 'margin', 'turnover', 'leverage')]
+        product = None
+        if all(v is not None for v in parts):
+            product = parts[0] * parts[1] * parts[2] * parts[3] * parts[4]   # margin は %なので積も %
+        out.append({'end': r.per_end, 'label': f'{r.per_end:%Y/%m}期', **f, 'product': product,
+                    'ordinary': ordinary, 'notes': notes})
+        if len(out) >= DUPONT_YEARS:
+            break
+    # 前期からの変化（新しい期が先頭なので i+1 が前期）
+    for i, row in enumerate(out):
+        prev = out[i + 1] if i + 1 < len(out) else None
+        row['chg'] = {}
+        for k in ('tax', 'interest', 'margin', 'turnover', 'leverage', 'roe'):
+            a, b = row[k], (prev[k] if prev else None)
+            row['chg'][k] = (a - b) if (a is not None and b is not None) else None
+    return out
+
+
 def build_stock_indicator(stock, reps):
     """1銘柄分の指標・推移。reps は per_end 昇順の FinancialReport。通期決算が無ければ None"""
     fy_reps = [r for r in reps if r.per_type == 'FY']
@@ -411,6 +472,9 @@ def build_stock_indicator(stock, reps):
             [{'end': r.per_end, 'sales': r.sales, 'op': r.op, 'np': r.np} for r in quarters] if is_us
             else _jp_single_quarters(reps), 3, scale, TREND_QUARTERS),
         'hist': _build_history(reps, is_us=is_us, close_conv=close_in_fin if foreign_fin else None),
+        # ROE のデュポン5分解（2026-09-27 ユーザー要望・ケーススタディ用）。通期・直近5期・新しい期が先頭
+        'dupont': _dupont(fy_reps, is_us),
+        'is_financial': (stock.sector17 or '') in FINANCIAL_SECTORS,
     }
 
 

@@ -985,6 +985,15 @@ principal（投資元本）は「総資産 − 含み損益」で導出してい
     現在値に「（約x円）」、**業績推移の Y 軸を億円**（百万ドル×レート÷100）にしてツールチップにドルを併記。
     一覧の比較表の現在値にも小さく円。値そのものはドルのまま保存（換算は表示時のみ）
   - 旧ページの `stock_detail.html` / `stock_detail.js` / `stock_detail.css` は削除済み。**戻さないこと**
+- **ROE のデュポン5分解（2026-09-27・ユーザー要望「ケーススタディに使う」）**: カルテ詳細の指標セクション末尾
+  （`karte/_dupont.html`）に通期・直近5期の表、一覧の比較表に直近通期の①〜⑤列。計算は `indicators._dupont`:
+  ①純利益÷税引前利益 ②税引前利益÷営業利益 ③営業利益÷売上高 ④売上高÷総資産 ⑤総資産÷自己資本。
+  ⚠️ **期末の値**で計算（積が ROE と一致する）。6指標の ROE（期首期末平均）とはずれる。分母が0以下の項は「—」。
+  データ: `FinancialReport.pretax`（税引前利益）と `ordinary`（経常利益）を 0014 で追加。米国株＝EDGAR の
+  IncomeLossFromContinuingOperationsBeforeIncomeTaxes…（20-F は ProfitLossBeforeTax、yfinance 経路は Pretax Income）。
+  **日本株は J-Quants に税引前利益の項目が無い**ので `update_jp_pretax`（月曜の夜バッチ）が yfinance の通期
+  Pretax Income（直近4〜5期）を入れ、無い年だけ経常利益（J-Quants の OdP・update_marketcap も保存）で代用し「経常」の印。
+  ⚠️ IFRS 企業（ソニー・トヨタ・アサヒ等）は経常利益が無い。金融業（sector17）は注記を出す
 - **ユーザーの方針転換（2026-09-16）: 主戦場は米国株**。今後は国内株の機能は程々にし、米国株中心に
   拡充する。米国株のデータ源として株探等の有用サイトからのスクレイピングも検討対象（本人の意向。
   楽天・銀行のような出金権限のあるサイトとは別枠）

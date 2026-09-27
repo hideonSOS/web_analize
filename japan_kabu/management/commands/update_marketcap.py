@@ -201,6 +201,7 @@ class Command(BaseCommand):
         rep.sales = _int(r.get('Sales'))
         rep.op = _int(r.get('OP'))
         rep.np = _int(r.get('NP'))
+        rep.ordinary = _int(r.get('OdP'))    # 経常利益（デュポン5分解で税引前利益が無い年の代わり。IFRS 企業は空）
         rep.eps = _num(r.get('EPS'))
         rep.bps = _num(r.get('BPS'))
         rep.total_assets = _int(r.get('TA'))

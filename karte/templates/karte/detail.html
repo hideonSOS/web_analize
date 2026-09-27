@@ -204,6 +204,7 @@
         </div>
         <div class="trend-chart-wrap"><div id="trend-chart" class="ec-canvas"></div></div>
         <div class="kt-tbl-wrap"><table class="kt-cmp kt-trend-tbl" id="trend-table"></table></div>
+        {% include 'karte/_dupont.html' with dp=indicator.dupont is_financial=indicator.is_financial %}
         {% if stock.country == 'US' %}
         <form method="post" action="{% url 'karte:fetch_financials' stock.display_code %}" class="kt-price-fetch">
           {% csrf_token %}<button type="submit" class="kt-btn-sub">決算を更新する（サーバーで update_us_financials を実行・数秒）</button>

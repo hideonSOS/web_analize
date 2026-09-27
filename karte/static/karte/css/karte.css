@@ -390,3 +390,18 @@
 
 .kt-ind-mcap{ margin:0 0 8px; font-size:13px; color:#cbd5e1; }
 .kt-ind-mcap b{ color:#fff; font-size:15px; }
+
+/* ROE のデュポン5分解（2026-09-27） */
+.kt-dupont th:first-child{ text-align:left; white-space:nowrap; }
+.kt-dupont th:first-child .kt-note{ display:block; font-weight:normal; font-size:10px; }
+.kt-dupont td{ white-space:nowrap; }
+.kt-dp-roe td, .kt-dp-roe th{ border-top:2px solid #1e3a5f; font-weight:bold; color:#e5e7eb; }
+.kt-dp-check td, .kt-dp-check th{ font-size:11px; color:#6b7280; }
+.kt-dp-chg{ font-size:10px; margin-left:4px; color:#6b7280; }
+.kt-dp-chg.up{ color:#4ade80; }
+.kt-dp-chg.down{ color:#f87171; }
+.kt-dp-ord{ display:inline-block; margin-left:4px; font-size:9px; padding:0 4px; border:1px solid #fbbf24; color:#fbbf24; border-radius:4px; }
+.kt-dp-notes{ margin:6px 0 0; padding-left:18px; }
+.kt-dp-notes li{ margin:2px 0; }
+.kt-dp-h{ font-size:11px; color:#a78bfa; }
+.kt-dp-c{ color:#c4b5fd; }

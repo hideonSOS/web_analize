@@ -70,7 +70,10 @@
     <h2 class="kt-h2">指標の比較（カルテ銘柄）</h2>
     <div class="kt-tbl-wrap">
       <table class="kt-cmp">
-        <thead><tr><th>銘柄</th><th>現在値</th><th>時価総額</th><th>PER</th><th>PBR</th><th>ROE</th><th>配当利回り</th><th>1年DD</th></tr></thead>
+        <thead><tr><th>銘柄</th><th>現在値</th><th>時価総額</th><th>PER</th><th>PBR</th><th>ROE</th><th>配当利回り</th><th>1年DD</th>
+          <th class="kt-dp-h" title="純利益÷税引前利益">①税負担</th><th class="kt-dp-h" title="税引前利益÷営業利益">②金利負担</th>
+          <th class="kt-dp-h" title="営業利益÷売上高">③営業利益率</th><th class="kt-dp-h" title="売上高÷総資産">④回転率</th>
+          <th class="kt-dp-h" title="総資産÷自己資本">⑤レバレッジ</th></tr></thead>
         <tbody>
         {% for r in compare %}
         <tr>
@@ -84,12 +87,21 @@
           <td class="num">{% if i and i.yield is not None %}{{ i.yield|floatformat:2 }}%{% else %}<span class="kt-na">—</span>{% endif %}</td>
           {% endwith %}
           <td class="num kt-dd">{% if r.dd is not None %}{{ r.dd|floatformat:1 }}%{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          {% comment %} デュポン5分解（直近の通期・期末ベース。2026-09-27） {% endcomment %}
+          {% with d=r.dp %}
+          <td class="num kt-dp-c">{% if d and d.tax is not None %}{{ d.tax|floatformat:2 }}{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          <td class="num kt-dp-c">{% if d and d.interest is not None %}{{ d.interest|floatformat:2 }}{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          <td class="num kt-dp-c {% if d and d.margin is not None and d.margin < 0 %}neg{% endif %}">{% if d and d.margin is not None %}{{ d.margin|floatformat:1 }}%{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          <td class="num kt-dp-c">{% if d and d.turnover is not None %}{{ d.turnover|floatformat:2 }}回{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          <td class="num kt-dp-c">{% if d and d.leverage is not None %}{{ d.leverage|floatformat:2 }}倍{% else %}<span class="kt-na">—</span>{% endif %}</td>
+          {% endwith %}
         </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
-    <p class="kt-note">PER は日本株＝来期予想、米国株＝実績TTM。「—」は決算未取得（米国株はカルテの「決算を取得する」で埋まる）。</p>
+    <p class="kt-note">PER は日本株＝来期予想、米国株＝実績TTM。「—」は決算未取得（米国株はカルテの「決算を取得する」で埋まる）。
+      ①〜⑤はデュポン5分解（直近の通期・期末ベース。①×②×③×④×⑤＝ROE）。「—」は赤字で意味をなさない項か未取得。</p>
   </section>
   {% endif %}
 

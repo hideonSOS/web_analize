@@ -1,0 +1,35 @@
+{% comment %}
+  ROE のデュポン5分解（2026-09-27 ユーザー要望・ケーススタディ用）。japan_kabu.indicators._dupont が計算し、
+  ここは表にするだけ。列＝期（新しい期が左）、行＝5つの項とROE。各セルに前期からの変化（▲▼）。
+  ⚠️ 掛け算が ROE と一致するよう期末の値で計算している（上の6指標の ROE は期首期末平均なので少しずれる）
+{% endcomment %}
+{% load karte_extras %}
+{% if dp %}
+<h3 class="kt-h3">ROE のデュポン5分解（通期）
+  <span class="kt-note">ROE ＝ ①税負担率 × ②金利負担率 × ③売上高営業利益率 × ④総資産回転率 × ⑤財務レバレッジ</span></h3>
+<div class="kt-tbl-wrap">
+  <table class="kt-cmp kt-dupont">
+    <thead><tr><th></th>{% for c in dp %}<th>{{ c.label }}{% if c.ordinary %}<span class="kt-dp-ord" title="税引前利益が無い年なので経常利益で代用">経常</span>{% endif %}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for key, label, sub, fmt in dupont_rows %}
+      <tr class="kt-dp-{{ key }}">
+        <th><b>{{ label }}</b><span class="kt-note">{{ sub }}</span></th>
+        {% for c in dp %}
+        {% with v=c|getitem:key d=c.chg|getitem:key %}
+        <td class="num">{% if v is None %}<span class="kt-na">—</span>{% else %}{{ v|dp_fmt:fmt }}{% if d is not None %}<span class="kt-dp-chg {% if d > 0 %}up{% elif d < 0 %}down{% endif %}">{% if d > 0 %}▲{% elif d < 0 %}▼{% else %}→{% endif %}</span>{% endif %}{% endif %}</td>
+        {% endwith %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      <tr class="kt-dp-check"><th>検算 ①×②×③×④×⑤</th>
+        {% for c in dp %}<td class="num">{% if c.product is not None %}{{ c.product|floatformat:1 }}%{% else %}<span class="kt-na">—</span>{% endif %}</td>{% endfor %}</tr>
+    </tbody>
+  </table>
+</div>
+<ul class="kt-note kt-dp-notes">
+  {% for c in dp %}{% for n in c.notes %}<li>{{ c.label }}: {{ n }}</li>{% endfor %}{% endfor %}
+  <li>期末の値で計算（掛け算が ROE と一致するように）。上の ROE（期首期末平均）とは少しずれます。</li>
+  {% if stock.country == 'JP' %}<li>日本株の税引前利益は yfinance（直近4〜5期）。それより前は経常利益で代用（「経常」の印）＝特別損益が①に入ります。</li>{% endif %}
+  {% if is_financial %}<li>⚠ 金融業は総資産が大きく、⑤レバレッジ10倍前後・④回転率0.1回台が普通です。事業会社と同じ物差しで良し悪しを判断しないでください。</li>{% endif %}
+</ul>
+{% endif %}

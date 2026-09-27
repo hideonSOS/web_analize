@@ -7,6 +7,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from japan_kabu.indicators import INDICATOR_DEFS, indicator_for_stock, indicators_for_stocks
+
+# デュポン5分解の表の行（キー・名前・式・表示形式）。詳細と一覧で共通
+DUPONT_ROWS = [
+    ('tax', '①税負担率', '純利益÷税引前利益', 'ratio'),
+    ('interest', '②金利負担率', '税引前利益÷営業利益', 'ratio'),
+    ('margin', '③売上高営業利益率', '営業利益÷売上高', 'pct'),
+    ('turnover', '④総資産回転率', '売上高÷総資産', 'times'),
+    ('leverage', '⑤財務レバレッジ', '総資産÷自己資本', 'x'),
+    ('roe', 'ROE', '純利益÷自己資本（期末）', 'pct'),
+]
 from japan_kabu.models import DailyPrice, Stock
 from japan_kabu.prices import bulk_price_stats, price_stats
 
@@ -70,6 +80,8 @@ def index(request):
             # 米国株は円換算を併記（最新ドル円。indicator に fx が無ければ出さない）
             'close_jpy': (ind['close'] * ind['fx']['rate']) if (ind and ind.get('fx') and ind['close']) else None,
             'dd': p['1y']['drawdown'] if p and p.get('1y') else None,
+            # 比較表のデュポン5分解（直近の通期）
+            'dp': (ind['dupont'][0] if (ind and ind.get('dupont')) else None),
         })
     # 比較表は押し目が深い順（None は末尾）。ユーザーが決めた5列: PER/PBR/ROE/配当利回り/1年DD
     compare = sorted(rows, key=lambda r: (r['dd'] is None, r['dd'] if r['dd'] is not None else 0))
@@ -77,6 +89,7 @@ def index(request):
     context = {
         'rows': rows,
         'compare': compare,
+        'dupont_rows': DUPONT_ROWS,
         'total_fields': len(FIELDS),
         # ランキング等から「カルテが無い銘柄」を開いたとき、検索窓にコードを入れて候補を出す
         'prefill': request.GET.get('q', '').strip()[:20],
@@ -199,6 +212,7 @@ def detail(request, code):
         'kpi_chart': kpi_chart,
         # 指標（旧「銘柄別指標」ページを吸収・2026-09-16）。この1銘柄分だけ計算する
         'indicator': indicator_for_stock(stock),
+        'dupont_rows': DUPONT_ROWS,
         'indicator_defs': [{'key': k, 'label': label, 'unit': unit, 'min': mn, 'max': mx}
                            for k, label, unit, mn, mx in INDICATOR_DEFS],
     }
