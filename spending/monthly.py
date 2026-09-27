@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import statistics
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from django.db.models import Count, Sum
 
@@ -124,6 +124,53 @@ def bank_recurring(min_months: int = BANK_SCHEDULE_MIN_MONTHS) -> list[dict]:
     } for r in g.sort_values(['day', 'total'], ascending=[True, False]).to_dict('records')]
 
 
+_BILLING_RE = None
+
+
+def _last_complete_bill(rows, last_bank):
+    """1項目の銀行の引き落とし行 → 直近の「1回分の請求」の (合計額, [日付])。
+
+    ⚠️ 関西電力は1か月分の請求が2回に分けて引き落とされる（8月分: 8/24 ¥8,699 と 9/2 ¥2,060）。
+    最後の1行だけを「前回の実額」にすると ¥2,060 になっていた（2026-09-27 ユーザー指摘）。
+    - 摘要に「◯ネン◯ガツブン」（請求月）がある項目はそれでまとめ、いつもの回数（中央値）に
+      揃っている直近の請求月を使う（2回目がまだ来ていない請求月は飛ばす）
+    - それ以外は暦月でまとめ、銀行明細が月末まで揃っている直近の月を使う（ATM のように月に複数回あるもの）
+    """
+    import re
+    import statistics
+    import unicodedata
+    global _BILLING_RE
+    if _BILLING_RE is None:
+        _BILLING_RE = re.compile(r'(\d+)ネン\s*(\d+)ガツブン')
+    groups = {}
+    billing = True
+    for r in rows:
+        m = _BILLING_RE.search(unicodedata.normalize('NFKC', str(r['detail'] or '')))
+        if not m:
+            billing = False
+            break
+    for r in rows:
+        if billing:
+            m = _BILLING_RE.search(unicodedata.normalize('NFKC', str(r['detail'])))
+            key = (int(m.group(1)), int(m.group(2)))
+        else:
+            key = (r['date'].year, r['date'].month)
+        groups.setdefault(key, []).append(r)
+    keys = sorted(groups)
+    if billing:
+        usual = statistics.median(len(v) for v in groups.values())
+        complete = [k for k in keys if len(groups[k]) >= usual]
+    else:
+        def month_done(k):
+            y, m = k
+            nxt = date(y + (m == 12), m % 12 + 1, 1)
+            return last_bank is None or last_bank >= nxt - timedelta(days=1)
+        complete = [k for k in keys if month_done(k)]
+    k = (complete or keys)[-1]
+    g = sorted(groups[k], key=lambda r: r['date'])
+    return int(sum(r['amount'] for r in g)), [r['date'].date() for r in g]
+
+
 def _bank_schedule(setting, today, is_current):
     """銀行明細から「次の給料までに口座から出ていく額」の予測を作る（2026-09-27 に作り直し）。
 
@@ -147,15 +194,26 @@ def _bank_schedule(setting, today, is_current):
             salary = int(pay.iloc[-1]['deposit'])
             salary_date = pay.iloc[-1]['date'].date()
     treat_label = {'expense': '', 'card_settlement': 'カード', 'cash_withdrawal': 'ATM'}
+    last_bank = bank['date'].max().date() if bank is not None and not bank.empty else None
+    pay = None
+    if bank is not None:
+        pay = bank[(bank['amount'] > 0) & ~bank['treat'].isin(['income', 'ignore'])].copy()
+        pay['name'] = pay['merchant'].where(pay['merchant'] != '', pay['summary'])
     rows, invest = [], []
     for r in recurring:
-        item = {'day': r['day'], 'name': r['name'], 'amount': r['last_amount'],
-                'last_md': f"{int(r['last'][5:7])}/{int(r['last'][8:10])}",
+        amount, dates = r['last_amount'], []
+        if pay is not None:
+            recs = pay[pay['name'] == r['name']].to_dict('records')
+            if recs:
+                amount, dates = _last_complete_bill(recs, last_bank)
+        item = {'day': r['day'], 'name': r['name'], 'amount': amount,
+                'last_md': '・'.join(f'{d.month}/{d.day}' for d in dates) or
+                           f"{int(r['last'][5:7])}/{int(r['last'][8:10])}",
+                'times': len(dates),
                 'kind': r['treat'], 'kind_label': treat_label.get(r['treat'], '')}
         (invest if r['treat'] == 'investment_transfer' else rows).append(item)
     rows = _cycle_order(rows, setting.salary_day, today.day, is_current)
     total = sum(r['amount'] for r in rows)
-    last_bank = bank['date'].max().date() if bank is not None and not bank.empty else None
     return {
         'rows': rows, 'undated': [], 'total': total, 'dated_total': total,
         'card_day': setting.card_debit_day, 'salary_day': setting.salary_day,

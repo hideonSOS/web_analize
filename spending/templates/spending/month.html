@@ -180,7 +180,7 @@
         {% for r in schedule.rows %}
         <tr class="{% if r.passed %}sp-sched-passed{% elif r.today %}sp-sched-today{% endif %}">
           <td>{% if r.next_month %}<span class="sp-sched-next">翌月</span>{% endif %}{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
-          <td style="text-align:left">{{ r.name }}{% if r.kind_label %} <span class="sp-kind">{{ r.kind_label }}</span>{% endif %}</td>
+          <td style="text-align:left">{{ r.name }}{% if r.kind_label %} <span class="sp-kind">{{ r.kind_label }}</span>{% endif %}{% if r.times > 1 %} <span class="pf-muted" style="font-size:11px">（{{ r.times }}回分の合計）</span>{% endif %}</td>
           <td>¥{{ r.amount|intcomma }}</td>
           <td class="pf-muted">{{ r.last_md }}</td>
         </tr>
