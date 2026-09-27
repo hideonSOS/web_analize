@@ -45,6 +45,18 @@ PRODUCT_CATEGORY_STOCK = '011'
 TARGET_MARKETS = ('プライム', 'スタンダード', 'グロース')
 # 初回同期で発行済株式数を遡る日数（四半期開示を確実にカバー）
 FULL_SYNC_DAYS = 380
+# 無料プランの遅延（直近約12週は 400 で取れない。2026-09-27 実測: 8/7 は 400・7/1 は 200）。
+# これより新しい日付は取りに行かない（毎晩 36 営業日ぶん無駄に叩いていた）
+FREE_PLAN_DELAY_DAYS = 80
+# 遅延の見積もりが甘くても止まらないよう、連続でこの回数失敗したら走査を打ち切る
+STOP_AFTER_FAILS = 3
+# 週1回だけやること（マスタ全量・埋まらなかった期末株価の再試行）の曜日。⚠️ cron は平日のみ
+# （10 21 * * 1-5）なので日曜にすると永遠に来ない。月曜=0
+WEEKLY_WEEKDAY = 0
+# 期末株価: 取れるようになって間もない期末日（遅延を抜けた直後）は毎晩、それ以外は週1回だけ再試行。
+# ⚠️ 旧実装は空の行を全部毎晩取りに行き、米国株（J-Quants に無い）と遅延中の期末日で必ず失敗 →
+#    429 のリトライ待ち（最大 225 秒/コール）が積み上がって毎晩 2.5 時間かかっていた（2026-09-27）
+RECENT_WINDOW_DAYS = 14
 
 
 class Command(BaseCommand):
@@ -55,15 +67,22 @@ class Command(BaseCommand):
                             help='過去380日分を取り直す')
         parser.add_argument('--backfill-years', type=int, default=0,
                             help='決算走査を指定年数分遡る（通期決算の初回バックフィル用）')
+        parser.add_argument('--master', action='store_true',
+                            help='銘柄マスタを取り直す（既定は月曜だけ。--full でも取る）')
 
     def handle(self, *args, **options):
         # J-Quants無料プランは直近データに遅延があり、当日株価は取得できない。
         # 株価・時価総額・出来高は yfinance（update_jp_ranking）が担当する。
         # ここは無料プランで取れる「銘柄マスタ＋決算（銘柄別指標用）」だけを更新する。
-        self.update_master()
+        weekly = date.today().weekday() == WEEKLY_WEEKDAY
+        # マスタは月に数件しか変わらない（取得 90 秒＋3,700 件の更新）ので週1回。
+        if options['master'] or options['full'] or options['backfill_years'] or weekly:
+            self.update_master()
+        else:
+            self.stdout.write('マスタ更新: スキップ（月曜と --master のみ）')
         self.update_shares(full=options['full'],
                            backfill_years=options['backfill_years'])
-        self.fill_period_prices()
+        self.fill_period_prices(retry_all=options['full'] or weekly)
         total = FinancialReport.objects.count()
         self.stdout.write(self.style.SUCCESS(
             f'完了: マスタ＋決算を更新（FinancialReport {total}件）'))
@@ -116,15 +135,20 @@ class Command(BaseCommand):
             (r.stock_id, r.per_end): r
             for r in FinancialReport.objects.all()
         }
-        count = report_count = skipped = 0
+        count = report_count = skipped = fails = 0
+        end = date.today() - timedelta(days=FREE_PLAN_DELAY_DAYS)   # 遅延で取れない直近は走査しない
         d = start
-        while d <= date.today():
+        while d <= end:
             if d.weekday() < 5:  # 土日は開示なし
                 try:
                     fins = jquants.get_fins_by_date(d.isoformat())
+                    fails = 0
                 except Exception:  # noqa: BLE001  無料プランは直近が遅延で400。取れる範囲だけ使う
                     skipped += 1
+                    fails += 1
                     fins = []
+                    if fails >= STOP_AFTER_FAILS:
+                        break   # 遅延の境界に達した（以降は全部失敗する）
                 for r in fins:
                     s = stocks.get(r.get('Code'))
                     if s is None:
@@ -182,23 +206,30 @@ class Command(BaseCommand):
         rep.save()
         return True
 
-    def fill_period_prices(self):
+    def fill_period_prices(self, retry_all=False):
         """決算期末時点の終値をFinancialReportへ埋める（PER/PBR推移の計算用）
 
         期末日が休日の場合は直近の営業日まで最大7日遡る。
         期末日ごとに日付一括APIを1コール使う（同一期末日の全銘柄をまとめて処理）。
+        対象は日本株だけ（米国株の期末株価は update_us_financials が yfinance で入れる。J-Quants には無い）。
+        遅延で取れない期末日（直近 FREE_PLAN_DELAY_DAYS）は取りに行かない。
+        遅延を抜けて間もない期末日は毎晩試し、それより古いのに空のまま（上場廃止・休場など）の
+        期末日は retry_all（月曜・--full）のときだけ再試行する
         """
-        target_dates = sorted(set(
-            FinancialReport.objects.filter(close__isnull=True, per_end__isnull=False)
-            .filter(per_end__lt=date.today())
-            .values_list('per_end', flat=True)
-        ))
+        today = date.today()
+        limit = today - timedelta(days=FREE_PLAN_DELAY_DAYS)
+        qs = (FinancialReport.objects
+              .filter(close__isnull=True, per_end__isnull=False, stock__country='JP')
+              .filter(per_end__lte=limit))
+        if not retry_all:
+            qs = qs.filter(per_end__gte=limit - timedelta(days=RECENT_WINDOW_DAYS))
+        target_dates = sorted(set(qs.values_list('per_end', flat=True)))
         filled_dates = 0
         for per_end in target_dates:
             prices, actual = self._closes_near(per_end)
             if not prices:
                 continue
-            reps = list(FinancialReport.objects.filter(per_end=per_end, close__isnull=True))
+            reps = list(FinancialReport.objects.filter(per_end=per_end, close__isnull=True, stock__country='JP'))
             for rep in reps:
                 c = prices.get(rep.stock_id)
                 if c is not None:
@@ -206,7 +237,8 @@ class Command(BaseCommand):
                     rep.close_date = actual
             FinancialReport.objects.bulk_update(reps, ['close', 'close_date'], batch_size=500)
             filled_dates += 1
-        self.stdout.write(f'期末株価取得: {filled_dates}日付分')
+        self.stdout.write(f'期末株価取得: {filled_dates}日付分（対象 {len(target_dates)} 日付'
+                          f'{"・全部再試行" if retry_all else "・遅延を抜けた直後のみ"}）')
 
     @staticmethod
     def _closes_near(target):

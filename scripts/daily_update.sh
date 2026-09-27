@@ -50,8 +50,14 @@ status=0
 run update_marketcap     || status=1   # 銘柄マスタ＋決算（J-Quants無料）
 run update_jp_ranking    || status=1   # 日本株ランキング（時価総額・出来高／yfinance）
 run update_us_prices     || status=1   # 登録した米国株の株価（yfinance）
-run update_us_financials || status=1   # 登録した米国株の決算（yfinance）
-run update_daily_prices  || status=1   # 登録銘柄の日次終値（ドローダウン算出用・差分のみ）
+# 決算は四半期に1回しか変わらないので週1回（月曜）。EDGAR の全量取得＋yfinance 全期間を毎晩は過剰（2026-09-27）。
+# 新しく登録した銘柄はカルテの「決算を取得する」ボタンで即時に取れる
+if [ "$(date +%u)" = "1" ]; then
+    run update_us_financials || status=1   # 登録した米国株の決算（SEC EDGAR・保険で yfinance）
+fi
+# 日々の差分は朝の update_impulse_prices（一括 download）が担当。ここでは履歴が1年に満たない
+# 新規銘柄の3年分だけ埋める（2026-09-27。全銘柄を1本ずつ取り直すのは朝と完全重複だった）
+run update_daily_prices --backfill-only || status=1
 run update_product_prices || status=1  # 投信の基準価額・金銀の円/g・ドル円（ポートフォリオ用）
 run snapshot_assets       || status=1  # 日次の資産スナップショット（資産推移用。価格更新の後に）
 run update_dividends      || status=1  # 配当狙いの保有株の配当履歴・次回予定（配当金ページ用・yfinance）

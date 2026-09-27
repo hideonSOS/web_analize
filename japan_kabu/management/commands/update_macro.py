@@ -127,10 +127,17 @@ class Command(BaseCommand):
         except Exception as e:  # noqa: BLE001  取れなければ旧基準のまま（公表値と 0.1pt ずれうる）
             self.stderr.write(f'  日本CPI 2025年基準: 取得失敗（旧基準のまま）: {e}')
             cpi2025 = {}
+        from django.db.models import Max
+        latest = dict(MacroIndicator.objects.values('series').annotate(m=Max('date')).values_list('series', 'm'))
         for key, (src, sid) in SOURCES.items():
             try:
-                rows = {'fred': self._fetch_fred, 'dbnomics': self._fetch_dbnomics,
-                        'yf': self._fetch_yf}[src](sid)
+                if src == 'yf':
+                    # 保存済みなら「最後の月の2か月前」から（当月の途中値と、直近の改定だけ拾えれば足りる）。
+                    # ⚠️ 旧実装は毎朝 period='max'（^GSPC は 1927 年から 2.5 万行）を取り直していた（2026-09-27）
+                    since = latest[key] - timedelta(days=62) if latest.get(key) else None
+                    rows = self._fetch_yf(sid, since)
+                else:
+                    rows = {'fred': self._fetch_fred, 'dbnomics': self._fetch_dbnomics}[src](sid)
             except Exception as e:  # noqa: BLE001  1系列の失敗で全体を止めない
                 self.stderr.write(f'  {key}: 取得失敗: {e}')
                 continue
@@ -269,7 +276,7 @@ class Command(BaseCommand):
         return out
 
     @staticmethod
-    def _fetch_yf(ticker):
+    def _fetch_yf(ticker, since=None):
         """yfinance の日足終値を月末値に丸める → [(月初日, その月の最終終値), ...]。
 
         ⚠️ interval='1mo' の月足は使わない。先物（GC=F/SI=F）の月足は月が抜ける
@@ -279,7 +286,10 @@ class Command(BaseCommand):
         当月は途中の最終終値が入り、毎朝更新される
         """
         import yfinance as yf
-        df = yf.download(ticker, period='max', interval='1d', auto_adjust=False, progress=False)
+        if since:
+            df = yf.download(ticker, start=since.isoformat(), interval='1d', auto_adjust=False, progress=False)
+        else:
+            df = yf.download(ticker, period='max', interval='1d', auto_adjust=False, progress=False)
         if df is None or df.empty:
             raise ValueError('取得結果が空')
         close = df['Close']

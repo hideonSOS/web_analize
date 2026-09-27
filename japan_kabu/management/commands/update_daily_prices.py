@@ -25,6 +25,7 @@ from japan_kabu import jquants
 from japan_kabu.models import DailyPrice, Stock
 
 DEFAULT_YEARS = 3
+BACKFILL_MIN_ROWS = 240     # これ未満（約1年）しか履歴が無い銘柄は --backfill-only の対象
 
 
 class Command(BaseCommand):
@@ -37,9 +38,22 @@ class Command(BaseCommand):
                             help='保存済みを無視して指定年数分を取り直す')
         parser.add_argument('--code', type=str, default='',
                             help='この表示コードの銘柄だけ処理する（例: 6758 / NVDA）')
+        parser.add_argument('--backfill-only', action='store_true',
+                            help='履歴が1年に満たない銘柄だけ処理する（夜バッチ用。日々の差分は '
+                                 'update_impulse_prices が朝に一括で取るので、ここでは新規銘柄の3年分だけ埋める）')
 
     def handle(self, *args, **options):
         stocks = self._targets(options['code'])
+        if options['backfill_only']:
+            # 2026-09-27: 夜に全銘柄を1本ずつ取り直していたが、朝の update_impulse_prices と完全に重複し、
+            # JP は必ず失敗する J-Quants を先に叩き、US は 21:10 JST だと市場が閉まっておらず常に +0 件だった
+            from django.db.models import Count
+            counts = dict(DailyPrice.objects.filter(stock__in=stocks).values('stock_id')
+                          .annotate(n=Count('id')).values_list('stock_id', 'n'))
+            stocks = [s for s in stocks if counts.get(s.code, 0) < BACKFILL_MIN_ROWS]
+            if not stocks:
+                self.stdout.write('履歴の短い銘柄はありません（差分は朝の update_impulse_prices が担当）')
+                return
         if not stocks:
             self.stdout.write('対象銘柄がありません（カルテか売買日記に登録してください）')
             return

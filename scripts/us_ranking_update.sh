@@ -50,6 +50,16 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
+# 登録した米国株（S&P500 構成外の保有株: PayPay・WU・OWL 等）の終値。夜バッチだけだと
+# ダッシュボードが日中ずっと前々日の終値のままだった（2026-09-27）。この時刻なら前日クローズ確定後
+echo "===== $(date '+%F %T') manage.py update_us_prices =====" >> "$LOG"
+if "$PY" manage.py update_us_prices >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 # セクター別インパルス用の日次終値（JP/US 数銘柄・数コール）。
 # JP前日バーは朝に出そろい、USはこの時刻ならクローズ確定後なので同枠で回す。
 # コマンド側に「クローズ前の未確定当日バーは保存しない」ガードあり。
@@ -97,13 +107,8 @@ fi
 # ここは「夜バッチが失敗しても寄り付き前（9:00）までに必ず候補が出る」ための保険。
 # 米クローズ確定後のこの時刻ならJP前日バーも確実に出そろっている。
 # 差分同期＋update_or_create なので成功済みなら数秒で終わる（二重実行は無害）。
-echo "===== $(date '+%F %T') manage.py run_kabutan_screen =====" >> "$LOG"
-if "$PY" manage.py run_kabutan_screen >> "$LOG" 2>&1; then
-    echo "----- OK -----" >> "$LOG"
-else
-    status=$?
-    echo "----- FAILED (exit $status) -----" >> "$LOG"
-fi
+# run_kabutan_screen は夜バッチ（daily_update.sh）だけで回す。朝は東証が開いておらず毎回 +0 件で
+# 402 銘柄を落とし直すだけだった（2026-09-27 に削除）
 
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'us_ranking_*.log' -mtime +30 -delete 2>/dev/null

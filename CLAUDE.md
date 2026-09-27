@@ -252,6 +252,24 @@ python manage.py update_us_ranking  # 米国株ランキング（S&P500の時価
 python manage.py update_daily_prices # 登録銘柄の日次終値（ドローダウン算出用・差分のみ）
 ```
 
+### 🔎 2026-09-27 バッチの無駄・重複の棚卸し（ユーザー要望「無駄なスクレイピングがないか」）
+実測（本番ログ）で **update_marketcap が毎晩 21:10→23:46 の 2時間35分** かかっていた。原因は `fill_period_prices` が
+「期末株価が空の決算行」を毎晩全部 J-Quants に取りに行き、米国株（EDGAR 由来・J-Quants に無い）と遅延中の期末日で
+必ず失敗 → J-Quants は連続3コールで 429 になりリトライ待ち（15/30/45/60/75秒）が積み上がる、というもの。対処:
+- `update_marketcap`: 期末株価は **日本株だけ・遅延（`FREE_PLAN_DELAY_DAYS`=80日）を抜けた期末日だけ**。抜けた直後
+  （14日）は毎晩、それより古いのに空のままの日付は **月曜だけ**再試行（`retry_all`）。決算走査は遅延の境界で打ち切り
+  （`STOP_AFTER_FAILS`）。銘柄マスタ（取得90秒＋3,700件更新）は **月曜だけ**（`--master` で随時）。
+  ⚠️ cron が平日のみなので週1処理は日曜ではなく月曜（`WEEKLY_WEEKDAY`=0）。実測 2.5時間 → 10秒
+- `update_daily_prices` は夜バッチでは `--backfill-only`（履歴 240 行未満の新規銘柄だけ 3 年分）。日々の差分は朝の
+  `update_impulse_prices`（保有＋カルテ＋日記＋監視を一括 download）が担当で完全に重複していた。カルテ・監視のボタンは従来どおり
+- `run_kabutan_screen` は朝の `us_ranking_update.sh` から外した（東証が開いておらず毎回 +0 件で 402 銘柄を落とし直していた）。
+  「1銘柄でも日足が無いと全銘柄を 300 日取り直す」欠陥も修正（無い銘柄だけ 300 日・ある銘柄は差分）
+- `update_us_financials` は **月曜だけ**（EDGAR companyfacts 全量＋yfinance 全期間を毎晩は過剰。新規銘柄はカルテのボタン）
+- `update_macro` の yfinance（^GSPC/^N225/金/銀/BTC）は「最後に保存した月の2か月前から」（毎朝 1927 年からの全取得をやめた）
+- 朝の `us_ranking_update.sh` に `update_us_prices` を追加（S&P500 構成外の保有株の終値が夜まで前々日のままだった）
+- 見送り: `update_jp_ranking`（全日本株 40 日分・保存せず）の結果を DailyPrice/KabutanBar に流用する統合（効果が数秒）、
+  `fetch_zaim` の全件取得（台帳を毎回作り直す設計と噛み合っている）、6:30/7:00 の impulse・index 二重実行（意図した保険・12秒）
+
 ### ⚠️ J-Quants は無料プランのみ（2026-08〜）→ 日本株はハイブリッド構成
 課金プランを解約したため、**当日の日本株株価は J-Quants では取れない**（無料プランは
 直近データが遅延し `/equities/bars/daily` の直近は 400/403）。そこで役割を分けた:

@@ -57,32 +57,39 @@ class Command(BaseCommand):
 
     # ── 日足取得 ────────────────────────────────────────
     def _fetch(self, stocks, backfill):
-        import yfinance as yf
-
-        # 銘柄ごとの最終保存日 → 取得開始日（全銘柄の最小。差分同期）
+        # 銘柄ごとの最終保存日 → 取得開始日（差分同期）
         latest = dict(KabutanBar.objects.filter(stock__in=stocks)
                       .values('stock_id').annotate(m=Max('date'))
                       .values_list('stock_id', 'm'))
         today = date.today()
         if backfill:
-            start = today - timedelta(days=backfill)
+            groups = [(stocks, today - timedelta(days=backfill))]
         else:
+            # ⚠️ 旧実装は「1銘柄でも日足が無いと全402銘柄を300日分取り直す」作りだった（2026-09-27）。
+            # 日足の無い銘柄だけ 300 日、ある銘柄は最終保存日の翌日から、と分けて取る
             missing = [s for s in stocks if s.code not in latest]
-            starts = [latest[s.code] + timedelta(days=1)
-                      for s in stocks if s.code in latest]
+            having = [s for s in stocks if s.code in latest]
+            groups = []
             if missing:
-                start = today - timedelta(days=DEFAULT_BACKFILL)
-            elif starts:
-                start = min(starts)
-            else:
-                start = today - timedelta(days=DEFAULT_BACKFILL)
-            if start > today:
+                groups.append((missing, today - timedelta(days=DEFAULT_BACKFILL)))
+            if having:
+                start = min(latest[s.code] for s in having) + timedelta(days=1)
+                if start <= today:
+                    groups.append((having, start))
+            if not groups:
                 return 0
 
         # 未確定当日バーのガード（JPクローズ 15:30 → 15:35 以降のみ当日を保存）
         now = datetime.now(ZoneInfo('Asia/Tokyo'))
         cutoff = today if (now.hour, now.minute) >= (15, 35) else today - timedelta(days=1)
 
+        added = 0
+        for group, start in groups:
+            added += self._download(group, start, latest, cutoff, backfill)
+        return added
+
+    def _download(self, stocks, start, latest, cutoff, backfill):
+        import yfinance as yf
         by_ticker = {f'{s.display_code}.T': s for s in stocks}
         tickers = list(by_ticker.keys())
         added = 0
