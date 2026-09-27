@@ -334,9 +334,11 @@ def _dupont(fy_reps, is_us):
         if pretax is None and r.ordinary is not None:
             pretax, ordinary = r.ordinary, True
         op, sales, assets = r.op, r.sales, r.total_assets
+        # 分母がほぼゼロ（売上の 0.5% 未満）の比率は意味をなさない（PayPay 2024/3 期: 税負担率 −304 倍になった）
+        tiny = lambda v: v is not None and sales and abs(v) < abs(sales) * 0.005   # noqa: E731
         f = {
-            'tax': (r.np / pretax) if (pretax and pretax > 0) else None,
-            'interest': (pretax / op) if (pretax is not None and op and op > 0) else None,
+            'tax': (r.np / pretax) if (pretax and pretax > 0 and not tiny(pretax)) else None,
+            'interest': (pretax / op) if (pretax is not None and op and op > 0 and not tiny(op)) else None,
             'margin': (op / sales * 100) if (op is not None and sales and sales > 0) else None,
             'turnover': (sales / assets) if (assets and assets > 0) else None,
             'leverage': (assets / equity) if (assets and equity and equity > 0) else None,
@@ -347,6 +349,10 @@ def _dupont(fy_reps, is_us):
             notes.append('税引前利益が未取得')
         elif pretax <= 0:
             notes.append('税引前が赤字のため①は出さない')
+        elif tiny(pretax):
+            notes.append('税引前利益がほぼゼロ（売上の0.5%未満）のため①は出さない')
+        if op is not None and op > 0 and tiny(op):
+            notes.append('営業利益がほぼゼロ（売上の0.5%未満）のため②は出さない')
         if op is None:
             notes.append('営業利益が開示されていない（IFRS の持株会社など）ため②③は出せない')
         elif op <= 0:
