@@ -60,6 +60,10 @@ RECENT_WINDOW_DAYS = 14
 # 週1回の再試行で1回に試す期末日の上限（新しい順）。J-Quants は連続3コールで 429 になるので、
 # 61 日付を一気に試すと1時間コースになる。少しずつ埋めていく
 MAX_RETRY_DATES = 8
+# 期末日に出来高ゼロ（C が None）の銘柄は、その前の営業日をこの日数まで遡って直近の約定値を使う。
+# それでも無ければ「試した」印（close_date だけ入れて close は空）を付けて二度と取りに行かない。
+# ⚠️ 空のまま残っていた 826 行（403 銘柄・大半がスタンダード/グロース）は全部これだった（2026-09-27）
+NO_TRADE_LOOKBACK_DAYS = 5
 
 
 class Command(BaseCommand):
@@ -217,49 +221,81 @@ class Command(BaseCommand):
         対象は日本株だけ（米国株の期末株価は update_us_financials が yfinance で入れる。J-Quants には無い）。
         遅延で取れない期末日（直近 FREE_PLAN_DELAY_DAYS）は取りに行かない。
         遅延を抜けて間もない期末日は毎晩試し、それより古いのに空のまま（上場廃止・休場など）の
-        期末日は retry_all（月曜・--full）のときだけ再試行する
+        期末日は retry_all（月曜・--full）のときだけ、新しい順に MAX_RETRY_DATES 日付ずつ再試行する。
+        期末日に約定が無い銘柄は前の営業日へ NO_TRADE_LOOKBACK_DAYS まで遡り、それでも無ければ
+        close_date だけ入れて「試した」印にする（close_date が入った行は二度と対象にならない）
         """
         today = date.today()
         limit = today - timedelta(days=FREE_PLAN_DELAY_DAYS)
         qs = (FinancialReport.objects
-              .filter(close__isnull=True, per_end__isnull=False, stock__country='JP')
+              .filter(close__isnull=True, close_date__isnull=True, per_end__isnull=False, stock__country='JP')
               .filter(per_end__lte=limit))
         recent_from = limit - timedelta(days=RECENT_WINDOW_DAYS)
         target_dates = sorted(set(qs.filter(per_end__gte=recent_from).values_list('per_end', flat=True)))
         if retry_all:
             older = sorted(set(qs.filter(per_end__lt=recent_from).values_list('per_end', flat=True)), reverse=True)
             target_dates += older[:MAX_RETRY_DATES]
-        filled_dates = 0
+        filled_dates = filled_rows = marked_rows = 0
         for per_end in target_dates:
             prices, actual = self._closes_near(per_end)
             if not prices:
                 continue
-            reps = list(FinancialReport.objects.filter(per_end=per_end, close__isnull=True, stock__country='JP'))
+            reps = list(FinancialReport.objects.filter(
+                per_end=per_end, close__isnull=True, close_date__isnull=True, stock__country='JP'))
+            pending = []
             for rep in reps:
                 c = prices.get(rep.stock_id)
                 if c is not None:
-                    rep.close = c
-                    rep.close_date = actual
+                    rep.close, rep.close_date = c, actual
+                    filled_rows += 1
+                else:
+                    pending.append(rep)
+            # 期末日に約定が無かった銘柄: 前の営業日を遡る（日付一括APIなので銘柄数に関係なく数コール）
+            d, back = actual, 0
+            while pending and back < NO_TRADE_LOOKBACK_DAYS:
+                d -= timedelta(days=1)
+                if d.weekday() >= 5:
+                    continue
+                back += 1
+                closes = self._closes_on(d)
+                if not closes:
+                    continue
+                still = []
+                for rep in pending:
+                    c = closes.get(rep.stock_id)
+                    if c is not None:
+                        rep.close, rep.close_date = c, d
+                        filled_rows += 1
+                    else:
+                        still.append(rep)
+                pending = still
+            for rep in pending:          # 1週間さかのぼっても約定なし → 試した印だけ付ける
+                rep.close_date = actual
+                marked_rows += 1
             FinancialReport.objects.bulk_update(reps, ['close', 'close_date'], batch_size=500)
             filled_dates += 1
         self.stdout.write(f'期末株価取得: {filled_dates}日付分（対象 {len(target_dates)} 日付'
-                          f'{"・全部再試行" if retry_all else "・遅延を抜けた直後のみ"}）')
+                          f'{"・全部再試行" if retry_all else "・遅延を抜けた直後のみ"}）'
+                          f' 埋めた行 {filled_rows}・約定なしで打ち切り {marked_rows}')
 
     @staticmethod
-    def _closes_near(target):
+    def _closes_on(d):
+        """その日の全銘柄終値 {code: close}（約定の無い銘柄は含めない）。取れなければ {}"""
+        time.sleep(jquants.REQUEST_WAIT)
+        try:
+            bars = jquants.get_bars_by_date(d.isoformat())
+        except Exception:  # noqa: BLE001  無料プランは直近日が遅延で400。古い期末日は取れる
+            return {}
+        return {b['Code']: b['C'] for b in bars if b.get('C') is not None}
+
+    @classmethod
+    def _closes_near(cls, target):
         """target以前の直近営業日の全銘柄終値を返す: ({code: close}, 実際の日付)"""
         for offset in range(8):
             d = target - timedelta(days=offset)
             if d.weekday() >= 5:
                 continue
-            time.sleep(jquants.REQUEST_WAIT)
-            try:
-                bars = jquants.get_bars_by_date(d.isoformat())
-            except Exception:  # noqa: BLE001  無料プランは直近日が遅延で400。古い期末日は取れる
-                bars = []
-            if bars:
-                return (
-                    {b['Code']: b['C'] for b in bars if b.get('C') is not None},
-                    d,
-                )
+            closes = cls._closes_on(d)
+            if closes:
+                return closes, d
         return {}, None
