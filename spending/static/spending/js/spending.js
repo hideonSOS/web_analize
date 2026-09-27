@@ -20,7 +20,21 @@
       inactiveColor: '#374151',
     },
     tooltip: {
-      trigger: 'axis', confine: true,
+      // 常にカーソルの右側に出す（2026-09-27 ユーザー指示）。confine だと右端の月でグラフの左側へ回り込み、
+      // 前月・前々月の棒を覆って見比べられなかった。枠の外（ページ上）まではみ出してよい（appendToBody）。
+      // 右側に入りきらない（画面の右端を越える）ときは、左へ回り込ませず**グラフの上**の右寄せに出す
+      // （棒を隠さないので前の月と見比べられる）
+      trigger: 'axis', confine: false, appendToBody: true,
+      position: function (point, params, dom, rect, size) {
+        var box = chart.getDom().getBoundingClientRect();
+        var w = size.contentSize[0], h = size.contentSize[1];
+        var maxX = document.documentElement.clientWidth - box.left - w - 8;
+        if (point[0] + 18 <= maxX) {
+          var y = Math.min(Math.max(point[1] - h / 2, 0), Math.max(size.viewSize[1] - h, 0));
+          return [point[0] + 18, y];
+        }
+        return [maxX, -h - 6];
+      },
       backgroundColor: '#0f172a', borderColor: '#334155',
       textStyle: { color: '#e5e7eb', fontSize: 12 },
       axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(30,144,255,.08)' } },
