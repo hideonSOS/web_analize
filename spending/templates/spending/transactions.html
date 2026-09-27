@@ -70,30 +70,28 @@
       {% csrf_token %}
       <input type="hidden" name="form_id" value="bulk">
     </form>
-    <div class="pf-scroll">
-      <table class="pf-table num" style="min-width:960px">
+    {% comment %}
+      1行ずつの修正は資産登録の保有一覧と同じ作り（2026-09-27 ユーザー指示）: 行の高さ・大きめの文字と入力欄、
+      枠内スクロール（右端にスクロールバー・見出しは枠の上端に固定）、分類・必要度・集計をその列で直接直して
+      行末の「保存」で画面遷移なしに保存（views.transactions の edit が JSON を返す）。
+      入力欄は HTML5 の form 属性で行末の保存フォーム（id="tx<行id>"）に紐づける
+    {% endcomment %}
+    <div class="pf-reg-scroll sp-tx-scroll">
+      <table class="pf-table num sp-tx-table">
         <tr>
           <th class="sp-chk"><input type="checkbox" id="chkall" title="表示中を全選択"></th>
-          <th>日付</th><th>内容</th><th>支払元</th><th>カテゴリ</th>
-          <th>必要度</th><th>金額</th><th>状態</th><th>修正</th>
+          <th>日付</th><th style="text-align:left">内容</th><th>支払元</th><th>金額</th>
+          <th style="text-align:left">カテゴリ</th><th>必要度</th><th>集計</th><th></th>
         </tr>
         {% for t in rows %}
         <tr>
           <td class="sp-chk"><input type="checkbox" form="bulkform" name="ids" value="{{ t.id }}"></td>
           <td>{{ t.date|date:"n/j" }}<span class="sp-sub">{{ t.ym }}</span></td>
           <td style="text-align:left">{{ t.label_clean|default:t.label|default:t.shop|truncatechars:32 }}
-            {% comment %}
-              商品でない行（外税・値引・レジ袋・不明）はひと目で分かるようにする。
-              「レシートの付随行も含む」で表示したときに商品と混ざらないため
-            {% endcomment %}
             {% if t.label_kind and t.label_kind != 'item' %}
             <span class="sp-kind">{% if t.label_kind == 'tax' %}税{% elif t.label_kind == 'discount' %}値引{% elif t.label_kind == 'bag' %}レジ袋{% else %}不明{% endif %}</span>
             {% endif %}
             {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}
-            {% comment %}
-              Amazon の請求は加盟店名が「Amazon.co.jp」としか出ないので、
-              注文履歴CSVから突合できた品目をここに開く（既定は閉じて場所を取らない）
-            {% endcomment %}
             {% if t.amazon_items.all %}
             <details class="sp-items">
               <summary>品目 {{ t.amazon_items.all|length }}件</summary>
@@ -107,47 +105,43 @@
             </details>
             {% endif %}</td>
           <td class="sp-mid">{{ t.get_source_kind_display }}</td>
+          <td class="sp-tx-amt">¥{{ t.amount|intcomma }}</td>
           {% comment %}
-            分類の出どころを必ず添える。e-navi にはカテゴリが無いので、カード行の
-            「自動推定」は加盟店名からの当てずっぽうで、外れていることがある。
-            Zaim由来（＝自分で分類したもの）と同じ見た目にしてはいけない。
+            カテゴリ: 入力欄の値＝手動の分類、空なら自動分類（placeholder に薄く出す）。空にして保存すると自動に戻る。
+            分類の出どころ（推定・訂正・銀行・手がかりなし・手動）は欄の下に必ず添える
           {% endcomment %}
-          <td class="sp-mid">{{ t.manual_category|default:t.category|default:"—" }}
-            {% if t.manual_category %}<span class="sp-manual">手動</span>
-            {% elif t.category_source == 'rule' %}<span class="sp-guess" title="加盟店名からの推定。e-naviに分類は無い">推定</span>
-            {% elif t.category_source == 'fix' %}<span class="sp-fix" title="品目ルールでZaimの誤学習を訂正">訂正</span>
-            {% elif t.category_source == 'bank' %}<span class="sp-fix" title="銀行明細の摘要辞書で確定">銀行</span>
-            {% elif t.category_source == 'none' %}<span class="sp-guess">手がかりなし</span>
-            {% endif %}</td>
-          <td class="sp-mid">
-            {% with n=t.manual_necessity|default:t.necessity %}
-            {% if n %}<span class="sp-tag sp-tag-{{ n }}">{{ n }}</span>{% else %}—{% endif %}
-            {% endwith %}</td>
-          <td>¥{{ t.amount|intcomma }}</td>
-          <td class="sp-mid">
-            {% if not t.in_total %}<span class="pf-muted">{{ t.exclude_reason }}</span>
-            {% elif t.dup_flag %}<span class="sp-manual">重複?</span>
-            {% elif t.match_status == 'enavi_only' %}<span class="sp-manual">e-naviのみ</span>
-            {% else %}—{% endif %}</td>
+          <td style="text-align:left">
+            <input type="text" name="category" form="tx{{ t.id }}" list="catlist" class="pf-reg-in sp-tx-cat"
+                   value="{{ t.manual_category }}" placeholder="{{ t.category|default:'未分類' }}">
+            <span class="sp-tx-src">
+              {% if t.manual_category %}<span class="sp-manual">手動</span>
+              {% elif t.category_source == 'rule' %}<span class="sp-guess" title="加盟店名からの推定。e-naviに分類は無い">推定</span>
+              {% elif t.category_source == 'fix' %}<span class="sp-fix" title="品目ルールでZaimの誤学習を訂正">訂正</span>
+              {% elif t.category_source == 'bank' %}<span class="sp-fix" title="銀行明細の摘要辞書で確定">銀行</span>
+              {% elif t.category_source == 'none' %}<span class="sp-guess">手がかりなし</span>
+              {% else %}<span class="pf-muted">自動</span>{% endif %}</span></td>
           <td>
-            <form method="post" class="sp-edit-form">
+            <select name="necessity" form="tx{{ t.id }}" class="pf-reg-sel">
+              <option value="">{% if t.necessity %}自動（{{ t.necessity }}）{% else %}—{% endif %}</option>
+              {% for n in necessity_choices %}
+              <option value="{{ n }}" {% if t.manual_necessity == n %}selected{% endif %}>{{ n }}</option>
+              {% endfor %}
+            </select></td>
+          <td>
+            <select name="exclude_override" form="tx{{ t.id }}" class="pf-reg-sel">
+              <option value="" {% if t.exclude_override is None %}selected{% endif %}>自動{% if not t.in_total %}（除外中）{% endif %}</option>
+              <option value="1" {% if t.exclude_override == True %}selected{% endif %}>集計する</option>
+              <option value="0" {% if t.exclude_override == False %}selected{% endif %}>除外する</option>
+            </select>
+            {% if not t.in_total and t.exclude_reason %}<span class="sp-sub">{{ t.exclude_reason }}</span>
+            {% elif t.dup_flag %}<span class="sp-sub sp-manual">重複?</span>
+            {% elif t.match_status == 'enavi_only' %}<span class="sp-sub sp-manual">e-naviのみ</span>{% endif %}</td>
+          <td style="white-space:nowrap">
+            <form id="tx{{ t.id }}" method="post" class="sp-tx-editform" style="display:inline">
               {% csrf_token %}
               <input type="hidden" name="form_id" value="edit">
               <input type="hidden" name="id" value="{{ t.id }}">
-              <input type="text" name="category" value="{{ t.manual_category }}" placeholder="分類" size="6">
-              <select name="necessity">
-                <option value="">必要度</option>
-                {% for n in necessity_choices %}
-                <option value="{{ n }}" {% if t.manual_necessity == n %}selected{% endif %}>{{ n }}</option>
-                {% endfor %}
-              </select>
-              <select name="exclude_override">
-                <option value="" {% if t.exclude_override is None %}selected{% endif %}>自動</option>
-                <option value="1" {% if t.exclude_override == True %}selected{% endif %}>集計する</option>
-                <option value="0" {% if t.exclude_override == False %}selected{% endif %}>除外する</option>
-              </select>
-              <button type="submit" class="pf-link"
-                      style="background:none;border:1px solid #1e3a5f;border-radius:5px;cursor:pointer;font-size:11px;color:#1e90ff;padding:3px 8px">保存</button>
+              <button type="submit" class="pf-reg-save">保存</button>
             </form>
           </td>
         </tr>
@@ -172,6 +166,46 @@
     </div>
   </div>
 </div>
+<script>
+  /* 明細の1行保存: 画面遷移なし（資産登録の保有一覧と同じ）。成功したら行を光らせてトースト、
+     分類の出どころの印を「手動」／「自動」に付け替える */
+  (function () {
+    var toast = document.createElement('div');
+    toast.className = 'pf-reg-toast';
+    document.body.appendChild(toast);
+    var timer;
+    function say(msg, ok) {
+      toast.textContent = msg;
+      toast.className = 'pf-reg-toast show ' + (ok ? 'ok' : 'ng');
+      clearTimeout(timer);
+      timer = setTimeout(function () { toast.className = 'pf-reg-toast'; }, ok ? 1800 : 5000);
+    }
+    document.querySelectorAll('form.sp-tx-editform').forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('button');
+        var row = form.closest('tr');
+        btn.disabled = true;
+        fetch(location.pathname + location.search, {
+          method: 'POST', body: new FormData(form),
+          headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin'
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          btn.disabled = false;
+          if (!j.ok) { say(j.message || '保存できませんでした。', false); return; }
+          var src = row.querySelector('.sp-tx-src');
+          if (src) src.innerHTML = j.manual ? '<span class="sp-manual">手動</span>' : '<span class="pf-muted">自動</span>';
+          row.classList.remove('pf-reg-saved'); void row.offsetWidth; row.classList.add('pf-reg-saved');
+          btn.textContent = '✓ 保存';
+          setTimeout(function () { btn.textContent = '保存'; }, 1500);
+          say(j.message, true);
+        }).catch(function () {
+          btn.disabled = false;
+          say('通信に失敗しました。もう一度保存してください。', false);
+        });
+      });
+    });
+  })();
+</script>
 <script>
   (function () {
     var all = document.getElementById('chkall');

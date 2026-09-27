@@ -348,6 +348,9 @@ def transactions(request):
         return redirect(request.get_full_path())
 
     if request.method == 'POST' and request.POST.get('form_id') == 'edit':
+        # 1行ずつの修正。保存ボタンは fetch で送り（X-Requested-With: fetch）JSON を返して画面遷移させない
+        # （2026-09-27 ユーザー指示: 資産登録の保有一覧と同じ操作感に）。JS が無ければ従来どおりリダイレクト
+        is_ajax = request.headers.get('X-Requested-With') == 'fetch'
         t = Transaction.objects.filter(pk=request.POST.get('id')).first()
         if t:
             t.manual_category = request.POST.get('category', '').strip()
@@ -355,7 +358,16 @@ def transactions(request):
             ov = request.POST.get('exclude_override', '')
             t.exclude_override = None if ov == '' else (ov == '1')
             t.save(update_fields=['manual_category', 'manual_necessity', 'exclude_override'])
-            messages.success(request, f'{t.label or t.merchant} を更新しました。')
+            msg = f'{t.label_clean or t.label or t.merchant or t.shop} を更新しました。'
+        if is_ajax:
+            from django.http import JsonResponse
+            if not t:
+                return JsonResponse({'ok': False, 'message': 'この明細は見つかりませんでした（取り込み直しで消えた可能性があります）。'},
+                                    status=400)
+            return JsonResponse({'ok': True, 'message': msg, 'manual': bool(t.manual_category),
+                                 'category': t.manual_category or t.category or ''})
+        if t:
+            messages.success(request, msg)
         return redirect(request.get_full_path())
 
     months = list(Transaction.objects.values_list('ym', flat=True).distinct().order_by('-ym'))
