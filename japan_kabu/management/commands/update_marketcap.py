@@ -57,6 +57,9 @@ WEEKLY_WEEKDAY = 0
 # ⚠️ 旧実装は空の行を全部毎晩取りに行き、米国株（J-Quants に無い）と遅延中の期末日で必ず失敗 →
 #    429 のリトライ待ち（最大 225 秒/コール）が積み上がって毎晩 2.5 時間かかっていた（2026-09-27）
 RECENT_WINDOW_DAYS = 14
+# 週1回の再試行で1回に試す期末日の上限（新しい順）。J-Quants は連続3コールで 429 になるので、
+# 61 日付を一気に試すと1時間コースになる。少しずつ埋めていく
+MAX_RETRY_DATES = 8
 
 
 class Command(BaseCommand):
@@ -221,9 +224,11 @@ class Command(BaseCommand):
         qs = (FinancialReport.objects
               .filter(close__isnull=True, per_end__isnull=False, stock__country='JP')
               .filter(per_end__lte=limit))
-        if not retry_all:
-            qs = qs.filter(per_end__gte=limit - timedelta(days=RECENT_WINDOW_DAYS))
-        target_dates = sorted(set(qs.values_list('per_end', flat=True)))
+        recent_from = limit - timedelta(days=RECENT_WINDOW_DAYS)
+        target_dates = sorted(set(qs.filter(per_end__gte=recent_from).values_list('per_end', flat=True)))
+        if retry_all:
+            older = sorted(set(qs.filter(per_end__lt=recent_from).values_list('per_end', flat=True)), reverse=True)
+            target_dates += older[:MAX_RETRY_DATES]
         filled_dates = 0
         for per_end in target_dates:
             prices, actual = self._closes_near(per_end)
