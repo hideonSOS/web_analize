@@ -142,10 +142,10 @@ def _bank_schedule(setting, today, is_current):
     treat_label = {'expense': '', 'card_settlement': 'カード', 'cash_withdrawal': 'ATM',
                    'investment_transfer': '投資'}
     palette = TEMPLATE_PALETTE
-    # カレンダーの額は「中央値」（平均だと一度きりの高額月＝機種代・年払いに引っ張られる）。
+    # カレンダーの額は月平均（ユーザー判断 2026-09-27「平均は平均でよい」）。
     # 前回の実額と日付も並べる（次に引かれる額の手がかりは直近の実額）
     rows = [{
-        'day': r['day'], 'name': r['name'], 'amount': r['median'], 'mean': r['amount'],
+        'day': r['day'], 'name': r['name'], 'amount': r['amount'], 'median': r['median'],
         'last_amount': r['last_amount'],
         'last_md': f"{int(r['last'][5:7])}/{int(r['last'][8:10])}",
         'months': r['months'], 'n': r['n'], 'last': r['last'],
