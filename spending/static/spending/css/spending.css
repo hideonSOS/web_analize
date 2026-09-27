@@ -240,7 +240,9 @@ table.sp-tx-table th{ font-size:15px; color:#22c55e; font-weight:bold; letter-sp
 table.sp-tx-table .sp-tx-amt{ font-size:17px; font-weight:bold; color:#e5e7eb; }
 table.sp-tx-table .sp-tx-cat{ width:130px; text-align:left; }
 table.sp-tx-table .sp-tx-cat::placeholder{ color:#6b7280; }
-table.sp-tx-table .sp-tx-src{ display:block; margin-top:4px; font-size:11px; }
+table.sp-tx-table .sp-tx-src{ display:inline-block; margin-left:8px; font-size:11px; vertical-align:middle; }
+table.sp-tx-table .sp-tx-cat{ vertical-align:middle; }
+table.sp-tx-table td:has(.sp-tx-cat){ white-space:nowrap; }
 table.sp-tx-table .pf-reg-sel{ font-size:14px; padding:8px 8px; }
 .sp-tx-scroll{ max-height:75vh; }
 /* 明細の行の高さをそろえる（内容は2行に固定・はみ出しは …）。セルは上下中央 */
