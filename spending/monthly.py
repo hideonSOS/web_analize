@@ -125,48 +125,46 @@ def bank_recurring(min_months: int = BANK_SCHEDULE_MIN_MONTHS) -> list[dict]:
 
 
 def _bank_schedule(setting, today, is_current):
-    """銀行明細から引き落としカレンダーを作る（平均額・典型的な日・引き落とし日順）。
+    """銀行明細から「次の給料までに口座から出ていく額」の予測を作る（2026-09-27 に作り直し）。
 
-    ユーザー要望: 手入力ではなく UFJ_bank.csv の実績から。金額順ではなく**引き落とし日順**に
-    並べ、次に何が引かれるかが分かるように。
-
-    - 1件＝摘要辞書で付いた表示名（家賃・関西電力・楽天カード引き落とし・ATM引き出し…）
-    - 平均額は「月あたり」（合計÷出現月数）。ATM のように月に複数回あるものも月額で揃える
-    - 日は各回の日の**中央値**（月末や休日で前後にずれるので平均より安定する）
-    - 収入・利息は出さない。除外扱い（カード引落・ATM・証券振込）も口座からは実際に出て
-      いくので**出す**（このカレンダーの目的は口座残高の動き）。行に種別を添える
+    ユーザーの目的: **先月の支出履歴から今月の出ていく額を予測し、給与との差額＝投資に回せる資金を確認する**。
+    旧版は 月平均・給与日からの累計・月数 を並べていて「散らばっていて意味が無い」と指摘された。
+    - 各項目の予測額 = **前回の実額**（直近に実際に引かれた額と日付）
+    - 給与 = 銀行明細の直近の「給料」の入金額（賞与は除く）
+    - 投資に回せる額 = 給与 − 予測の合計
+    - 証券口座への振込（investment_transfer）は差額の使い道そのものなので予測に含めず、別に添える
+    - 並びは給与日起点（給与日の翌日から次の給与日の前日まで）
     """
     recurring = bank_recurring()
     if not recurring:
         return None
-    treat_label = {'expense': '', 'card_settlement': 'カード', 'cash_withdrawal': 'ATM',
-                   'investment_transfer': '投資'}
-    palette = TEMPLATE_PALETTE
-    # カレンダーの額は月平均（ユーザー判断 2026-09-27「平均は平均でよい」）。
-    # 前回の実額と日付も並べる（次に引かれる額の手がかりは直近の実額）
-    rows = [{
-        'day': r['day'], 'name': r['name'], 'amount': r['amount'], 'median': r['median'],
-        'last_amount': r['last_amount'],
-        'last_md': f"{int(r['last'][5:7])}/{int(r['last'][8:10])}",
-        'months': r['months'], 'n': r['n'], 'last': r['last'],
-        'kind': r['treat'], 'kind_label': treat_label.get(r['treat'], ''),
-        'color': palette[i % len(palette)],
-    } for i, r in enumerate(recurring)]
-    period = recurring[0]['period']
-    if setting.salary_day:
-        rows.append({'day': setting.salary_day, 'name': '給与日', 'amount': 0, 'cum': None,
-                     'color': '#34d399', 'kind': 'salary', 'kind_label': ''})
-    # 給与日起点で並べ直す（給与日が先頭・それより前の日は翌月扱い・累計は給与日でゼロ）
+    from .services import load_bank_frame
+    bank = load_bank_frame()
+    salary = salary_date = None
+    if bank is not None and 'deposit' in bank.columns:
+        pay = bank[(bank['summary'] == '給料') & (bank['deposit'] > 0)].sort_values('date')
+        if not pay.empty:
+            salary = int(pay.iloc[-1]['deposit'])
+            salary_date = pay.iloc[-1]['date'].date()
+    treat_label = {'expense': '', 'card_settlement': 'カード', 'cash_withdrawal': 'ATM'}
+    rows, invest = [], []
+    for r in recurring:
+        item = {'day': r['day'], 'name': r['name'], 'amount': r['last_amount'],
+                'last_md': f"{int(r['last'][5:7])}/{int(r['last'][8:10])}",
+                'kind': r['treat'], 'kind_label': treat_label.get(r['treat'], '')}
+        (invest if r['treat'] == 'investment_transfer' else rows).append(item)
     rows = _cycle_order(rows, setting.salary_day, today.day, is_current)
     total = sum(r['amount'] for r in rows)
+    last_bank = bank['date'].max().date() if bank is not None and not bank.empty else None
     return {
         'rows': rows, 'undated': [], 'total': total, 'dated_total': total,
         'card_day': setting.card_debit_day, 'salary_day': setting.salary_day,
         'is_current': is_current, 'today': today.day if is_current else None,
-        # 今日以降（給与サイクル上で今日より後）にまだ出ていく額
         'remaining': sum(r['amount'] for r in rows if not r['passed']) if is_current else None,
         'source': 'bank',
-        'period': period,
+        'salary': salary, 'salary_date': salary_date,
+        'investable': (salary - total) if salary is not None else None,
+        'invest': invest, 'last_bank': last_bank,
     }
 
 

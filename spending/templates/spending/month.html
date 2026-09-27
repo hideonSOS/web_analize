@@ -158,35 +158,62 @@
       なくカードの引き落とし日に1本でまとめる（実際の口座の動きに合わせる）。
       当月なら今日の位置に印を付け、「今日以降にまだ出ていく額」を見出しに出す。
     {% endcomment %}
-    {% if schedule %}
+    {% if schedule and schedule.source == 'bank' %}
+    {% comment %}
+      銀行明細から「次の給料までに出ていく額」を前回の実額で予測し、給与との差額＝投資に回せる額を出す
+      （2026-09-27 作り直し。月平均・累計・月数は「散らばっていて意味が無い」とのユーザー指摘で撤去）
+    {% endcomment %}
+    <h3 class="sp-subsec">次の給料までの支出予測
+      <span>前回の実額で予測{% if schedule.last_bank %}（銀行明細は {{ schedule.last_bank|date:"n/j" }} まで）{% endif %}</span></h3>
+    <div class="sp-forecast">
+      <div><span class="k">給与{% if schedule.salary_date %}（前回 {{ schedule.salary_date|date:"n/j" }}）{% endif %}</span>
+        <b>{% if schedule.salary is not None %}¥{{ schedule.salary|intcomma }}{% else %}—{% endif %}</b></div>
+      <div class="op">−</div>
+      <div><span class="k">引き落とし予測</span><b>¥{{ schedule.total|intcomma }}</b></div>
+      <div class="op">＝</div>
+      <div class="main"><span class="k">投資に回せる額</span>
+        <b class="{% if schedule.investable is not None and schedule.investable < 0 %}pf-neg{% else %}pf-pos{% endif %}">{% if schedule.investable is not None %}¥{{ schedule.investable|intcomma }}{% else %}—{% endif %}</b></div>
+    </div>
+    <div class="pf-scroll">
+      <table class="pf-table num sp-sched">
+        <tr><th>日</th><th style="text-align:left">項目</th><th>予測額（前回の実額）</th><th>前回</th></tr>
+        {% for r in schedule.rows %}
+        <tr class="{% if r.passed %}sp-sched-passed{% elif r.today %}sp-sched-today{% endif %}">
+          <td>{% if r.next_month %}<span class="sp-sched-next">翌月</span>{% endif %}{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
+          <td style="text-align:left">{{ r.name }}{% if r.kind_label %} <span class="sp-kind">{{ r.kind_label }}</span>{% endif %}</td>
+          <td>¥{{ r.amount|intcomma }}</td>
+          <td class="pf-muted">{{ r.last_md }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="sp-sched-total"><td></td><td style="text-align:left">合計</td><td>¥{{ schedule.total|intcomma }}</td><td></td></tr>
+      </table>
+    </div>
+    {% if schedule.invest %}
+    <p class="pf-note sp-subnote">証券口座への振込は差額の使い道なので予測に含めていません（前回:
+      {% for v in schedule.invest %}¥{{ v.amount|intcomma }}（{{ v.last_md }}）{% if not forloop.last %}・{% endif %}{% endfor %}）。</p>
+    {% endif %}
+    {% elif schedule %}
     <h3 class="sp-subsec">引き落としカレンダー
-      <span>
-        {% if schedule.source == 'bank' %}銀行明細の実績（{{ schedule.period.0 }}〜{{ schedule.period.1 }}・{{ schedule.period.2 }}か月）の月平均・引き落とし日順
-        {% else %}理想額を引き落とし日順に{% endif %}
-        ／ 月の概算ランニングコスト ¥{{ schedule.total|intcomma }}
+      <span>理想額を引き落とし日順に ／ 月の概算ランニングコスト ¥{{ schedule.total|intcomma }}
         {% if schedule.is_current and schedule.remaining is not None %}／ 今日（{{ schedule.today }}日）以降にあと <b>¥{{ schedule.remaining|intcomma }}</b>{% endif %}</span></h3>
     {% if schedule.rows %}
     <div class="pf-scroll">
       <table class="pf-table num sp-sched">
-        <tr><th>日</th><th style="text-align:left">項目</th><th>{% if schedule.source == 'bank' %}月平均{% else %}額{% endif %}</th><th title="給与日でゼロに戻し、その行までに出ていく額を足し上げた合計">給与日からの累計</th>
-          {% if schedule.source == 'bank' %}<th>前回の実額</th><th>月数</th>{% endif %}</tr>
-        {% comment %} 給与日の目印はビュー側で kind='salary' の行として挿入済み {% endcomment %}
+        <tr><th>日</th><th style="text-align:left">項目</th><th>額</th><th>累計</th></tr>
         {% for r in schedule.rows %}
         {% if r.kind == 'salary' %}
         <tr class="sp-sched-salary {% if r.passed %}sp-sched-passed{% endif %}">
           <td>{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
-          <td colspan="{% if schedule.source == 'bank' %}5{% else %}3{% endif %}" style="text-align:left">💴 給与日（ここが起点。累計はここからの合計）</td>
+          <td colspan="3" style="text-align:left">💴 給与日（ここが起点。累計はここからの合計）</td>
         </tr>
         {% else %}
-        <tr class="{% if r.passed %}sp-sched-passed{% elif r.today %}sp-sched-today{% endif %}{% if r.kind == 'card' or r.kind == 'card_settlement' %} sp-sched-card{% endif %}">
+        <tr class="{% if r.passed %}sp-sched-passed{% elif r.today %}sp-sched-today{% endif %}{% if r.kind == 'card' %} sp-sched-card{% endif %}">
           <td>{% if r.next_month %}<span class="sp-sched-next">翌月</span>{% endif %}{{ r.day }}日{% if r.today %} <span class="sp-sched-mark">今日</span>{% endif %}</td>
           <td style="text-align:left">
             <span class="sp-tpl-swatch" style="background:{{ r.color }}"></span> {{ r.name }}
-            {% if r.kind_label %}<span class="sp-kind">{{ r.kind_label }}</span>{% endif %}
             {% if r.kind == 'card' %}<span class="sp-sub">{{ r.members|join:"・" }}</span>{% endif %}</td>
           <td>¥{{ r.amount|intcomma }}</td>
           <td>¥{{ r.cum|intcomma }}</td>
-          {% if schedule.source == 'bank' %}<td>¥{{ r.last_amount|intcomma }}<span class="pf-muted sp-sched-lastdate">（{{ r.last_md }}）</span></td><td title="中央値 ¥{{ r.median|intcomma }}">{{ r.months }}</td>{% endif %}
         </tr>
         {% endif %}
         {% endfor %}
