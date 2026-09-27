@@ -233,7 +233,7 @@
 
 /* 明細の一覧（2026-09-27）: 資産登録の保有一覧と同じ見た目。行の高さ約2倍・大きめの文字、
    枠内スクロール（.pf-reg-scroll）で見出しを枠の上端に固定 */
-table.sp-tx-table{ font-size:15px; min-width:1150px; }
+table.sp-tx-table{ font-size:15px; min-width:820px; }
 table.sp-tx-table th{ font-size:15px; color:#22c55e; font-weight:bold; letter-spacing:1px; padding:12px 8px;
   position:sticky; top:0; z-index:2; background:#0b1220; box-shadow:inset 0 -2px 0 #14532d; }
 table.sp-tx-table td{ padding:16px 8px; vertical-align:middle; }

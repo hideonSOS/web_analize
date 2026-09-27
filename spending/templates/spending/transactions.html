@@ -81,7 +81,7 @@
         <tr>
           <th class="sp-chk"><input type="checkbox" id="chkall" title="表示中を全選択"></th>
           <th>日付</th><th style="text-align:left">内容</th><th>支払元</th><th>金額</th>
-          <th style="text-align:left">カテゴリ</th><th>必要度</th><th>集計</th><th></th>
+          <th style="text-align:left">カテゴリ</th><th></th>
         </tr>
         {% for t in rows %}
         <tr>
@@ -92,6 +92,10 @@
             <span class="sp-kind">{% if t.label_kind == 'tax' %}税{% elif t.label_kind == 'discount' %}値引{% elif t.label_kind == 'bag' %}レジ袋{% else %}不明{% endif %}</span>
             {% endif %}
             {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}
+            {% comment %} 必要度・集計の列は 2026-09-27 に削除（ユーザー指示）。除外・重複の状態だけ内容の下に残す {% endcomment %}
+            {% if not t.in_total %}<span class="sp-sub">除外: {{ t.exclude_reason|default:"集計しない" }}</span>
+            {% elif t.dup_flag %}<span class="sp-sub sp-manual">重複?</span>
+            {% elif t.match_status == 'enavi_only' %}<span class="sp-sub sp-manual">e-naviのみ</span>{% endif %}
             {% if t.amazon_items.all %}
             <details class="sp-items">
               <summary>品目 {{ t.amazon_items.all|length }}件</summary>
@@ -120,22 +124,6 @@
               {% elif t.category_source == 'bank' %}<span class="sp-fix" title="銀行明細の摘要辞書で確定">銀行</span>
               {% elif t.category_source == 'none' %}<span class="sp-guess">手がかりなし</span>
               {% else %}<span class="pf-muted">自動</span>{% endif %}</span></td>
-          <td>
-            <select name="necessity" form="tx{{ t.id }}" class="pf-reg-sel">
-              <option value="">{% if t.necessity %}自動（{{ t.necessity }}）{% else %}—{% endif %}</option>
-              {% for n in necessity_choices %}
-              <option value="{{ n }}" {% if t.manual_necessity == n %}selected{% endif %}>{{ n }}</option>
-              {% endfor %}
-            </select></td>
-          <td>
-            <select name="exclude_override" form="tx{{ t.id }}" class="pf-reg-sel">
-              <option value="" {% if t.exclude_override is None %}selected{% endif %}>自動{% if not t.in_total %}（除外中）{% endif %}</option>
-              <option value="1" {% if t.exclude_override == True %}selected{% endif %}>集計する</option>
-              <option value="0" {% if t.exclude_override == False %}selected{% endif %}>除外する</option>
-            </select>
-            {% if not t.in_total and t.exclude_reason %}<span class="sp-sub">{{ t.exclude_reason }}</span>
-            {% elif t.dup_flag %}<span class="sp-sub sp-manual">重複?</span>
-            {% elif t.match_status == 'enavi_only' %}<span class="sp-sub sp-manual">e-naviのみ</span>{% endif %}</td>
           <td style="white-space:nowrap">
             <form id="tx{{ t.id }}" method="post" class="sp-tx-editform" style="display:inline">
               {% csrf_token %}
@@ -146,7 +134,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="9" class="pf-muted" style="text-align:center; padding:24px">該当する明細がありません。</td></tr>
+        <tr><td colspan="7" class="pf-muted" style="text-align:center; padding:24px">該当する明細がありません。</td></tr>
         {% endfor %}
       </table>
     </div>

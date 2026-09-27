@@ -353,11 +353,21 @@ def transactions(request):
         is_ajax = request.headers.get('X-Requested-With') == 'fetch'
         t = Transaction.objects.filter(pk=request.POST.get('id')).first()
         if t:
-            t.manual_category = request.POST.get('category', '').strip()
-            t.manual_necessity = request.POST.get('necessity', '').strip()
-            ov = request.POST.get('exclude_override', '')
-            t.exclude_override = None if ov == '' else (ov == '1')
-            t.save(update_fields=['manual_category', 'manual_necessity', 'exclude_override'])
+            # 送られてきた欄だけ直す（2026-09-27 に一覧から必要度・集計の列を外した。
+            # 欄が無いのに空で上書きすると、それまでの手動の必要度・除外設定が消える）
+            fields = []
+            if 'category' in request.POST:
+                t.manual_category = request.POST.get('category', '').strip()
+                fields.append('manual_category')
+            if 'necessity' in request.POST:
+                t.manual_necessity = request.POST.get('necessity', '').strip()
+                fields.append('manual_necessity')
+            if 'exclude_override' in request.POST:
+                ov = request.POST.get('exclude_override', '')
+                t.exclude_override = None if ov == '' else (ov == '1')
+                fields.append('exclude_override')
+            if fields:
+                t.save(update_fields=fields)
             msg = f'{t.label_clean or t.label or t.merchant or t.shop} を更新しました。'
         if is_ajax:
             from django.http import JsonResponse
