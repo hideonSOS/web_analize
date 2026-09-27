@@ -347,10 +347,16 @@ def _dupont(fy_reps, is_us):
             notes.append('税引前利益が未取得')
         elif pretax <= 0:
             notes.append('税引前が赤字のため①は出さない')
-        if op is not None and op <= 0:
+        if op is None:
+            notes.append('営業利益が開示されていない（IFRS の持株会社など）ため②③は出せない')
+        elif op <= 0:
             notes.append('営業赤字のため②は出さない')
-        if f['tax'] is not None and (f['tax'] < 0 or f['tax'] > 1.5):
-            notes.append('①が異常値（特別損益・税効果の影響）')
+        if f['tax'] is not None and f['tax'] < 0:
+            notes.append('①がマイナス＝税引前は黒字なのに純利益が赤字（特別損失・非継続事業の損失など）')
+        elif f['tax'] is not None and f['tax'] > 1.05:
+            notes.append('①が1を超える＝純利益が税引前利益を上回る（繰延税金資産の計上などの税効果）')
+        if f['leverage'] is not None and f['leverage'] >= 8:
+            notes.append('⑤が8倍超＝銀行・カードなど金融事業（預金・債権）を抱える会社の水準')
         parts = [f[k] for k in ('tax', 'interest', 'margin', 'turnover', 'leverage')]
         product = None
         if all(v is not None for v in parts):
