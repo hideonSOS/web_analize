@@ -6,11 +6,12 @@
 <link rel="stylesheet" href="{% static 'spending/css/spending.css' %}?v={% now 'U' %}" />
 {% endblock %}
 
+{% comment %} 支出分析の子ページなのでサイト共通のヘッダー・ナビは出さない（戻りはボタン列の「← 支出分析」） {% endcomment %}
+{% block site_header %}{% endblock %}
+
 {% block content %}
 <div class="pf-wrap">
-  <h1 class="pf-title">支出明細</h1>
-  <p class="pf-sub">統合台帳（1決済＝1行・重複なし）
-    ／ <a class="pf-link" href="{% url 'spending:index' %}">← 支出分析</a></p>
+  {% include 'spending/_subnav.html' with current='transactions' %}
 
   {% for msg in messages %}
     <div class="{% if msg.tags == 'error' %}pf-warn{% else %}pf-msg{% endif %}">{{ msg }}</div>

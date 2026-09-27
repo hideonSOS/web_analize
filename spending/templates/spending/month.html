@@ -12,12 +12,12 @@
 <script src="{% static 'spending/js/month.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
 
+{% comment %} 支出分析の子ページなのでサイト共通のヘッダー・ナビは出さない（戻りはボタン列の「← 支出分析」） {% endcomment %}
+{% block site_header %}{% endblock %}
+
 {% block content %}
 <div class="pf-wrap">
-  <h1 class="pf-title">月次の支出</h1>
-  <p class="pf-sub">その月に何が起きたかを、前月・平常月と比べて読む
-    ／ <a class="pf-link" href="{% url 'spending:index' %}">← 支出分析</a>
-    ／ <a class="pf-link" href="{% url 'spending:transactions' %}">明細 →</a></p>
+  {% include 'spending/_subnav.html' with current='month' %}
 
   {% if not has_data %}
     <div class="pf-card">

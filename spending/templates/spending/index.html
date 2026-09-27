@@ -14,11 +14,7 @@
 
 {% block content %}
 <div class="pf-wrap">
-  <h1 class="pf-title">支出分析</h1>
-  <p class="pf-sub">支出の歪みを見つけて、投資への入金力を増やす
-    ／ <a class="pf-link" href="{% url 'spending:month' %}">月次で見る →</a>
-    ／ <a class="pf-link" href="{% url 'spending:transactions' %}">明細を見る →</a>
-    ／ <a class="pf-link" href="{% url 'portfolio:index' %}">ポートフォリオ →</a></p>
+  {% include 'spending/_subnav.html' with current='index' %}
 
   {% for msg in messages %}
     <div class="{% if msg.tags == 'error' %}pf-warn{% else %}pf-msg{% endif %}">{{ msg }}</div>

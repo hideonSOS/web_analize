@@ -1,0 +1,11 @@
+{% comment %}
+  支出分析と子ページ（月次支出・明細）を行き来するボタン列（2026-09-27 ユーザー指示: ポートフォリオと同じ作り）。
+  ボタン列がページ見出しの役目も兼ねる（見出し・説明文は置かない）。子ページはサイト共通のナビを出さない。
+  使い方: {% include 'spending/_subnav.html' with current='month' %}（index / month / transactions）
+  見た目は portfolio.css の .pf-subnav / .pf-nav-btn（いまのページはグレーアウト）
+{% endcomment %}
+<div class="pf-subnav">
+  {% if current != 'index' %}<a class="pf-nav-btn" href="{% url 'spending:index' %}">← 支出分析</a>{% endif %}
+  {% if current == 'month' %}<span class="pf-nav-btn is-current">📅 月次支出</span>{% else %}<a class="pf-nav-btn" href="{% url 'spending:month' %}">📅 月次支出</a>{% endif %}
+  {% if current == 'transactions' %}<span class="pf-nav-btn is-current">🧾 明細</span>{% else %}<a class="pf-nav-btn" href="{% url 'spending:transactions' %}">🧾 明細</a>{% endif %}
+</div>
