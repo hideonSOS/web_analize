@@ -87,27 +87,23 @@
         <tr>
           <td class="sp-chk"><input type="checkbox" form="bulkform" name="ids" value="{{ t.id }}"></td>
           <td>{{ t.date|date:"n/j" }}<span class="sp-sub">{{ t.ym }}</span></td>
-          <td style="text-align:left">{{ t.label_clean|default:t.label|default:t.shop|truncatechars:32 }}
-            {% if t.label_kind and t.label_kind != 'item' %}
-            <span class="sp-kind">{% if t.label_kind == 'tax' %}税{% elif t.label_kind == 'discount' %}値引{% elif t.label_kind == 'bag' %}レジ袋{% else %}不明{% endif %}</span>
-            {% endif %}
-            {% if t.merchant %}<span class="sp-sub">{{ t.merchant }}</span>{% endif %}
-            {% comment %} 必要度・集計の列は 2026-09-27 に削除（ユーザー指示）。除外・重複の状態だけ内容の下に残す {% endcomment %}
-            {% if not t.in_total %}<span class="sp-sub">除外: {{ t.exclude_reason|default:"集計しない" }}</span>
-            {% elif t.dup_flag %}<span class="sp-sub sp-manual">重複?</span>
-            {% elif t.match_status == 'enavi_only' %}<span class="sp-sub sp-manual">e-naviのみ</span>{% endif %}
-            {% if t.amazon_items.all %}
-            <details class="sp-items">
-              <summary>品目 {{ t.amazon_items.all|length }}件</summary>
-              <ul>
-                {% for it in t.amazon_items.all %}
-                <li>{{ it.product_name|truncatechars:60 }}
-                  {% if it.quantity > 1 %}<b>×{{ it.quantity }}</b>{% endif %}
-                  <span>¥{{ it.item_total|intcomma }}</span></li>
-                {% endfor %}
-              </ul>
-            </details>
-            {% endif %}</td>
+          {% comment %}
+            内容は「1行目＝品目・2行目＝店名と状態」の2行に固定（2026-09-27 ユーザー指示: 行の高さがバラバラ）。
+            長い品目は折り返さず … で切る（全文はカーソルを乗せると出る）
+          {% endcomment %}
+          <td class="sp-tx-desc" style="text-align:left" title="{{ t.label_clean|default:t.label|default:t.shop }}">
+            <span class="sp-tx-main">{{ t.label_clean|default:t.label|default:t.shop }}{% if t.label_kind and t.label_kind != 'item' %} <span class="sp-kind">{% if t.label_kind == 'tax' %}税{% elif t.label_kind == 'discount' %}値引{% elif t.label_kind == 'bag' %}レジ袋{% else %}不明{% endif %}</span>{% endif %}</span>
+            <span class="sp-tx-sub">{{ t.merchant|default:"" }}{% if not t.in_total %}<b class="sp-tx-flag">除外: {{ t.exclude_reason|default:"集計しない" }}</b>{% elif t.dup_flag %}<b class="sp-tx-flag sp-manual">重複?</b>{% elif t.match_status == 'enavi_only' %}<b class="sp-tx-flag sp-manual">e-naviのみ</b>{% endif %}{% if t.amazon_items.all %}
+              <details class="sp-items sp-tx-items">
+                <summary>品目 {{ t.amazon_items.all|length }}件</summary>
+                <ul>
+                  {% for it in t.amazon_items.all %}
+                  <li>{{ it.product_name|truncatechars:60 }}
+                    {% if it.quantity > 1 %}<b>×{{ it.quantity }}</b>{% endif %}
+                    <span>¥{{ it.item_total|intcomma }}</span></li>
+                  {% endfor %}
+                </ul>
+              </details>{% endif %}</span></td>
           <td class="sp-mid">{{ t.get_source_kind_display }}</td>
           <td class="sp-tx-amt">¥{{ t.amount|intcomma }}</td>
           {% comment %}

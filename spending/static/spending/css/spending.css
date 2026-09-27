@@ -236,11 +236,19 @@
 table.sp-tx-table{ font-size:15px; min-width:820px; }
 table.sp-tx-table th{ font-size:15px; color:#22c55e; font-weight:bold; letter-spacing:1px; padding:12px 8px;
   position:sticky; top:0; z-index:2; background:#0b1220; box-shadow:inset 0 -2px 0 #14532d; }
-table.sp-tx-table td{ padding:16px 8px; vertical-align:middle; }
-table.sp-tx-table td:nth-child(3){ white-space:normal; min-width:220px; color:#e5e7eb; line-height:1.4; }
+
 table.sp-tx-table .sp-tx-amt{ font-size:17px; font-weight:bold; color:#e5e7eb; }
 table.sp-tx-table .sp-tx-cat{ width:130px; text-align:left; }
 table.sp-tx-table .sp-tx-cat::placeholder{ color:#6b7280; }
 table.sp-tx-table .sp-tx-src{ display:block; margin-top:4px; font-size:11px; }
 table.sp-tx-table .pf-reg-sel{ font-size:14px; padding:8px 8px; }
 .sp-tx-scroll{ max-height:75vh; }
+/* 明細の行の高さをそろえる（内容は2行に固定・はみ出しは …）。セルは上下中央 */
+table.sp-tx-table td{ height:58px; padding:10px 8px; vertical-align:middle; }
+table.sp-tx-table td.sp-tx-desc{ min-width:0; max-width:360px; white-space:nowrap; }
+table.sp-tx-table .sp-tx-main{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#e5e7eb; }
+table.sp-tx-table .sp-tx-sub{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:#6b7280; margin-top:3px; }
+table.sp-tx-table .sp-tx-flag{ font-weight:normal; margin-left:8px; }
+table.sp-tx-table .sp-tx-items{ display:inline-block; margin:0 0 0 8px; }
+table.sp-tx-table .sp-tx-items[open]{ display:block; white-space:normal; margin:4px 0 0; }
+table.sp-tx-table td:first-child + td .sp-sub{ margin-top:3px; }
