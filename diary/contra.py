@@ -559,8 +559,6 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'fallback': fallback,      # 株価マスタの終値で代用中（日足が来れば自動で切り替わる）
         })
         chart_overlay(t, rows[-1]['candles'], rows[-1]['timeline'])   # 日付の目盛り・心情の印（2026-09-29）
-        # 心情の欄に出す最新3件（チャートの印と同じ通し番号付き）
-        rows[-1]['recent_notes'] = list(enumerate(rows[-1]['timeline'], start=1))[-3:]
     # 触れたものを先頭に（今日やることが上に来る）
     # 触れたもの・建値への変更待ちを先頭に（今日やることが上に来る）
     rows.sort(key=lambda r: (not (r['touched_stop'] or r['touched_target']

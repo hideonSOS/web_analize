@@ -109,13 +109,10 @@
 {% endif %}
 {% comment %}
   日々の心情（2026-09-29 ユーザー指示「スクリーンショットは不要、日々の心情を記録する機能をもっと前面に」）:
-  各玉の下に常時出す。最新3件と入力欄（既定の種類＝心情）。購入時の理由・想定・全件は折りたたみの中
+  各玉の下に常時出す。入力欄だけ（2026-09-29 ユーザー指示で一覧は外した。記録はチャートの印と折りたたみの中）。既定の種類＝心情。購入時の理由・想定・全件は折りたたみの中
 {% endcomment %}
 <div class="ct-feel">
-  <div class="ct-feel-head">📝 日々の心情 <span class="ct-hint">{{ r.timeline|length }}件</span></div>
-  {% for no, n in r.recent_notes %}
-  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ no }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
-  {% endfor %}
+  <div class="ct-feel-head">📝 日々の心情 <span class="ct-hint">記入した日が自動で記録され、チャートに番号の印が付きます（これまでの記録は下の「なぜ買ったか・これまでの記録」）</span></div>
   <form method="post" class="ct-note-form ct-feel-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
     <input type="text" name="text" placeholder="今日の気持ち・値動きを見て思ったこと（例: 下がってショック、でも理由は崩れていない）" required>
@@ -131,7 +128,7 @@
   {% endif %}
 <div class="ct-notes">
   {% for n in r.timeline %}
-  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
+  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
   {% endfor %}
 </div>
 </details>

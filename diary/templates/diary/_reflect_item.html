@@ -36,7 +36,7 @@
   {% endif %}
   {% comment %} 理由とコメントは同じ時系列（古い順）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
   {% if r.timeline %}
-  <div class="ct-reflect-notes">{% for n in r.timeline %}<div class="{{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text }}</div>{% endfor %}</div>
+  <div class="ct-reflect-notes">{% for n in r.timeline %}<div class="{{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text }}</div>{% endfor %}</div>
   {% elif r.reasons %}<ul class="ct-reflect-reasons">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
   {% if r.risk_scenario %}
   <div class="ct-reflect-risk"><span class="k">想定</span>{{ r.risk_scenario|linebreaksbr }}
