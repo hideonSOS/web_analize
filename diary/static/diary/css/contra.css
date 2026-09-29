@@ -423,3 +423,7 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 .ct-cdl .cd-over-bg{ fill:rgba(239,68,68,.07); }
 .ct-cdl .ln-limit-over{ stroke:#ef4444; stroke-width:2; vector-effect:non-scaling-stroke; }
 .cd-over-label{ position:absolute; bottom:4px; margin-left:6px; font-size:10px; color:#fca5a5; white-space:nowrap; pointer-events:none; }
+
+/* 振り返りのチャートは保有中（.ct-cdl）と同じ高さ（2026-09-29 ユーザー指示）: PC 288px・スマホ 200px */
+.ct-review-chart svg{ height:288px; }
+@media (max-width:600px){ .ct-review-chart svg{ height:200px; } }
