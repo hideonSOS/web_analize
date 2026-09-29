@@ -611,8 +611,9 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
         cum += net
         curve.append([t.exit_date.strftime('%Y-%m-%d'), round(cum, 2)])
         is_win = net > 0
-        # ⚠️ 勝率に入れるのはルール決済だけ（利確線に達した／損切り線で切った）
-        if t.exit_reason in ('target', 'stop'):
+        # 勝率に入れるのは 利確・早期利確・損切り（2026-09-29 ユーザー指示「早期利確も勝ちは勝ち」。
+        # それまでは早期利確を勝率から外していた）。建値撤退・裁量・期限は入れない（損益だけ積算）
+        if t.exit_reason in ('target', 'early', 'stop'):
             wins += is_win
             losses += (not is_win)
             (win_pcts if is_win else loss_pcts).append(net)
