@@ -211,7 +211,7 @@
     pop.className = 'cv-pop ' + [...m.classList].filter((c) => c !== 'cv-mark' && c !== 'edge').join(' ');
     const head = document.createElement('div');
     head.className = 'cv-pop-head';
-    head.textContent = m.textContent + '  ' + (m.dataset.when || '') + '  ' + (m.dataset.kind || '');
+    head.textContent = m.textContent + '  ' + (m.dataset.when || '');
     const body = document.createElement('div');
     body.textContent = m.dataset.text || '';
     pop.append(head, body);
