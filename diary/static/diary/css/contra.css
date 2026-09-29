@@ -403,3 +403,9 @@ button.cv-mark{ border:none; cursor:pointer; font-family:inherit; }
 
 /* 短期トレードの売却ボタン（2026-09-29）: 練習の「売却を記録する」と同じ見た目のリンク */
 a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
+
+/* 振り返りの 勝ち／負け タブ（2026-09-29） */
+.ct-tab.win.active{ border-color:#15803d; color:#bbf7d0; }
+.ct-tab.loss.active{ border-color:#b91c1c; color:#fecaca; }
+.ct-exit-reason{ font-weight:bold; color:#e5e7eb; }
+.ct-exit-reason.stop{ color:#fca5a5; } .ct-exit-reason.target, .ct-exit-reason.early{ color:#86efac; }

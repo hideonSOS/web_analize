@@ -172,12 +172,11 @@
     </div>
     {% endif %}
     <div class="ct-tabs" id="ct-reflect-tabs">
-      <button type="button" class="ct-tab active" data-panel="stop">損切り <span>{{ stats.reflect.stop|length }}</span></button>
-      <button type="button" class="ct-tab" data-panel="target">利確 <span>{{ stats.reflect.target|length }}</span></button>
-      {% if stats.reflect.other %}<button type="button" class="ct-tab" data-panel="other">裁量・期限 <span>{{ stats.reflect.other|length }}</span></button>{% endif %}
+      <button type="button" class="ct-tab active loss" data-panel="loss">負けトレード <span>{{ stats.reflect.loss|length }}</span></button>
+      <button type="button" class="ct-tab win" data-panel="win">勝ちトレード <span>{{ stats.reflect.win|length }}</span></button>
     </div>
     {% for key, items, label in reflect_panels %}
-    <div class="ct-reflect-col {{ key }}" data-panel="{{ key }}" {% if key != 'stop' %}hidden{% endif %}>
+    <div class="ct-reflect-col {{ key }}" data-panel="{{ key }}" {% if key != 'loss' %}hidden{% endif %}>
       {% for r in items %}
       {% include 'diary/_reflect_item.html' %}
       {% empty %}<p class="ct-empty">まだありません</p>{% endfor %}

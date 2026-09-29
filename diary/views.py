@@ -343,8 +343,8 @@ def contra(request):
         'donut': {'wins': st['wins'], 'losses': st['losses'], 'win_rate': st['win_rate'],
                   'min_rate': round(be['with_cost']), 'early': st['total']['early']['n']},
         # 振り返り一覧の切り替えパネル（テンプレートで同じ描画を3回書かないため）
-        'reflect_panels': [('stop', st['reflect']['stop'], '損切り'), ('target', st['reflect']['target'], '利確'),
-                           ('other', st['reflect']['other'], '裁量・期限')],
+        # 振り返りは 負けトレード／勝ちトレード の2つ（2026-09-29 ユーザー要望。コスト込み損益の符号で分ける）
+        'reflect_panels': [('loss', st['reflect']['loss'], '負けトレード'), ('win', st['reflect']['win'], '勝ちトレード')],
         'open_rows': C.open_rows(setting), 'stats': st,
         'after_rows': C.after_exit_rows('contra'),
         'moods': MOODS,   # 保有中のコメント追記フォーム用
@@ -527,8 +527,8 @@ def practice(request):
         'setting': setting, 'be': be, 'stats': st,
         'donut': {'wins': st['wins'], 'losses': st['losses'], 'win_rate': st['win_rate'],
                   'min_rate': round(be['with_cost']), 'early': st['total']['early']['n']},
-        'reflect_panels': [('stop', st['reflect']['stop'], '損切り'), ('target', st['reflect']['target'], '利確'),
-                           ('other', st['reflect']['other'], '裁量・期限')],
+        # 振り返りは 負けトレード／勝ちトレード の2つ（2026-09-29 ユーザー要望。コスト込み損益の符号で分ける）
+        'reflect_panels': [('loss', st['reflect']['loss'], '負けトレード'), ('win', st['reflect']['win'], '勝ちトレード')],
         'open_rows': C.open_rows(setting, strategy='practice'),
         'after_rows': C.after_exit_rows('practice'),
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),

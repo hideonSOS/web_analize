@@ -686,7 +686,9 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
             'candles': review_candles(t, list(t.bars.order_by('date').values('date', 'open', 'high', 'low', 'close'))),
         }
     # (注) 日付の目盛りと心情の印は呼び出し側で chart_overlay を当てる
-    reflect = {'stop': [], 'target': [], 'other': []}
+    # 勝ち／負け（2026-09-29 ユーザー要望: 勝ちトレードと負けトレードを分けて振り返る）。コスト込みの損益で分ける
+    #   （建値撤退・期限・裁量も損益の符号で振り分ける）。stop/target/other は従来の理由別（集計用に残す）
+    reflect = {'stop': [], 'target': [], 'other': [], 'win': [], 'loss': []}
     tag_stats = {}
     mood_stats = {}
     for r in rows:
@@ -695,6 +697,7 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
         chart_overlay(t, rr['candles'], rr['timeline'])
         key = t.exit_reason if t.exit_reason in ('stop', 'target') else ('target' if t.exit_reason == 'early' else 'other')
         reflect[key].append(rr)
+        reflect['win' if r['net'] > 0 else 'loss'].append(rr)
         for tag in rr['tags']:
             d = tag_stats.setdefault(tag, {'tag': tag, 'wins': 0, 'losses': 0, 'sum': 0.0})
             d['wins' if r['win'] else 'losses'] += 1
