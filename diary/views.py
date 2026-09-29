@@ -104,8 +104,28 @@ def index(request):
         'view': 'list' if request.GET.get('view') == 'list' else '',
         'action_choices': DiaryEntry.ACTION_CHOICES,
         'result_choices': DiaryEntry.RESULT_CHOICES,
+        'sell_prefill': _sell_prefill(request),
     }
     return render(request, 'diary/index.html', context)
+
+
+def _sell_prefill(request):
+    """短期トレードの「売却を記録する」ボタン（2026-09-29）から来たとき、記録画面を
+    売り・その銘柄・株数・現在値で開くための値。?sell=<Stock.code>&shares=N。無ければ None"""
+    code = request.GET.get('sell', '').strip()
+    if not code:
+        return None
+    stock = Stock.objects.filter(code=code).first()
+    if stock is None:
+        return None
+    try:
+        shares = int(request.GET.get('shares', '') or 0) or None
+    except ValueError:
+        shares = None
+    ticker = stock.display_code
+    return {'code': stock.code, 'country': stock.country, 'shares': shares,
+            'label': f'{stock.name}（{ticker}）' + (' · US' if stock.country == 'US' else ''),
+            'close': round(float(stock.close), 2) if stock.close else None}
 
 
 def stock_options(request):

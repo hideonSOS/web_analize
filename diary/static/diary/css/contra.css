@@ -400,3 +400,6 @@ button.cv-mark{ border:none; cursor:pointer; font-family:inherit; }
 /* 心情は種類を持たない（2026-09-29 ユーザー指示）: 番号・印・吹き出しは紫に統一 */
 .cv-mark, .cv-no, span.cv-no{ background:#a78bfa; }
 .ct-feel-form input[type=text]{ flex:1; }
+
+/* 短期トレードの売却ボタン（2026-09-29）: 練習の「売却を記録する」と同じ見た目のリンク */
+a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }

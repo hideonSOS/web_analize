@@ -260,4 +260,24 @@
   // フォーカスでは候補を出さず、読み込みだけ先に済ませる（1文字入れたら候補が出る）
   searchInput.addEventListener('focus', () => { searchInput.select(); loadStocks(); showMatches(searchInput.value); });
   searchInput.addEventListener('blur', () => { setTimeout(() => { list.hidden = true; }, 150); });
+
+  // 短期トレードの「売却を記録する」ボタンから来たとき（?sell=…&shares=…・2026-09-29）:
+  // 記録画面を開き、銘柄・売り・株数・現在値を入れた状態にする（銘柄マスタの読み込みを待たない）
+  const pre = (() => { try { return JSON.parse(document.getElementById('dy-sell-prefill').textContent); } catch (_) { return null; } })();
+  if (pre) {
+    openModal();
+    searchInput.value = pre.label;
+    codeInput.value = pre.code;
+    setCurrency(pre.country);
+    if (pre.close !== null) priceInput.value = Number(pre.close).toFixed(2);
+    const sell = actionRadios.find((r) => r.value === 'sell');
+    if (sell) { sell.checked = true; sell.dispatchEvent(new Event('change')); }
+    const sharesInput = document.getElementById('dy-shares');
+    if (sharesInput && pre.shares) sharesInput.value = pre.shares;
+    updateAmount();
+    priceInput.focus();
+    priceInput.select();
+    // 再読み込みで何度も開かないよう、URL から ?sell= を外す
+    if (window.history && history.replaceState) history.replaceState(null, '', location.pathname);
+  }
 })();

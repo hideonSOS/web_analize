@@ -338,5 +338,6 @@
 <script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";
   window.CONTRA = {stop: {{ contra_setting.default_stop_pct }}, target: {{ contra_setting.default_target_pct }},
                    capital: {{ contra_setting.capital }}, riskPct: {{ contra_setting.risk_pct }}};</script>
+{{ sell_prefill|json_script:"dy-sell-prefill" }}
 <script src="{% static 'diary/js/diary.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

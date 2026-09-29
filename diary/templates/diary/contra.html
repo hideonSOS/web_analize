@@ -87,7 +87,7 @@
     </div>
     {% for r in open_rows %}
     <div class="ct-pos {% if r.touched_stop %}hit-stop{% elif r.touched_target %}hit-target{% endif %}">
-      {% include 'diary/_position.html' with close_hint='売買日記で「売り」を記録' %}
+      {% include 'diary/_position.html' with close_hint='下の「売却を記録する」' sell_link=True %}
     </div>
     {% empty %}
     <p class="ct-empty">保有中の取引はありません。</p>
