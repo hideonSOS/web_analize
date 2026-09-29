@@ -31,7 +31,6 @@
       <span>緑=利確線・白=建値・赤=損切り線・点線=15日／20日</span>{% if r.candles.after_n %}<span>右の薄い足＝売却後 {{ r.candles.after_n }}本</span>{% endif %}</div>
   </div>
   {% endif %}
-  {% if r.shots %}<div class="ct-shots">{% for n in r.shots %}<a class="ct-note-img" href="{% url 'diary:note_image' n.pk %}" target="_blank"><img src="{% url 'diary:note_image' n.pk %}" alt="購入時のチャート" loading="lazy"></a>{% endfor %}</div>{% endif %}
   {% comment %} 理由とコメントは同じ時系列（古い順）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
   {% if r.timeline %}
   <div class="ct-reflect-notes">{% for n in r.timeline %}<div class="{{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text }}</div>{% endfor %}</div>
@@ -48,7 +47,7 @@
   <form method="post" class="ct-note-form ct-reflect-noteform">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
     <input type="text" name="text" placeholder="振り返りのコメントを追記（チャートを見て気づいたこと・次にどうするか）" required>
-    <select name="kind"><option value="info">情報</option><option value="good">好材料</option><option value="bad">悪材料</option></select>
+    <select name="kind"><option value="feel">心情</option><option value="good">好材料</option><option value="bad">悪材料</option><option value="info">情報</option></select>
     <button class="ct-btn-sub" type="submit">追記</button>
   </form>
 </div>

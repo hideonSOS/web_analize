@@ -350,3 +350,16 @@
 .rv-legend{ display:flex; flex-wrap:wrap; gap:12px; margin-top:4px; }
 .rv-leg-exit{ color:#22d3ee; }
 .ct-reflect-noteform{ margin-top:8px; }
+
+/* 日々の心情（2026-09-29）: 保有中の各玉の下に常時出す記録欄。種類「心情」は紫 */
+.ct-feel{ margin:10px 0 6px; padding:10px 12px; border:1px solid #4c1d95; border-radius:10px; background:rgba(76,29,149,.12); }
+.ct-feel-head{ font-size:13px; font-weight:bold; color:#c4b5fd; margin-bottom:6px; }
+.ct-feel .ct-note-item{ margin:2px 0; }
+.ct-feel-form{ display:flex; gap:8px; margin-top:8px; }
+.ct-feel-form input[type=text]{ flex:1; min-width:0; font-size:14px; padding:9px 10px; background:#0f172a; border:1px solid #6d28d9; border-radius:8px; color:#e5e7eb; }
+.ct-feel-form select{ font-size:13px; padding:8px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e5e7eb; }
+.ct-feel-btn{ font-size:14px; font-weight:bold; padding:8px 16px; border-radius:8px; border:1px solid #8b5cf6; background:rgba(139,92,246,.18); color:#ede9fe; cursor:pointer; box-shadow:0 0 10px rgba(139,92,246,.3); }
+.ct-feel-btn:hover{ background:rgba(139,92,246,.32); }
+.ct-note-kind.feel{ background:#4c1d95; color:#ede9fe; }
+.ct-note-item.feel, .ct-reflect-notes .feel{ color:#ddd6fe; }
+@media (max-width:600px){ .ct-feel-form{ flex-wrap:wrap; } .ct-feel-form input[type=text]{ flex-basis:100%; } }

@@ -198,7 +198,8 @@ class TradeNote(models.Model):
     """保有中に書き足すコメント（下がってショック・上がって高揚 など。2026-09-10）。
     日記の振り返りと同じ発想で、当時の心理を時系列で残す。編集はしない（追記のみ）"""
     # 好材料=緑／悪材料=赤／情報=白。購入時の理由も同じ表に入れて時系列で並べる（2026-09-10）
-    KINDS = [('good', '好材料'), ('bad', '悪材料'), ('info', '情報')]
+    # 心情（2026-09-29 追加）: 日々の気持ちの記録。保有中の各玉の下に常時出す入力欄の既定
+    KINDS = [('feel', '心情'), ('good', '好材料'), ('bad', '悪材料'), ('info', '情報')]
     trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name='notes')
     created_at = models.DateTimeField(auto_now_add=True)
     text = models.TextField()

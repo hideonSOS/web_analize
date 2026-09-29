@@ -250,7 +250,7 @@ def add_note(t: Trade, text: str, kind: str = '', when=None, image: str = '') ->
     image = image if (image or '').startswith('data:image/') and len(image) <= MAX_IMAGE_CHARS else ''
     if not text and not image:
         return None
-    n = TradeNote.objects.create(trade=t, text=text or 'チャート', kind=kind if kind in dict(TradeNote.KINDS) else 'info',
+    n = TradeNote.objects.create(trade=t, text=text or 'チャート', kind=kind if kind in dict(TradeNote.KINDS) else 'feel',
                                  at_entry=when is not None, image=image)
     if when is not None:
         TradeNote.objects.filter(pk=n.pk).update(created_at=when)
