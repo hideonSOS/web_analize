@@ -120,19 +120,27 @@ def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '') -> T
     return t
 
 
+# 指値の丸めの許容幅（2026-09-29）: 利確線・損切り線の 0.5% 以内で約定したら、その線で決済したとみなす。
+# ⚠️ NVDA を利確線 $232.738 に対し $232.00 の指値で売ったら「早期利確」に分類され、勝率に入らず勝率が — のままだった
+#   （ユーザー指摘）。指値は切りのいい価格で置くのが普通なので、線ちょうどを要求しない
+LINE_TOLERANCE = 0.005
+
+
 def auto_exit_reason(trade: Trade, price: float) -> str:
     """決済価格から理由を推定。
     損切り線以下=損切り／利確線以上=利確／建値より上で利確線未満=早期利確／それ以外（損失側の裁量）=裁量。
+    線の判定は LINE_TOLERANCE（0.5%）の幅を持たせる（指値の丸め）。
     建値ストップ移動後（be_moved_at あり）は、建値付近（+1% 以内・ギャップで下回った場合も）＝建値撤退"""
+    target_hit = price >= trade.target_price * (1 - LINE_TOLERANCE)
     if trade.be_moved_at:
-        if price >= trade.target_price:
+        if target_hit:
             return 'target'
         if price <= trade.entry_price * 1.01:
             return 'breakeven'
         return 'early'
-    if price <= trade.stop_price:
+    if price <= trade.stop_price * (1 + LINE_TOLERANCE):
         return 'stop'
-    if price >= trade.target_price:
+    if target_hit:
         return 'target'
     if price > trade.entry_price:
         return 'early'
