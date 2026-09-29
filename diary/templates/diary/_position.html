@@ -112,7 +112,7 @@
   各玉の下に常時出す。入力欄だけ（2026-09-29 ユーザー指示で一覧は外した。記録はチャートの印と折りたたみの中）。既定の種類＝心情。購入時の理由・想定・全件は折りたたみの中
 {% endcomment %}
 <div class="ct-feel">
-  <div class="ct-feel-head">📝 日々の心情 <span class="ct-hint">記入した日が自動で記録され、チャートに番号の印が付きます（これまでの記録は下の「なぜ買ったか・これまでの記録」）</span></div>
+  <div class="ct-feel-head">📝 日々の心情 <span class="ct-hint">記入した日が自動で記録され、チャートに番号の印が付きます。印をタップ（クリック）すると内容が出ます</span></div>
   <form method="post" class="ct-note-form ct-feel-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
     <input type="text" name="text" placeholder="今日の気持ち・値動きを見て思ったこと（例: 下がってショック、でも理由は崩れていない）" required>
@@ -120,15 +120,18 @@
     <button class="ct-feel-btn" type="submit">記録する</button>
   </form>
 </div>
-{% comment %} 購入時の理由・マイナスになる想定・これまでの全記録（既定は閉じる） {% endcomment %}
+{% comment %}
+  購入時の理由・マイナスになる想定だけ（既定は閉じる）。購入後の心情・コメントの一覧は出さない（2026-09-29 ユーザー決定・案B）:
+  それはチャートの番号の印をタップ（クリック）して読む（contra.js の心情の吹き出し）
+{% endcomment %}
 <details class="ct-drill">
-  <summary>なぜ買ったか・これまでの記録 <span class="ct-hint">全 {{ r.timeline|length }}件{% if r.t.risk_scenario %}・想定あり{% endif %}</span></summary>
+  <summary>なぜ買ったか{% if r.t.risk_scenario %}・マイナスになる想定{% endif %}</summary>
   {% if r.t.risk_scenario %}
   <div class="ct-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>
   {% endif %}
 <div class="ct-notes">
-  {% for n in r.timeline %}
-  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
-  {% endfor %}
+  {% for n in r.timeline %}{% if n.at_entry %}
+  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">購入時</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
+  {% endif %}{% endfor %}
 </div>
 </details>

@@ -387,3 +387,12 @@ span.cv-no, .ct-reflect-notes span.cv-no, .ct-note-item span.cv-no{ color:#0b122
 .cv-mark.edge{ transform:none; }
 .cv-dates span.edge-r{ transform:translateX(-100%); }
 .cv-dates span.edge-l{ transform:none; }
+
+/* 印はボタン（タップで吹き出し）。ボタンの既定の見た目を消す */
+button.cv-mark{ border:none; cursor:pointer; font-family:inherit; }
+.cv-pop{ position:absolute; z-index:5; background:#0b1220; border:1px solid #6d28d9; border-radius:10px; padding:8px 10px;
+  font-size:13px; line-height:1.6; color:#e5e7eb; box-shadow:0 6px 24px rgba(0,0,0,.6); white-space:normal; }
+.cv-pop-head{ font-size:11px; color:#a78bfa; margin-bottom:2px; }
+.cv-pop.good{ border-color:#15803d; } .cv-pop.good .cv-pop-head{ color:#86efac; }
+.cv-pop.bad{ border-color:#b91c1c; } .cv-pop.bad .cv-pop-head{ color:#fca5a5; }
+.cv-pop.info{ border-color:#475569; } .cv-pop.info .cv-pop-head{ color:#cbd5e1; }

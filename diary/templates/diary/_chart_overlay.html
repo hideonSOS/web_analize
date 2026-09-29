@@ -4,5 +4,5 @@
   - 上: 心情・コメントの印（番号はコメント一覧と同じ通し番号。同じ日に複数あれば縦に積む。
         カーソルを乗せると本文）。SVG は横に伸ばすので文字は HTML で重ねる（contra.chart_overlay）
 {% endcomment %}
-{% for m in c.marks %}<span class="cv-mark {{ m.kind }}{% if m.pos < 2 %} edge{% endif %}" style="left:{{ m.pos }}%; --stack:{{ m.stack }}" title="{{ m.when }} {{ m.text }}">{{ m.no }}</span>{% endfor %}
+{% for m in c.marks %}<button type="button" class="cv-mark {{ m.kind }}{% if m.pos < 2 %} edge{% endif %}" style="left:{{ m.pos }}%; --stack:{{ m.stack }}" title="{{ m.when }} {{ m.text }}" data-when="{{ m.when }}" data-kind="{{ m.kind_label }}" data-text="{{ m.text }}">{{ m.no }}</button>{% endfor %}
 <div class="cv-dates">{% for d in c.dates %}<span class="{% if d.pos > 96 %}edge-r{% elif d.pos < 3 %}edge-l{% endif %}" style="left:{{ d.pos }}%">{{ d.label }}</span>{% endfor %}</div>

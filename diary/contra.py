@@ -463,6 +463,7 @@ def chart_overlay(t: Trade, chart: dict | None, notes: list) -> None:
         stack = per_day.get(k, 0)
         per_day[k] = stack + 1
         marks.append({'pos': round(k * step / W * 100, 2), 'no': no, 'kind': n.kind or 'info', 'stack': stack,
+                      'kind_label': n.get_kind_display() or '情報',
                       'text': n.text, 'when': '購入時' if n.at_entry else f'{d.month}/{d.day}'})
     chart['marks'] = marks
 

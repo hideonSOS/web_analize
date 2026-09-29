@@ -195,3 +195,34 @@
   [price, shares, support].forEach((el) => { el.value = ''; });
   render();
 })();
+
+/* チャートの心情・コメントの印（2026-09-29・案B）: 印をタップ（クリック）すると、その日の内容を吹き出しで出す。
+   スマホはカーソルを乗せられない（title が出ない）ので、タップで読めるようにする。もう一度押すか外を押すと閉じる */
+(() => {
+  let pop = null, owner = null;
+  function close() { if (pop) { pop.remove(); pop = null; owner = null; } }
+  document.addEventListener('click', (e) => {
+    const m = e.target.closest('.cv-mark');
+    if (!m) { if (pop && !e.target.closest('.cv-pop')) close(); return; }
+    e.preventDefault();
+    if (owner === m) { close(); return; }
+    close();
+    pop = document.createElement('div');
+    pop.className = 'cv-pop ' + [...m.classList].filter((c) => c !== 'cv-mark' && c !== 'edge').join(' ');
+    const head = document.createElement('div');
+    head.className = 'cv-pop-head';
+    head.textContent = m.textContent + '  ' + (m.dataset.when || '') + '  ' + (m.dataset.kind || '');
+    const body = document.createElement('div');
+    body.textContent = m.dataset.text || '';
+    pop.append(head, body);
+    const box = m.offsetParent || m.parentElement;
+    box.appendChild(pop);
+    // 印の真下に出す。右端・左端ではみ出さないように寄せる
+    const left = m.offsetLeft + m.offsetWidth / 2, w = Math.min(320, box.clientWidth - 8);
+    pop.style.width = w + 'px';
+    pop.style.left = Math.max(4, Math.min(left - w / 2, box.clientWidth - w - 4)) + 'px';
+    pop.style.top = (m.offsetTop + m.offsetHeight + 6) + 'px';
+    owner = m;
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+})();
