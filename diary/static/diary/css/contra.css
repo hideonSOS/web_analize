@@ -409,3 +409,12 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 .ct-tab.loss.active{ border-color:#b91c1c; color:#fecaca; }
 .ct-exit-reason{ font-weight:bold; color:#e5e7eb; }
 .ct-exit-reason.stop{ color:#fca5a5; } .ct-exit-reason.target, .ct-exit-reason.early{ color:#86efac; }
+
+/* 購入時の想定（2026-09-29）: その後の心情（紫）と色で分ける。シアン */
+.ct-plan{ margin:10px 0 6px; padding:10px 12px; border:1px solid #155e75; border-radius:10px; background:rgba(21,94,117,.14); }
+.ct-plan-head{ font-size:13px; font-weight:bold; color:#67e8f9; margin-bottom:6px; }
+.ct-plan-item{ font-size:13px; color:#e5e7eb; line-height:1.6; margin:2px 0; padding-left:10px; border-left:2px solid #155e75; }
+.ct-plan-risk .k{ display:block; font-size:11px; color:#fca5a5; }
+.ct-feel-empty{ margin:2px 0 4px; }
+.ct-feel .ct-drill{ margin-top:8px; }
+.ct-feel-review{ margin-top:8px; }

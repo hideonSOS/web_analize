@@ -264,6 +264,12 @@ def timeline(t: Trade) -> list[TradeNote]:
     return [n for n in t.notes.order_by('-at_entry', 'created_at', 'id') if not (n.at_entry and n.image)]
 
 
+def split_notes(notes: list) -> tuple[list, list]:
+    """timeline を (購入時の想定, その後の心情) に分ける（2026-09-29 ユーザー指示: 想定は想定、チャートを見て
+    心理がどう動いたかは別）。チャートの番号の印と心情の番号は「その後の心情」だけの通し番号"""
+    return [n for n in notes if n.at_entry], [n for n in notes if not n.at_entry]
+
+
 def shots_of(t: Trade) -> list[TradeNote]:
     """購入時のスクリーンショット（掘り下げの最上部に出す）"""
     return list(t.notes.filter(at_entry=True).exclude(image='').order_by('created_at', 'id'))
@@ -559,9 +565,11 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'stale': (last is None or last['date'] is None) or (today - last['date']).days > 4,
             'fallback': fallback,      # 株価マスタの終値で代用中（日足が来れば自動で切り替わる）
         })
-        chart_overlay(t, rows[-1]['candles'], rows[-1]['timeline'])   # 日付の目盛り・心情の印（2026-09-29）
+        entry_notes, feelings = split_notes(rows[-1]['timeline'])
+        rows[-1]['entry_notes'], rows[-1]['feelings'] = entry_notes, feelings
+        chart_overlay(t, rows[-1]['candles'], feelings)   # 日付の目盛り・心情の印（購入時の想定は印にしない）
         # 心情の欄に出す最新3件（チャートの印と同じ通し番号付き）
-        rows[-1]['recent_notes'] = list(enumerate(rows[-1]['timeline'], start=1))[-3:]
+        rows[-1]['recent_notes'] = list(enumerate(feelings, start=1))[-3:]
     # 触れたものを先頭に（今日やることが上に来る）
     # 触れたもの・建値への変更待ちを先頭に（今日やることが上に来る）
     rows.sort(key=lambda r: (not (r['touched_stop'] or r['touched_target']
@@ -694,7 +702,8 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
     for r in rows:
         t = r['t']
         rr = _reflect_row(t, r['net'])
-        chart_overlay(t, rr['candles'], rr['timeline'])
+        rr['entry_notes'], rr['feelings'] = split_notes(rr['timeline'])
+        chart_overlay(t, rr['candles'], rr['feelings'])
         key = t.exit_reason if t.exit_reason in ('stop', 'target') else ('target' if t.exit_reason == 'early' else 'other')
         reflect[key].append(rr)
         reflect['win' if r['net'] > 0 else 'loss'].append(rr)

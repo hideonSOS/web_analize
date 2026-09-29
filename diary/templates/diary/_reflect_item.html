@@ -34,14 +34,22 @@
       <span>緑=利確線・白=建値・赤=損切り線・点線=15日／20日</span>{% if r.candles.after_n %}<span>右の薄い足＝売却後 {{ r.candles.after_n }}本</span>{% endif %}</div>
   </div>
   {% endif %}
-  {% comment %} 理由とコメントは同じ時系列（古い順）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
-  {% comment %} 理由と心情は同じ時系列（古い順）。種類のバッジは出さない・日付のみ（2026-09-29） {% endcomment %}
-  {% if r.timeline %}
-  <div class="ct-reflect-notes">{% for n in r.timeline %}<div><span class="cv-no">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j" }}{% endif %}</span> {{ n.text }}</div>{% endfor %}</div>
-  {% elif r.reasons %}<ul class="ct-reflect-reasons">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
-  {% comment %} 想定内／想定外の表示は 2026-09-29 に削除（ユーザー指示: 不要）。マイナスになる想定の本文だけ残す {% endcomment %}
-  {% if r.risk_scenario %}
-  <div class="ct-reflect-risk"><span class="k">想定</span>{{ r.risk_scenario|linebreaksbr }}</div>
+  {% comment %}
+    購入時の想定 と その後の心情 を分けて出す（2026-09-29 ユーザー指示）。想定内／想定外の表示は同日削除
+  {% endcomment %}
+  {% if r.entry_notes or r.reasons or r.risk_scenario %}
+  <div class="ct-plan">
+    <div class="ct-plan-head">🎯 購入時の想定</div>
+    {% if r.entry_notes %}{% for n in r.entry_notes %}<div class="ct-plan-item">{{ n.text|linebreaksbr }}</div>{% endfor %}
+    {% else %}{% for x in r.reasons %}<div class="ct-plan-item">{{ x }}</div>{% endfor %}{% endif %}
+    {% if r.risk_scenario %}<div class="ct-plan-item ct-plan-risk"><span class="k">マイナスになる想定</span>{{ r.risk_scenario|linebreaksbr }}</div>{% endif %}
+  </div>
+  {% endif %}
+  {% if r.feelings %}
+  <div class="ct-feel ct-feel-review">
+    <div class="ct-feel-head">📝 その後の心情 <span class="ct-hint">{{ r.feelings|length }}件</span></div>
+    {% for n in r.feelings %}<div class="ct-note-item"><span class="cv-no">{{ forloop.counter }}</span><span class="ct-sub ct-when">{{ n.created_at|date:"n/j" }}</span> {{ n.text|linebreaksbr }}</div>{% endfor %}
+  </div>
   {% endif %}
   <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}</div>
   {% if r.exit_note %}<div class="ct-reflect-review"><span class="k">復習</span>{{ r.exit_note|linebreaksbr }}</div>{% endif %}

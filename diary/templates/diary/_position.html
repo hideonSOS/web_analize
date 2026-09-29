@@ -115,30 +115,38 @@
 <a class="ct-close-btn ct-sell-link" href="{% url 'diary:index' %}?sell={{ r.t.stock_id|urlencode }}&shares={{ r.t.shares }}">売却を記録する（売買日記で「売り」を記録）</a>
 {% endif %}
 {% comment %}
-  日々の心情（2026-09-29 ユーザー指示）: 各玉の下に常時出す。最新3件と入力欄。
-  ⚠️ 種類（好材料・悪材料・情報）の選択は置かない（同日ユーザー指示「ドロップダウンは不要」）。記録は常に「心情」、
-  日付は記入日を自動で・時刻は出さない。番号はチャートの印と同じ通し番号。購入時の理由・想定・全件は折りたたみの中
+  購入時の想定（2026-09-29 ユーザー指示: 想定と、その後チャートを見て動いた心理は明確に分ける）:
+  なぜ買ったか（購入時の理由）とマイナスになる想定。常時表示（書き足しはしない＝購入時に確定したもの）
+{% endcomment %}
+{% if r.entry_notes or r.t.risk_scenario %}
+<div class="ct-plan">
+  <div class="ct-plan-head">🎯 購入時の想定</div>
+  {% for n in r.entry_notes %}<div class="ct-plan-item">{{ n.text|linebreaksbr }}</div>{% endfor %}
+  {% if r.t.risk_scenario %}<div class="ct-plan-item ct-plan-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>{% endif %}
+</div>
+{% endif %}
+{% comment %}
+  日々の心情（2026-09-29 ユーザー指示）: 購入後にチャートを見てどう心理が動いたか。最新3件と入力欄。
+  種類の選択は置かない（常に「心情」）。日付は記入日を自動で・時刻なし。番号はチャートの印と同じ（心情だけの通し番号）。
+  全件は折りたたみ
 {% endcomment %}
 <div class="ct-feel">
-  <div class="ct-feel-head">📝 日々の心情 <span class="ct-hint">{{ r.timeline|length }}件・記入した日が自動で記録され、チャートに番号の印が付きます</span></div>
+  <div class="ct-feel-head">📝 日々の心情 <span class="ct-hint">{{ r.feelings|length }}件・記入した日が自動で記録され、チャートに番号の印が付きます</span></div>
   {% for no, n in r.recent_notes %}
-  <div class="ct-note-item"><span class="cv-no">{{ no }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j" }}{% endif %}</span> {{ n.text|linebreaksbr }}</div>
+  <div class="ct-note-item"><span class="cv-no">{{ no }}</span><span class="ct-sub ct-when">{{ n.created_at|date:"n/j" }}</span> {{ n.text|linebreaksbr }}</div>
+  {% empty %}<p class="ct-sub ct-feel-empty">まだ記録がありません。チャートを見て思ったことを書いてください。</p>
   {% endfor %}
   <form method="post" class="ct-note-form ct-feel-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}"><input type="hidden" name="kind" value="feel">
     <input type="text" name="text" placeholder="今日の気持ち・値動きを見て思ったこと（例: 下がってショック、でも理由は崩れていない）" required>
     <button class="ct-feel-btn" type="submit">記録する</button>
   </form>
-</div>
-{% comment %} 購入時の理由・マイナスになる想定・これまでの全記録（既定は閉じる） {% endcomment %}
-<details class="ct-drill">
-  <summary>なぜ買ったか・これまでの記録 <span class="ct-hint">全 {{ r.timeline|length }}件{% if r.t.risk_scenario %}・想定あり{% endif %}</span></summary>
-  {% if r.t.risk_scenario %}
-  <div class="ct-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>
+  {% if r.feelings|length > 3 %}
+  <details class="ct-drill">
+    <summary>これまでの心情（全 {{ r.feelings|length }}件）</summary>
+    <div class="ct-notes">
+      {% for n in r.feelings %}<div class="ct-note-item"><span class="cv-no">{{ forloop.counter }}</span><span class="ct-sub ct-when">{{ n.created_at|date:"n/j" }}</span> {{ n.text|linebreaksbr }}</div>{% endfor %}
+    </div>
+  </details>
   {% endif %}
-<div class="ct-notes">
-  {% for n in r.timeline %}
-  <div class="ct-note-item"><span class="cv-no">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j" }}{% endif %}</span> {{ n.text|linebreaksbr }}</div>
-  {% endfor %}
 </div>
-</details>
