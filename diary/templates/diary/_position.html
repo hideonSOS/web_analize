@@ -121,17 +121,13 @@
   </form>
 </div>
 {% comment %}
-  購入時の理由・マイナスになる想定だけ（既定は閉じる）。購入後の心情・コメントの一覧は出さない（2026-09-29 ユーザー決定・案B）:
-  それはチャートの番号の印をタップ（クリック）して読む（contra.js の心情の吹き出し）
+  記録の一覧は一切出さない（2026-09-29 ユーザー指示「心情の記録（の一覧）は一切不要」）。
+  購入時の理由も含め、記録はチャートの番号の印をタップ（クリック）して読む（contra.js の吹き出し）。
+  マイナスになる想定だけは折りたたみに残す
 {% endcomment %}
+{% if r.t.risk_scenario %}
 <details class="ct-drill">
-  <summary>なぜ買ったか{% if r.t.risk_scenario %}・マイナスになる想定{% endif %}</summary>
-  {% if r.t.risk_scenario %}
-  <div class="ct-risk"><span class="k">マイナスになる想定</span>{{ r.t.risk_scenario|linebreaksbr }}</div>
-  {% endif %}
-<div class="ct-notes">
-  {% for n in r.timeline %}{% if n.at_entry %}
-  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">購入時</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
-  {% endif %}{% endfor %}
-</div>
+  <summary>マイナスになる想定</summary>
+  <div class="ct-risk">{{ r.t.risk_scenario|linebreaksbr }}</div>
 </details>
+{% endif %}
