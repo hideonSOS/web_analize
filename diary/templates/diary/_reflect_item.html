@@ -12,6 +12,7 @@
   {% endcomment %}
   {% if r.candles %}
   <div class="ct-review-chart">
+    <div class="rv-plot">
     <svg viewBox="0 0 {{ r.candles.W }} {{ r.candles.H }}" preserveAspectRatio="none" aria-label="取得から売却後までの日足">
       <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.target_y }}" y2="{{ r.candles.target_y }}" class="ln-target" />
       <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.entry_y }}" y2="{{ r.candles.entry_y }}" class="ln-entry" />
@@ -26,14 +27,16 @@
       {% endfor %}
       <line x1="{{ r.candles.exit_x }}" x2="{{ r.candles.exit_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-exit" />
     </svg>
+    {% with c=r.candles %}{% include 'diary/_chart_overlay.html' %}{% endwith %}
     {% if r.candles.exit_y is not None %}<span class="rv-exit-mark" style="left:calc({{ r.candles.exit_x }} / {{ r.candles.W }} * 100%); top:calc({{ r.candles.exit_y }} / {{ r.candles.H }} * 100%)" title="売却 {{ r.unit }}{{ r.t.exit_price|floatformat:2 }}">◆</span>{% endif %}
+    </div>
     <div class="rv-legend ct-sub"><span class="rv-leg-exit">│ 売却 {{ r.t.exit_date|date:"n/j" }} {{ r.unit }}{{ r.t.exit_price|floatformat:2 }}</span>
       <span>緑=利確線・白=建値・赤=損切り線・点線=15日／20日</span>{% if r.candles.after_n %}<span>右の薄い足＝売却後 {{ r.candles.after_n }}本</span>{% endif %}</div>
   </div>
   {% endif %}
   {% comment %} 理由とコメントは同じ時系列（古い順）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
   {% if r.timeline %}
-  <div class="ct-reflect-notes">{% for n in r.timeline %}<div class="{{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text }}</div>{% endfor %}</div>
+  <div class="ct-reflect-notes">{% for n in r.timeline %}<div class="{{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text }}</div>{% endfor %}</div>
   {% elif r.reasons %}<ul class="ct-reflect-reasons">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
   {% if r.risk_scenario %}
   <div class="ct-reflect-risk"><span class="k">想定</span>{{ r.risk_scenario|linebreaksbr }}

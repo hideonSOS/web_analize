@@ -363,3 +363,27 @@
 .ct-note-kind.feel{ background:#4c1d95; color:#ede9fe; }
 .ct-note-item.feel, .ct-reflect-notes .feel{ color:#ddd6fe; }
 @media (max-width:600px){ .ct-feel-form{ flex-wrap:wrap; } .ct-feel-form input[type=text]{ flex-basis:100%; } }
+
+/* チャートの日付目盛りと心情の印（2026-09-29）。保有中（.ct-cdl）と振り返り（.ct-review-chart）で共用 */
+.ct-cdl, .ct-review-chart{ margin-bottom:18px; }
+.cv-dates{ position:absolute; left:0; right:0; bottom:-16px; height:14px; pointer-events:none; }
+.cv-dates span{ position:absolute; transform:translateX(-50%); font-size:10px; color:#6b7280; white-space:nowrap; }
+/* 印はチャートの内側の上端から下へ積む（上に積むとレンジバーの目盛りと重なった） */
+.cv-mark{ position:absolute; top:calc(3px + var(--stack) * 18px); transform:translateX(-50%);
+  min-width:16px; height:16px; line-height:16px; border-radius:8px; padding:0 3px; text-align:center;
+  font-size:10px; font-weight:bold; color:#0b1220; background:#e5e7eb; cursor:help; z-index:2; box-shadow:0 0 6px rgba(0,0,0,.6); }
+.cv-mark.feel{ background:#a78bfa; } .cv-mark.good{ background:#4ade80; } .cv-mark.bad{ background:#f87171; }
+.cv-no{ display:inline-block; min-width:16px; height:16px; line-height:16px; border-radius:8px; padding:0 3px; margin-right:4px;
+  text-align:center; font-size:10px; font-weight:bold; color:#0b1220; background:#e5e7eb; }
+.cv-no.feel{ background:#a78bfa; } .cv-no.good{ background:#4ade80; } .cv-no.bad{ background:#f87171; }
+
+/* 振り返りチャート: 日付・印の基準はグラフ部分（凡例は含めない） */
+.rv-plot{ position:relative; margin-bottom:18px; }
+.ct-review-chart{ margin-bottom:6px; }
+/* 番号の文字色は種類の文字色（白）に負けないよう明示 */
+span.cv-no, .ct-reflect-notes span.cv-no, .ct-note-item span.cv-no{ color:#0b1220; }
+/* 左端の印（購入時）がはみ出さないように */
+.cv-mark{ max-width:none; }
+.cv-mark.edge{ transform:none; }
+.cv-dates span.edge-r{ transform:translateX(-100%); }
+.cv-dates span.edge-l{ transform:none; }

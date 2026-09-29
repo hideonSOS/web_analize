@@ -62,6 +62,7 @@
         <rect x="{{ c.x }}" y="{{ c.body_y }}" width="{{ c.w }}" height="{{ c.body_h }}" /></g>
       {% endfor %}
     </svg>
+    {% with c=r.candles %}{% include 'diary/_chart_overlay.html' %}{% endwith %}
     {% else %}<span class="ct-sub">日足待ち</span>{% endif %}
   </div>
   <span class="ct-cdl-v"></span>
@@ -112,8 +113,8 @@
 {% endcomment %}
 <div class="ct-feel">
   <div class="ct-feel-head">📝 日々の心情 <span class="ct-hint">{{ r.timeline|length }}件</span></div>
-  {% for n in r.timeline|slice:"-3:" %}
-  <div class="ct-note-item {{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
+  {% for no, n in r.recent_notes %}
+  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ no }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
   {% endfor %}
   <form method="post" class="ct-note-form ct-feel-form">
     {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
@@ -130,7 +131,7 @@
   {% endif %}
 <div class="ct-notes">
   {% for n in r.timeline %}
-  <div class="ct-note-item {{ n.kind }}"><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
+  <div class="ct-note-item {{ n.kind }}"><span class="cv-no {{ n.kind }}">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j H:i" }}{% endif %}</span><span class="ct-note-kind {{ n.kind }}">{{ n.get_kind_display|default:"情報" }}</span> {{ n.text|linebreaksbr }}</div>
   {% endfor %}
 </div>
 </details>

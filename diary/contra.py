@@ -383,7 +383,7 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
                     'up': b['close'] >= b['open'], 'date': b['date'],
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
-    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H,
+    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': TIME_LIMIT_DAYS,
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
             'be_y': be_y, 'half_x': round(TIME_WARN_DAYS * step, 2)}
 
@@ -428,11 +428,43 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
                     'body_y': y(top), 'body_h': max(0.8, round(y(bot) - y(top), 2)),
                     'up': b['close'] >= b['open'], 'date': b['date'], 'after': d > exit_d,
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
-    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H,
+    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step,
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
             'half_x': round(TIME_WARN_DAYS * step, 2), 'limit_x': round(TIME_LIMIT_DAYS * step, 2),
             'exit_x': round(exit_d * step, 2), 'exit_y': y(t.exit_price) if t.exit_price else None,
             'span': span, 'after_n': sum(1 for c in out if c['after'])}
+
+
+def chart_overlay(t: Trade, chart: dict | None, notes: list) -> None:
+    """ローソク足に「日付の目盛り」と「心情・コメントの印」を足す（2026-09-29 ユーザー要望:
+    購入後のローソク足と、それを見ている自分の心理を並べて記録・振り返りたい。軸に 9/29 のように日付を小さく）。
+
+    chart['dates'] = [{'pos': 左からの%, 'label': '9/29'}]（足が多いときは間引く。最後の足は必ず出す）
+    chart['marks'] = [{'pos': %, 'no': 番号, 'kind': 種類, 'text': 本文, 'when': 'n/j'}]
+      番号はコメント一覧（timeline・古い順）と同じ通し番号。同じ日に複数あれば縦に積む（'stack'）
+    notes は timeline(t)（古い順）。購入時の理由は取得日（左端）に置く
+    """
+    if not chart:
+        return
+    from django.utils import timezone as dj_tz
+    W, step = chart['W'], chart['step']
+    items = chart['items']
+    every = max(1, -(-len(items) // 10))            # 10本を超えたら間引く（切り上げ）
+    dates = []
+    for i, c in enumerate(items):
+        if i % every == 0 or i == len(items) - 1:
+            dates.append({'pos': round(c['cx'] / W * 100, 2), 'label': f"{c['date'].month}/{c['date'].day}"})
+    chart['dates'] = dates
+    span_days = (W / step) if step else TIME_LIMIT_DAYS
+    marks, per_day = [], {}
+    for no, n in enumerate(notes, start=1):
+        d = t.entry_date if n.at_entry else dj_tz.localtime(n.created_at).date()
+        k = max(0, min((d - t.entry_date).days, int(span_days)))
+        stack = per_day.get(k, 0)
+        per_day[k] = stack + 1
+        marks.append({'pos': round(k * step / W * 100, 2), 'no': no, 'kind': n.kind or 'info', 'stack': stack,
+                      'text': n.text, 'when': '購入時' if n.at_entry else f'{d.month}/{d.day}'})
+    chart['marks'] = marks
 
 
 def _ticks(stop_pct: float, target_pct: float) -> list[dict]:
@@ -526,6 +558,9 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
             'stale': (last is None or last['date'] is None) or (today - last['date']).days > 4,
             'fallback': fallback,      # 株価マスタの終値で代用中（日足が来れば自動で切り替わる）
         })
+        chart_overlay(t, rows[-1]['candles'], rows[-1]['timeline'])   # 日付の目盛り・心情の印（2026-09-29）
+        # 心情の欄に出す最新3件（チャートの印と同じ通し番号付き）
+        rows[-1]['recent_notes'] = list(enumerate(rows[-1]['timeline'], start=1))[-3:]
     # 触れたものを先頭に（今日やることが上に来る）
     # 触れたもの・建値への変更待ちを先頭に（今日やることが上に来る）
     rows.sort(key=lambda r: (not (r['touched_stop'] or r['touched_target']
@@ -649,12 +684,14 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
             # 決済後もローソク足で振り返る（2026-09-29）。売却日の縦線・売却価格・売却後の足（薄く）
             'candles': review_candles(t, list(t.bars.order_by('date').values('date', 'open', 'high', 'low', 'close'))),
         }
+    # (注) 日付の目盛りと心情の印は呼び出し側で chart_overlay を当てる
     reflect = {'stop': [], 'target': [], 'other': []}
     tag_stats = {}
     mood_stats = {}
     for r in rows:
         t = r['t']
         rr = _reflect_row(t, r['net'])
+        chart_overlay(t, rr['candles'], rr['timeline'])
         key = t.exit_reason if t.exit_reason in ('stop', 'target') else ('target' if t.exit_reason == 'early' else 'other')
         reflect[key].append(rr)
         for tag in rr['tags']:
