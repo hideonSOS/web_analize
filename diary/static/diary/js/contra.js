@@ -96,7 +96,8 @@
 /* 損切り・利確シミュレーター（2026-09-14）: 買値を入れると、ページのルール（data 属性）で
    損切りライン・利確ラインの価格を一瞬で出す（本人の使い方: 逆張りで「ここまでは落ちない」ラインの
    近くで買うとき、上下のラインを見る）。株数があれば金額、サポート価格があれば損切り線との関係も出す。
-   コストは片道 c% を往復（2c）で引く（contra.breakeven と同じ定義）。保存はしない（localStorage のみ） */
+   コストは片道 c% を往復（2c）で引く（contra.breakeven と同じ定義）。
+   ⚠️ スクラッチの計算機なので入力は記憶しない（2026-09-29 ユーザー指示: 開くたびに空欄）。以前の localStorage は消す */
 (() => {
   const root = document.getElementById('ct-sim');
   const price = document.getElementById('ct-sim-price');
@@ -106,7 +107,7 @@
   const stop = stopPct / 100, target = targetPct / 100;
   const cost = parseFloat(root.dataset.cost) / 100, capital = parseFloat(root.dataset.capital) || 0;
   const riskPct = parseFloat(root.dataset.risk) || 0;
-  const key = 'ct-sim:' + (root.dataset.key || 'contra');
+  try { localStorage.removeItem('ct-sim:' + (root.dataset.key || 'contra')); } catch (_) { /* noop */ }
   const $ = (id) => document.getElementById(id);
   const px = (v) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const money = (v, sign) => (sign ? (v < 0 ? '−' : '+') : '') + '$' + Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -188,12 +189,9 @@
       g.className = 'ct-sim-gauge-fill' + (ratio > 1 ? ' over' : (ratio > 0.8 ? ' warn' : ''));
       $('ct-sim-gauge-l').textContent = budget > 0 ? '損失上限の ' + Math.round(ratio * 100) + '%' : '';
     } else { mbox.hidden = true; }
-    try { localStorage.setItem(key, JSON.stringify({ p: price.value, n: shares.value, s: support.value })); } catch (_) { /* 保存できなくても動く */ }
   }
   [price, shares, support].forEach((el) => el.addEventListener('input', render));
-  try {
-    const saved = JSON.parse(localStorage.getItem(key) || 'null');
-    if (saved) { price.value = saved.p || ''; shares.value = saved.n || ''; support.value = saved.s || ''; }
-  } catch (_) { /* noop */ }
+  // 戻る・再読み込みでブラウザが入力を復元することがあるので、開いたときに必ず空にする
+  [price, shares, support].forEach((el) => { el.value = ''; });
   render();
 })();

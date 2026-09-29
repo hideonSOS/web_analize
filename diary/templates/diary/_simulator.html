@@ -7,7 +7,7 @@
   - 任意で「サポート（ここまでは落ちない価格）」を入れると、損切り線との上下関係と
     「サポートを損切り線に合わせるなら買値はいくら以下か」を出す（＝損切りに合わない買い場探し）
   ルール値（損切り%／利確%／片道コスト／軍資金／リスク%）は data 属性でページの設定から渡す。
-  計算は contra.js のみ。DB には触れず、最後の入力を localStorage に覚えるだけ（短期と練習で別キー）。
+  計算は contra.js のみ。DB には触れず、入力も記憶しない（スクラッチの計算機。開くたびに空欄・2026-09-29 ユーザー指示）。
 {% endcomment %}
 <section class="ct-card ct-sim" id="ct-sim"
          data-stop="{{ setting.default_stop_pct }}" data-target="{{ setting.default_target_pct }}" data-be="{{ setting.be_trigger_pct }}"
@@ -16,9 +16,9 @@
   <h2>損切り・利確シミュレーター
     <span class="ct-hint">株価を入れると 損切り −{{ setting.default_stop_pct|floatformat:"-1" }}%／利確 +{{ setting.default_target_pct|floatformat:"-1" }}% のラインが出る</span></h2>
   <div class="ct-sim-in">
-    <label class="main">買値（$）<input type="number" id="ct-sim-price" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 25.40"></label>
-    <label>株数（任意）<input type="number" id="ct-sim-shares" min="1" step="1" inputmode="numeric" placeholder="金額を見る"></label>
-    <label>サポート（任意）<input type="number" id="ct-sim-support" min="0.01" step="0.01" inputmode="decimal" placeholder="ここまでは落ちない価格"></label>
+    <label class="main">買値（$）<input type="number" id="ct-sim-price" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 25.40"></label>
+    <label>株数（任意）<input type="number" id="ct-sim-shares" autocomplete="off" min="1" step="1" inputmode="numeric" placeholder="金額を見る"></label>
+    <label>サポート（任意）<input type="number" id="ct-sim-support" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="ここまでは落ちない価格"></label>
   </div>
   <div class="ct-sim-vis" id="ct-sim-vis" hidden>
     {% comment %} 上下のライン: 3枚の大きな数字（損切り線／建値／利確線） {% endcomment %}
