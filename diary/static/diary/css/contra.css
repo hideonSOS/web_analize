@@ -330,3 +330,23 @@
 .ct-be-sum{ color:#a5f3fc; }
 .ct-sim-be{ margin:8px 0 0; font-size:13px; color:#fde68a; border:1px dashed #b45309; border-radius:8px; padding:6px 10px; }
 .ct-sim-be b{ color:#fff; }
+
+/* 購入後の経過日数（2026-09-29 ユーザー要望: 分かりやすくシアンに） */
+.ct-days{ color:#22d3ee; font-weight:bold; }
+/* 決済後の振り返りチャート（2026-09-29）: 保有中のローソク足と同じ描き方に、売却日の縦線・売却価格・売却後の足（薄く） */
+.ct-review-chart{ position:relative; margin:8px 0 10px; }
+.ct-review-chart svg{ display:block; width:100%; height:200px; background:#070b14; border:1px solid #1f2937; border-radius:8px; }
+.ct-review-chart .ln-target{ stroke:#22c55e; stroke-width:1; vector-effect:non-scaling-stroke; }
+.ct-review-chart .ln-entry{ stroke:#e5e7eb; stroke-width:1; stroke-dasharray:4 3; vector-effect:non-scaling-stroke; }
+.ct-review-chart .ln-stop{ stroke:#ef4444; stroke-width:1; vector-effect:non-scaling-stroke; }
+.ct-review-chart .ln-half, .ct-review-chart .ln-limit{ stroke:#475569; stroke-width:1; stroke-dasharray:2 4; vector-effect:non-scaling-stroke; }
+.ct-review-chart .ln-exit{ stroke:#22d3ee; stroke-width:2; vector-effect:non-scaling-stroke; }
+.ct-review-chart .rv-after-bg{ fill:rgba(34,211,238,.05); }
+.ct-review-chart .wick{ stroke-width:1; vector-effect:non-scaling-stroke; }
+.ct-review-chart .cd-up rect{ fill:#22c55e; } .ct-review-chart .cd-up .wick{ stroke:#22c55e; }
+.ct-review-chart .cd-down rect{ fill:#ef4444; } .ct-review-chart .cd-down .wick{ stroke:#ef4444; }
+.ct-review-chart .cd-after{ opacity:.35; }
+.rv-exit-mark{ position:absolute; transform:translate(-50%, -50%); color:#22d3ee; font-size:14px; pointer-events:auto; text-shadow:0 0 6px rgba(34,211,238,.8); }
+.rv-legend{ display:flex; flex-wrap:wrap; gap:12px; margin-top:4px; }
+.rv-leg-exit{ color:#22d3ee; }
+.ct-reflect-noteform{ margin-top:8px; }

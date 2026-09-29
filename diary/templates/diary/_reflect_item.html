@@ -6,6 +6,31 @@
 <div class="ct-reflect-item">
   <div class="ct-reflect-head"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:22 }}
     <span class="ct-sub">{% if key == 'other' %}{{ r.t.get_exit_reason_display }}・{% endif %}{{ r.t.entry_date|date:"n/j" }}→{{ r.t.exit_date|date:"n/j" }}・{{ r.t.days_held }}日・<span class="{% if r.net > 0 %}up{% else %}down{% endif %}">{% if r.net > 0 %}+{% endif %}{{ r.net|floatformat:1 }}%</span></span></div>
+  {% comment %}
+    決済後の振り返りチャート（2026-09-29 ユーザー要望）: 取得日からのローソク足に、売却日の縦線（シアン）と
+    売却価格の ◆、売却後の足（薄く）を重ねる。水平線は保有中と同じ（緑=利確・白=建値・赤=損切り）
+  {% endcomment %}
+  {% if r.candles %}
+  <div class="ct-review-chart">
+    <svg viewBox="0 0 {{ r.candles.W }} {{ r.candles.H }}" preserveAspectRatio="none" aria-label="取得から売却後までの日足">
+      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.target_y }}" y2="{{ r.candles.target_y }}" class="ln-target" />
+      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.entry_y }}" y2="{{ r.candles.entry_y }}" class="ln-entry" />
+      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.stop_y }}" y2="{{ r.candles.stop_y }}" class="ln-stop" />
+      <line x1="{{ r.candles.half_x }}" x2="{{ r.candles.half_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-half" />
+      <line x1="{{ r.candles.limit_x }}" x2="{{ r.candles.limit_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-limit" />
+      <rect x="{{ r.candles.exit_x }}" y="0" width="{{ r.candles.W }}" height="{{ r.candles.H }}" class="rv-after-bg" />
+      {% for c in r.candles.items %}
+      <g class="{% if c.up %}cd-up{% else %}cd-down{% endif %}{% if c.after %} cd-after{% endif %}"><title>{{ c.date|date:"n/j" }}{% if c.after %}（売却後）{% endif %} 始{{ c.o|floatformat:2 }} 高{{ c.h|floatformat:2 }} 安{{ c.l|floatformat:2 }} 終{{ c.c|floatformat:2 }}</title>
+        <line x1="{{ c.cx }}" x2="{{ c.cx }}" y1="{{ c.hi }}" y2="{{ c.lo }}" class="wick" />
+        <rect x="{{ c.x }}" y="{{ c.body_y }}" width="{{ c.w }}" height="{{ c.body_h }}" /></g>
+      {% endfor %}
+      <line x1="{{ r.candles.exit_x }}" x2="{{ r.candles.exit_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-exit" />
+    </svg>
+    {% if r.candles.exit_y is not None %}<span class="rv-exit-mark" style="left:calc({{ r.candles.exit_x }} / {{ r.candles.W }} * 100%); top:calc({{ r.candles.exit_y }} / {{ r.candles.H }} * 100%)" title="売却 {{ r.unit }}{{ r.t.exit_price|floatformat:2 }}">◆</span>{% endif %}
+    <div class="rv-legend ct-sub"><span class="rv-leg-exit">│ 売却 {{ r.t.exit_date|date:"n/j" }} {{ r.unit }}{{ r.t.exit_price|floatformat:2 }}</span>
+      <span>緑=利確線・白=建値・赤=損切り線・点線=15日／20日</span>{% if r.candles.after_n %}<span>右の薄い足＝売却後 {{ r.candles.after_n }}本</span>{% endif %}</div>
+  </div>
+  {% endif %}
   {% if r.shots %}<div class="ct-shots">{% for n in r.shots %}<a class="ct-note-img" href="{% url 'diary:note_image' n.pk %}" target="_blank"><img src="{% url 'diary:note_image' n.pk %}" alt="購入時のチャート" loading="lazy"></a>{% endfor %}</div>{% endif %}
   {% comment %} 理由とコメントは同じ時系列（古い順）。好材料=緑／悪材料=赤／情報=白 {% endcomment %}
   {% if r.timeline %}
@@ -19,4 +44,11 @@
   {% endif %}
   <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}</div>
   {% if r.exit_note %}<div class="ct-reflect-review"><span class="k">復習</span>{{ r.exit_note|linebreaksbr }}</div>{% endif %}
+  {% comment %} 決済後もコメントを追記できる（振り返りの気づきを時系列に足す。2026-09-29）。POST 先は各ページの note（戦略で縛り済み） {% endcomment %}
+  <form method="post" class="ct-note-form ct-reflect-noteform">
+    {% csrf_token %}<input type="hidden" name="form_id" value="note"><input type="hidden" name="id" value="{{ r.t.id }}">
+    <input type="text" name="text" placeholder="振り返りのコメントを追記（チャートを見て気づいたこと・次にどうするか）" required>
+    <select name="kind"><option value="info">情報</option><option value="good">好材料</option><option value="bad">悪材料</option></select>
+    <button class="ct-btn-sub" type="submit">追記</button>
+  </form>
 </div>

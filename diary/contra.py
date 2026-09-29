@@ -388,6 +388,53 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
             'be_y': be_y, 'half_x': round(TIME_WARN_DAYS * step, 2)}
 
 
+def review_candles(t: Trade, bars: list[dict]) -> dict | None:
+    """決済済みの取引の振り返り用ローソク足（2026-09-29 ユーザー要望「購入後のローソク足が非常に学習になる。
+    利確・損切り後もチャートとコメントを振り返りたい」）。
+
+    保有中の candles と同じ見た目（損切り・建値・利確の水平線、15日の点線）に、**売却日の縦線と売却価格の印**を足す。
+    横軸は取得日から「期限（20日）と 売却後 AFTER_EXIT_DAYS 日の遅い方」まで。売却後の足は薄く描く
+    （売った後にどう動いたか＝切り所・利確の早さの答え合わせ）。日足は update_trade_bars が売却後 30 日まで取り続け、
+    消さないので後からでも見られる
+    """
+    if not t.exit_date:
+        return None
+    rows = [b for b in bars if b['date'] and b['date'] >= t.entry_date
+            and None not in (b['open'], b['high'], b['low'], b['close'])]
+    if not rows:
+        return None
+    exit_d = (t.exit_date - t.entry_date).days
+    span = max(TIME_LIMIT_DAYS, exit_d + 1, max((b['date'] - t.entry_date).days for b in rows))
+    span = min(span, max(TIME_LIMIT_DAYS, exit_d + AFTER_EXIT_DAYS))
+    rows = [b for b in rows if (b['date'] - t.entry_date).days <= span]
+    prices = [t.target_price, t.stop_price] + [b['high'] for b in rows] + [b['low'] for b in rows]
+    if t.exit_price:
+        prices.append(t.exit_price)
+    ymax, ymin = max(prices), min(prices)
+    pad = (ymax - ymin) * 0.04 or 1
+    ymax, ymin = ymax + pad, ymin - pad
+
+    def y(p):
+        return round((ymax - p) / (ymax - ymin) * CANDLE_H, 2)
+    step = CANDLE_W / span
+    w = round(min(step * 0.6, CANDLE_W / TIME_LIMIT_DAYS * 0.6), 2)
+    out = []
+    for b in rows:
+        d = (b['date'] - t.entry_date).days
+        cx = round(d * step, 2)
+        top, bot = max(b['open'], b['close']), min(b['open'], b['close'])
+        out.append({'cx': cx, 'x': round(cx - w / 2, 2), 'w': w,
+                    'hi': y(b['high']), 'lo': y(b['low']),
+                    'body_y': y(top), 'body_h': max(0.8, round(y(bot) - y(top), 2)),
+                    'up': b['close'] >= b['open'], 'date': b['date'], 'after': d > exit_d,
+                    'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
+    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H,
+            'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
+            'half_x': round(TIME_WARN_DAYS * step, 2), 'limit_x': round(TIME_LIMIT_DAYS * step, 2),
+            'exit_x': round(exit_d * step, 2), 'exit_y': y(t.exit_price) if t.exit_price else None,
+            'span': span, 'after_n': sum(1 for c in out if c['after'])}
+
+
 def _ticks(stop_pct: float, target_pct: float) -> list[dict]:
     """レンジバーの目盛り。位置は 損切り線=0% 〜 利確線=100%。
     主目盛り: 損切り／0（建値）／利確の半分／利確。副目盛り: 損切りの半分／利確の 1/4・3/4"""
@@ -599,6 +646,8 @@ def stats(setting: ContraSetting, strategy: str = 'contra') -> dict:
             'expected': t.exit_expected,
             'timeline': timeline(t), 'shots': shots_of(t),
             'unit': '$' if t.currency == 'USD' else '円',
+            # 決済後もローソク足で振り返る（2026-09-29）。売却日の縦線・売却価格・売却後の足（薄く）
+            'candles': review_candles(t, list(t.bars.order_by('date').values('date', 'open', 'high', 'low', 'close'))),
         }
     reflect = {'stop': [], 'target': [], 'other': []}
     tag_stats = {}
