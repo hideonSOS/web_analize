@@ -418,3 +418,8 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 .ct-feel-empty{ margin:2px 0 4px; }
 .ct-feel .ct-drill{ margin-top:8px; }
 .ct-feel-review{ margin-top:8px; }
+
+/* 期限（20日）超過で持ち続けたとき（2026-09-29）: 20日の位置に赤い縦線・右側は薄い赤の背景 */
+.ct-cdl .cd-over-bg{ fill:rgba(239,68,68,.07); }
+.ct-cdl .ln-limit-over{ stroke:#ef4444; stroke-width:2; vector-effect:non-scaling-stroke; }
+.cd-over-label{ position:absolute; bottom:4px; margin-left:6px; font-size:10px; color:#fca5a5; white-space:nowrap; pointer-events:none; }

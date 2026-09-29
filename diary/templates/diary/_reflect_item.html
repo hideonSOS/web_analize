@@ -19,7 +19,7 @@
       <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.stop_y }}" y2="{{ r.candles.stop_y }}" class="ln-stop" />
       <line x1="{{ r.candles.half_x }}" x2="{{ r.candles.half_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-half" />
       <line x1="{{ r.candles.limit_x }}" x2="{{ r.candles.limit_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-limit" />
-      <rect x="{{ r.candles.exit_x }}" y="0" width="{{ r.candles.W }}" height="{{ r.candles.H }}" class="rv-after-bg" />
+      <rect x="{{ r.candles.exit_x }}" y="0" width="{{ r.candles.after_w }}" height="{{ r.candles.H }}" class="rv-after-bg" />
       {% for c in r.candles.items %}
       <g class="{% if c.up %}cd-up{% else %}cd-down{% endif %}{% if c.after %} cd-after{% endif %}"><title>{{ c.date|date:"n/j" }}{% if c.after %}（売却後）{% endif %} 始{{ c.o|floatformat:2 }} 高{{ c.h|floatformat:2 }} 安{{ c.l|floatformat:2 }} 終{{ c.c|floatformat:2 }}</title>
         <line x1="{{ c.cx }}" x2="{{ c.cx }}" y1="{{ c.hi }}" y2="{{ c.lo }}" class="wick" />

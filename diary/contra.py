@@ -363,9 +363,10 @@ CANDLE_W, CANDLE_H = 1000, 100   # SVG の座標系（preserveAspectRatio=none �
 def candles(t: Trade, bars: list[dict]) -> dict | None:
     """取得日からのローソク足（2026-09-24 ユーザー要望）。横軸は期限の線と同じ（左端=取得日・右端=
     TIME_LIMIT_DAYS）、縦軸は 損切り線〜利確線（はみ出した日があればそこまで広げる）。
-    サーバー側で SVG の座標まで作る（JS なし）。期限を過ぎた日は描かない（期限の線と揃えるため）"""
+    サーバー側で SVG の座標まで作る（JS なし）。
+    期限（20日）を過ぎて持ち続けたら横軸を今日まで伸ばし、全部の足を描く（2026-09-29 ユーザー決定。以前は
+    20日で止めていて、期限超過の値動きと心情が見えなかった）。20日の位置に赤い縦線・右側は薄い赤の背景（over）"""
     rows = [b for b in bars if b['date'] and b['date'] >= t.entry_date
-            and (b['date'] - t.entry_date).days <= TIME_LIMIT_DAYS
             and None not in (b['open'], b['high'], b['low'], b['close'])]
     if not rows:
         return None
@@ -376,7 +377,8 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
 
     def y(p):
         return round((ymax - p) / (ymax - ymin) * CANDLE_H, 2)
-    step = CANDLE_W / TIME_LIMIT_DAYS
+    span = max(TIME_LIMIT_DAYS, max((b['date'] - t.entry_date).days for b in rows) + 1)
+    step = CANDLE_W / span
     w = round(step * 0.6, 2)
     out = []
     for b in rows:
@@ -389,9 +391,12 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
                     'up': b['close'] >= b['open'], 'date': b['date'],
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
-    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': TIME_LIMIT_DAYS,
+    over = span > TIME_LIMIT_DAYS
+    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
-            'be_y': be_y, 'half_x': round(TIME_WARN_DAYS * step, 2)}
+            'be_y': be_y, 'half_x': round(TIME_WARN_DAYS * step, 2),
+            'over': over, 'limit_x': round(TIME_LIMIT_DAYS * step, 2) if over else None,
+            'over_w': round(CANDLE_W - TIME_LIMIT_DAYS * step, 2) if over else None}
 
 
 def review_candles(t: Trade, bars: list[dict]) -> dict | None:
@@ -438,6 +443,7 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
             'half_x': round(TIME_WARN_DAYS * step, 2), 'limit_x': round(TIME_LIMIT_DAYS * step, 2),
             'exit_x': round(exit_d * step, 2), 'exit_y': y(t.exit_price) if t.exit_price else None,
+            'after_w': round(max(0, CANDLE_W - exit_d * step), 2),
             'span': span, 'after_n': sum(1 for c in out if c['after'])}
 
 
