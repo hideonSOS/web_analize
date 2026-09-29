@@ -20,6 +20,27 @@
   {% comment %} ---- 成績: 円グラフ（勝率 vs 最低勝率）＋判定＋決済一覧 ---- {% endcomment %}
   <section class="ct-card">
     <h2>成績 <span class="ct-hint">決済 {{ stats.n }}件</span></h2>
+    {% comment %}
+      損益の大見出し（2026-09-29 ユーザー要望: モチベーションが上がるよう $ と円の損益を目立たせる）。
+      左＝確定損益（決済済み・コスト込み）、右＝含み損益（保有中）。円は最新ドル円での換算（表示だけ）
+    {% endcomment %}
+    {% with tt=stats.total %}
+    <div class="ct-hero">
+      <div class="ct-hero-main {% if tt.amount > 0 %}up{% elif tt.amount < 0 %}down{% endif %}">
+        <span class="k">確定損益 <i>決済 {{ tt.n }}件・コスト込み</i></span>
+        <b class="usd">{% if tt.amount > 0 %}+{% elif tt.amount < 0 %}−{% endif %}{{ tt.unit }}{% if tt.amount < 0 %}{{ tt.amount|floatformat:0|slice:"1:"|intcomma }}{% else %}{{ tt.amount|floatformat:0|intcomma }}{% endif %}</b>
+        {% if tt.amount_jpy is not None %}<b class="jpy">{% if tt.amount_jpy > 0 %}+{% elif tt.amount_jpy < 0 %}−{% endif %}¥{% if tt.amount_jpy < 0 %}{{ tt.amount_jpy|floatformat:0|slice:"1:"|intcomma }}{% else %}{{ tt.amount_jpy|floatformat:0|intcomma }}{% endif %}</b>{% endif %}
+        <span class="pct">{% if tt.pct > 0 %}+{% endif %}{{ tt.pct|floatformat:1 }}%</span>
+      </div>
+      {% if open_pnl.n %}
+      <div class="ct-hero-open {% if open_pnl.amount > 0 %}up{% elif open_pnl.amount < 0 %}down{% endif %}">
+        <span class="k">含み損益 <i>保有中 {{ open_pnl.n }}件</i></span>
+        <b class="usd">{% if open_pnl.amount > 0 %}+{% elif open_pnl.amount < 0 %}−{% endif %}${% if open_pnl.amount < 0 %}{{ open_pnl.amount|floatformat:0|slice:"1:"|intcomma }}{% else %}{{ open_pnl.amount|floatformat:0|intcomma }}{% endif %}</b>
+        {% if open_pnl.amount_jpy is not None %}<b class="jpy">{% if open_pnl.amount_jpy > 0 %}+{% elif open_pnl.amount_jpy < 0 %}−{% endif %}¥{% if open_pnl.amount_jpy < 0 %}{{ open_pnl.amount_jpy|floatformat:0|slice:"1:"|intcomma }}{% else %}{{ open_pnl.amount_jpy|floatformat:0|intcomma }}{% endif %}</b>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endwith %}
     <div class="ct-result">
       <div id="ct-donut" class="ct-donut"></div>
       <div class="ct-result-text">
