@@ -141,12 +141,7 @@
               {% for v, l in exit_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
             </select></label>
           </div>
-          <div class="ct-fld"><span>損切り・マイナスは想定どおりだったか</span>
-            <div class="dy-radio-row">
-              <label><input type="radio" name="exit_expected" value="" checked> 該当なし</label>
-              <label><input type="radio" name="exit_expected" value="expected"> 想定内</label>
-              <label><input type="radio" name="exit_expected" value="unexpected"> 想定外（寝耳に水）</label>
-            </div></div>
+          {% comment %} 「損切り・マイナスは想定どおりだったか（想定内／想定外）」は 2026-09-29 に削除（ユーザー指示: 不要） {% endcomment %}
           <label class="ct-fld">復習コメント（必須）
             <textarea name="exit_note" rows="3" required placeholder="なぜこうなったか。買った理由は正しかったか。次に同じ場面が来たらどうするか"></textarea></label>
           <button class="ct-btn" type="submit">売却を記録</button>

@@ -39,11 +39,9 @@
   {% if r.timeline %}
   <div class="ct-reflect-notes">{% for n in r.timeline %}<div><span class="cv-no">{{ forloop.counter }}</span><span class="ct-sub ct-when">{% if n.at_entry %}購入時{% else %}{{ n.created_at|date:"n/j" }}{% endif %}</span> {{ n.text }}</div>{% endfor %}</div>
   {% elif r.reasons %}<ul class="ct-reflect-reasons">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+  {% comment %} 想定内／想定外の表示は 2026-09-29 に削除（ユーザー指示: 不要）。マイナスになる想定の本文だけ残す {% endcomment %}
   {% if r.risk_scenario %}
-  <div class="ct-reflect-risk"><span class="k">想定</span>{{ r.risk_scenario|linebreaksbr }}
-    {% if r.expected == 'expected' %}<span class="ct-exp ok">想定内</span>{% elif r.expected == 'unexpected' %}<span class="ct-exp ng">想定外（寝耳に水）</span>{% endif %}</div>
-  {% elif r.expected %}
-  <div class="ct-reflect-risk"><span class="k">想定</span>（書いていない）{% if r.expected == 'expected' %}<span class="ct-exp ok">想定内</span>{% else %}<span class="ct-exp ng">想定外（寝耳に水）</span>{% endif %}</div>
+  <div class="ct-reflect-risk"><span class="k">想定</span>{{ r.risk_scenario|linebreaksbr }}</div>
   {% endif %}
   <div class="ct-reflect-meta">{% for tg in r.tags %}<span class="dy-tag">{{ tg }}</span>{% endfor %}{% if r.mood %}<span class="ct-sub">心理: {{ r.mood }}</span>{% endif %}</div>
   {% if r.exit_note %}<div class="ct-reflect-review"><span class="k">復習</span>{{ r.exit_note|linebreaksbr }}</div>{% endif %}
