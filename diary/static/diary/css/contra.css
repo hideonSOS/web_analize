@@ -465,3 +465,9 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 .ct-sim-rates{ flex-wrap:nowrap; }
 .ct-sim-rates button{ flex:0 1 72px; min-width:0; padding:7px 4px; }
 @media (max-width:600px){ .ct-sim-rates{ gap:6px; } .ct-sim-rates button{ flex:1 1 0; font-size:13px; } }
+
+/* 期間内の最高値（2026-09-30）: 金色の点線＋足の上のラベル */
+.cv-peak-line{ position:absolute; left:0; right:0; border-top:1px dashed rgba(250,204,21,.7); pointer-events:none; z-index:1; }
+.cv-peak{ position:absolute; transform:translate(-8px, calc(-100% - 4px)); font-size:11px; font-weight:bold; color:#facc15;
+  white-space:nowrap; pointer-events:none; z-index:2; text-shadow:0 0 4px #000, 0 0 8px #000; }
+.cv-peak.right{ transform:translate(calc(-100% + 8px), calc(-100% - 4px)); }

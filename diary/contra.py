@@ -415,10 +415,21 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
     be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
     over = span > TIME_LIMIT_DAYS
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
+            'peak': _peak(t, out, y, CANDLE_W),
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
             'be_y': be_y, 'half_x': round(TIME_WARN_DAYS * step, 2),
             'over': over, 'limit_x': round(TIME_LIMIT_DAYS * step, 2) if over else None,
             'over_w': round(CANDLE_W - TIME_LIMIT_DAYS * step, 2) if over else None}
+
+
+def _peak(t: Trade, items: list[dict], y, W: float) -> dict | None:
+    """期間内の最高値（2026-09-30 ユーザー要望: 振り返りで理想の利確ポイントを探す）。
+    items は描いた足（決済後の振り返りでは売却日までの足だけを渡す）。高値が最も高い足の日・価格・建値比"""
+    if not items:
+        return None
+    c = max(items, key=lambda c: c['h'])
+    return {'price': c['h'], 'date': c['date'], 'pct': (c['h'] / t.entry_price - 1) * 100,
+            'x': c['cx'], 'y': c['hi'], 'pos': round(c['cx'] / W * 100, 2)}
 
 
 def review_candles(t: Trade, bars: list[dict]) -> dict | None:
@@ -462,6 +473,7 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
                     'up': b['close'] >= b['open'], 'date': b['date'], 'after': d > exit_d,
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step,
+            'peak': _peak(t, [c for c in out if not c['after']], y, CANDLE_W),   # 保有期間（売却日まで）の最高値
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
             'half_x': round(TIME_WARN_DAYS * step, 2), 'limit_x': round(TIME_LIMIT_DAYS * step, 2),
             'exit_x': round(exit_d * step, 2), 'exit_y': y(t.exit_price) if t.exit_price else None,

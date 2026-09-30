@@ -6,3 +6,12 @@
 {% endcomment %}
 {% for m in c.marks %}<button type="button" class="cv-mark{% if m.pos < 2 %} edge{% endif %}" style="left:{{ m.pos }}%; --stack:{{ m.stack }}" title="{{ m.when }} {{ m.text }}" data-when="{{ m.when }}" data-text="{{ m.text }}">{{ m.no }}</button>{% endfor %}
 <div class="cv-dates">{% for d in c.dates %}<span class="{% if d.pos > 96 %}edge-r{% elif d.pos < 3 %}edge-l{% endif %}" style="left:{{ d.pos }}%">{{ d.label }}</span>{% endfor %}</div>
+{% comment %}
+  期間内の最高値（2026-09-30 ユーザー要望: 振り返りで理想の利確ポイントを探す）。金色の点線と、その足の上に価格・建値比・日付。
+  決済後の振り返りでは売却日までの最高値（売却後の足は含めない）
+{% endcomment %}
+{% if c.peak %}
+<span class="cv-peak-line" style="top:calc({{ c.peak.y }} / {{ c.H }} * 100%)"></span>
+<span class="cv-peak{% if c.peak.pos > 70 %} right{% endif %}" style="left:{{ c.peak.pos }}%; top:calc({{ c.peak.y }} / {{ c.H }} * 100%)"
+      title="期間内の最高値 {{ c.peak.date|date:'n/j' }}">▼ 最高値 {{ c.peak.price|floatformat:2 }}（{% if c.peak.pct >= 0 %}+{% endif %}{{ c.peak.pct|floatformat:1 }}%・{{ c.peak.date|date:"n/j" }}）</span>
+{% endif %}
