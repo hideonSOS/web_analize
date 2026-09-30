@@ -91,6 +91,11 @@
           <label>価格（<span class="ct-unit">$</span>）<input type="number" step="0.01" name="entry_price" id="ct-price" placeholder="銘柄選択で自動" required></label>
           <label>株数<input type="number" step="1" min="1" name="shares" id="ct-shares" required></label>
         </div>
+        {% comment %} 利確率（2026-09-30）: +5／+7／+10% から選び、その取引のルールに固定 {% endcomment %}
+        <div class="dy-track-targets ct-targets" id="ct-targets">
+          <span class="k">利確</span>
+          {% for v in target_choices %}<label><input type="radio" name="target" value="{{ v }}" {% if v == setting.default_target_pct %}checked{% endif %}><span>+{{ v }}%</span></label>{% endfor %}
+        </div>
         <p class="ct-calc" id="ct-calc">銘柄と価格を入れると、損切り線・利確線と許容株数を出します。</p>
         {% comment %} なぜ買ったかは「＋」で理由を列挙（1行1理由）。長文より箇条書きの方が振り返りやすい {% endcomment %}
         <div class="ct-fld"><span>なぜ買ったか（必須・理由を列挙）</span>

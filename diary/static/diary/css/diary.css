@@ -349,3 +349,12 @@
 .dy-review-del{ margin-left:auto; }
 .dy-review-x{ background:none; border:1px solid #334155; color:#6b7280; border-radius:6px; padding:0 6px; cursor:pointer; font-size:12px; line-height:18px; }
 .dy-review-x:hover{ color:#fca5a5; border-color:#7f1d1d; }
+
+/* 追跡するときの利確率（+5/+7/+10%・2026-09-30） */
+.dy-track-targets{ display:flex; align-items:center; gap:8px; margin:2px 0 4px; }
+.dy-track-targets .k{ font-size:12px; color:#9ca3af; width:2.6em; }
+.dy-track-targets input{ display:none; }
+.dy-track-targets label span{ display:inline-block; min-width:64px; text-align:center; padding:7px 10px; border-radius:8px;
+  border:1px solid #334155; background:#0f172a; color:#9ca3af; font-size:14px; font-weight:bold; cursor:pointer; }
+.dy-track-targets input:checked + span{ border-color:#22c55e; background:rgba(34,197,94,.18); color:#dcfce7; box-shadow:0 0 10px rgba(34,197,94,.3); }
+.dy-track-sel{ background:#0f172a; border:1px solid #334155; border-radius:6px; color:#e5e7eb; font-size:12px; padding:2px 4px; margin-right:4px; }

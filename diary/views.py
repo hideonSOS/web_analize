@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from japan_kabu.models import Stock
 
+from .contra import TARGET_CHOICES as C_TARGET_CHOICES
 from .models import DiaryEntry
 
 # 判断理由タグと心理状態の選択肢（記録の構造化用）
@@ -96,6 +97,7 @@ def index(request):
         'stats': stats,
         'open_trades_n': open_trades_n,
         'contra_setting': ContraSetting.get(),   # フォームの「追跡」チェックでルールを固定するため
+        'target_choices': C_TARGET_CHOICES,       # 追跡するときに選べる利確率（+5/+7/+10）
         'exit_choices': Trade.EXIT,
         'tags': TAGS,
         'moods': MOODS,
@@ -224,7 +226,8 @@ def create(request):
     from . import contra as C
     from .models import ContraSetting
     if action == 'buy' and request.POST.get('track_contra'):
-        t = C.open_from_entry(entry, ContraSetting.get(), request.POST.get('risk_scenario', '').strip())
+        t = C.open_from_entry(entry, ContraSetting.get(), request.POST.get('risk_scenario', '').strip(),
+                              target_pct=request.POST.get('track_target'))
         if t:
             messages.success(request, f'{t.ticker} を短期トレードとして追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。'
                              + ('⚠️ 許容株数を超えています（裁量として記録）。' if t.over_risk else ''))
@@ -249,9 +252,9 @@ def track(request, pk):
 
     entry = get_object_or_404(DiaryEntry, pk=pk)
     if request.POST.get('on'):
-        t = C.open_from_entry(entry, ContraSetting.get())
+        t = C.open_from_entry(entry, ContraSetting.get(), target_pct=request.POST.get('target'))
         if t:
-            messages.success(request, f'{t.ticker} を短期トレードとして追跡します（損切り {t.stop_price:g}／利確 {t.target_price:g}）。')
+            messages.success(request, f'{t.ticker} を短期トレードとして追跡します（利確 +{t.target_pct:g}%：{t.target_price:g}／損切り {t.stop_price:g}）。')
         else:
             messages.error(request, '追跡できるのは銘柄・株価・株数のある「買い」だけです。')
     else:
@@ -469,7 +472,8 @@ def practice(request):
             tags = ','.join(t for t in request.POST.getlist('tags') if t in TAGS)
             mood = request.POST.get('mood', '') if request.POST.get('mood', '') in MOODS else ''
             t = C.open_practice(setting, stock, price, int(shares), entry_date, reason, tags, mood, risk_scenario,
-                                reasons=pairs or None, chart_image=request.POST.get('chart_image', ''))
+                                reasons=pairs or None, chart_image=request.POST.get('chart_image', ''),
+                                target_pct=request.POST.get('target'))
             msg = f'{t.ticker} を {int(shares)}株 @{price:g} で買ったつもり。損切り {t.stop_price:g}／利確 {t.target_price:g}。'
             if t.over_risk:
                 messages.warning(request, msg + ' ⚠️ 許容株数を超えています（裁量として記録）。')
@@ -532,6 +536,7 @@ def practice(request):
     st = C.stats(setting, strategy='practice')
     return render(request, 'diary/practice.html', {
         'setting': setting, 'be': be, 'stats': st,
+        'target_choices': C_TARGET_CHOICES,   # 入力フォームの利確率（+5/+7/+10）
         'donut': {'wins': st['wins'], 'losses': st['losses'], 'win_rate': st['win_rate'],
                   'min_rate': round(be['with_cost']), 'early': st['total']['early']['n']},
         # 振り返りは 負けトレード／勝ちトレード の2つ（2026-09-29 ユーザー要望。コスト込み損益の符号で分ける）

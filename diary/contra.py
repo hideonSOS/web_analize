@@ -71,7 +71,21 @@ def plan_risk(trade: Trade) -> float:
 
 
 # --- 売買日記との連動（入力は日記に統一・ユーザー決定 2026-09-09） ----------------------
-def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '') -> Trade | None:
+# エントリー時に選べる利確率（2026-09-30 ユーザー指示: 15日で +10% は難しい銘柄もあるので +5%・+7% も選べるように。
+# 選んだ率はその取引に固定し、後から変えない＝規律）。損切りは設定のまま
+TARGET_CHOICES = (5, 7, 10)
+
+
+def pick_target(setting: ContraSetting, value) -> float:
+    """フォームの利確率 → TARGET_CHOICES のどれか。無効なら設定の既定"""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return setting.default_target_pct
+    return v if v in TARGET_CHOICES else setting.default_target_pct
+
+
+def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '', target_pct=None) -> Trade | None:
     """日記の「買い」から短期取引を起こす（チェック「短期トレードとして追跡」）。
 
     損切り/利確は日記に入れた価格から%を逆算。無ければ設定の既定%で線を引く。
@@ -87,7 +101,7 @@ def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '') -> T
     # （利確 +10% / 損切り −5%）で線を引く。日記に入れた目標・損切り価格は使わない。
     # 日記側の出口計画もルールの価格に揃える（画面の「目標」「損切り」が帳簿と食い違わないように）
     stop_pct = setting.default_stop_pct
-    target_pct = setting.default_target_pct
+    target_pct = pick_target(setting, target_pct)     # 利確率はエントリー時に選んだもの（+5/+7/+10）
     entry.stop_price = round(price * (1 - stop_pct / 100), 4)
     entry.target_price = round(price * (1 + target_pct / 100), 4)
     entry.save(update_fields=['stop_price', 'target_price'])
@@ -174,10 +188,10 @@ def close_from_entry(entry, reason: str = '', expected: str = '') -> Trade | Non
 # --- 練習（仮想トレード・2026-09-10）。日記とはつながず、練習ページのフォームから直接起こす ----
 def open_practice(setting: ContraSetting, stock, price: float, shares: int, entry_date, reason: str,
                   tags: str = '', mood: str = '', risk_scenario: str = '', reasons=None,
-                  chart_image: str = '') -> Trade:
+                  chart_image: str = '', target_pct=None) -> Trade:
     """「買ったつもり」の取引を起こす。ルール（損切り/利確の%）は練習用の設定から"""
     from django.core.management import call_command
-    stop_pct, target_pct = setting.default_stop_pct, setting.default_target_pct
+    stop_pct, target_pct = setting.default_stop_pct, pick_target(setting, target_pct)
     limit = max_shares(setting, price, stop_pct)
     t = Trade.objects.create(
         stock=stock, stock_name=stock.name, ticker=stock.display_code, country=stock.country,

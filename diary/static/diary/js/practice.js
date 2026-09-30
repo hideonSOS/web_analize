@@ -53,11 +53,13 @@
     const C = window.CT;
     if (!(p > 0)) { calc.textContent = '銘柄と価格を入れると、損切り線・利確線と許容株数を出します。'; return; }
     const unit = currency === 'USD' ? '$' : '¥';
-    const stopPrice = p * (1 - C.stop / 100), targetPrice = p * (1 + C.target / 100);
+    const tr = document.querySelector('#ct-targets input[name="target"]:checked');
+    const tgt = tr ? parseFloat(tr.value) : C.target;
+    const stopPrice = p * (1 - C.stop / 100), targetPrice = p * (1 + tgt / 100);
     const perShare = p * C.stop / 100;
     const budget = C.capital * C.riskPct / 100;
     const maxN = Math.floor(budget / perShare);
-    let s = `損切り線 ${unit}${stopPrice.toFixed(2)}（−${C.stop}%）／ 利確線 ${unit}${targetPrice.toFixed(2)}（+${C.target}%）。` +
+    let s = `損切り線 ${unit}${stopPrice.toFixed(2)}（−${C.stop}%）／ 利確線 ${unit}${targetPrice.toFixed(2)}（+${tgt}%）。` +
             `許容株数 <b>${maxN}株</b>（1株の最大損失 ${unit}${perShare.toFixed(2)}・上限 ${unit}${Math.round(budget).toLocaleString()}）`;
     if (n > 0) {
       const risk = n * perShare;
@@ -88,3 +90,8 @@
     row.querySelector('input').focus();
   });
 })();
+
+// 利確率を選び直したら計算し直す（2026-09-30）
+document.querySelectorAll('#ct-targets input').forEach((r) => r.addEventListener('change', () => {
+  const p = document.getElementById('ct-price'); if (p) p.dispatchEvent(new Event('input'));
+}));

@@ -67,6 +67,7 @@
           <td>{% if r.hit == 'target' %}<span class="dy-hit dy-hit-target">目標到達</span>{% elif r.hit == 'stop' %}<span class="dy-hit dy-hit-stop">損切到達</span>{% endif %}
             {% if r.tracked_closed %}<span class="dy-track-done">短期済</span>
             {% elif r.trackable or r.trade %}<form method="post" action="{% url 'diary:track' r.e.pk %}" class="dy-track-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+              {% if not r.tracked_open %}<select name="target" class="dy-track-sel" title="利確率">{% for v in target_choices %}<option value="{{ v }}" {% if v == contra_setting.default_target_pct %}selected{% endif %}>+{{ v }}%</option>{% endfor %}</select>{% endif %}
               <label title="短期トレードとして追跡"><input type="checkbox" name="on" value="1" {% if r.tracked_open %}checked{% endif %} onchange="this.form.submit()"> 短期</label></form>{% endif %}</td>
           <td>{% if r.e.review_result %}<span class="dy-result dy-result-{{ r.e.review_result }}">{{ r.e.get_review_result_display }}</span>{% endif %}</td>
           <td>
@@ -159,6 +160,7 @@
       {% else %}
         <form method="post" action="{% url 'diary:track' r.e.pk %}" class="dy-track-form">
           {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+          {% if not r.tracked_open %}<select name="target" class="dy-track-sel" title="利確率">{% for v in target_choices %}<option value="{{ v }}" {% if v == contra_setting.default_target_pct %}selected{% endif %}>利確 +{{ v }}%</option>{% endfor %}</select>{% endif %}
           <label><input type="checkbox" name="on" value="1" {% if r.tracked_open %}checked{% endif %} onchange="this.form.submit()"> 短期トレードとして追跡</label>
         </form>
         {% if r.tracked_open %}<a class="dy-track-link" href="{% url 'diary:contra' %}">保有中 →</a>{% endif %}
@@ -263,7 +265,12 @@
         <div class="dy-track-wrap">
           <label class="dy-track-check"><input type="checkbox" name="track_contra" value="1" id="dy-track" />
             <span class="dy-track-btn"><span class="dy-track-icon">⚡</span>短期トレードとして追跡する
-              <span class="dy-track-rule">利確 +{{ contra_setting.default_target_pct|floatformat:"-1" }}%／損切り −{{ contra_setting.default_stop_pct|floatformat:"-1" }}%</span></span></label>
+              <span class="dy-track-rule">利確は下で選ぶ／損切り −{{ contra_setting.default_stop_pct|floatformat:"-1" }}%</span></span></label>
+          {% comment %} 利確率（2026-09-30）: 追跡するときに +5／+7／+10% から選ぶ。選んだ率でその取引のルールを固定 {% endcomment %}
+          <div class="dy-track-targets" id="dy-track-targets" hidden>
+            <span class="k">利確</span>
+            {% for v in target_choices %}<label><input type="radio" name="track_target" value="{{ v }}" {% if v == contra_setting.default_target_pct %}checked{% endif %}><span>+{{ v }}%</span></label>{% endfor %}
+          </div>
           <span class="dy-track-hint" id="dy-track-hint">押すと目標・損切りはルールの価格に固定され、手入力できなくなります。許容株数も出します（結果は「短期トレードの結果追跡」ページ）</span>
         </div>
         <div class="dy-field-row">

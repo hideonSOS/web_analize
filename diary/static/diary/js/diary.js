@@ -161,9 +161,17 @@
   // 許容株数（資金×リスク% ÷ 1株あたりの損失）も出す
   const trackBox = document.getElementById('dy-track');
   const trackHint = document.getElementById('dy-track-hint');
+  // 利確率（+5/+7/+10）: 追跡を押したときだけ出す。選んだ率で目標価格を固定（2026-09-30）
+  const targetBox = document.getElementById('dy-track-targets');
+  const chosenTarget = () => {
+    const r = document.querySelector('#dy-track-targets input[name="track_target"]:checked');
+    return r ? parseFloat(r.value) : window.CONTRA.target;
+  };
+  document.querySelectorAll('#dy-track-targets input').forEach((r) => r.addEventListener('change', () => applyTrackLock()));
   function applyTrackLock() {
     if (!trackBox || !window.CONTRA) return;
     const on = trackBox.checked;
+    if (targetBox) targetBox.hidden = !on;
     const riskField = document.getElementById('dy-risk-field');
     if (riskField) riskField.hidden = !on;
     [targetInput, stopInput].forEach((el) => { el.readOnly = on; el.classList.toggle('dy-locked', on); });
@@ -172,12 +180,13 @@
       const p = parseFloat(priceInput.value);
       const C = window.CONTRA;
       if (p > 0) {
-        targetInput.value = (p * (1 + C.target / 100)).toFixed(2);
+        const tgt = chosenTarget();
+        targetInput.value = (p * (1 + tgt / 100)).toFixed(2);
         stopInput.value = (p * (1 - C.stop / 100)).toFixed(2);
         const perShare = p * C.stop / 100;
         const maxN = Math.floor(C.capital * C.riskPct / 100 / perShare);
         const n = parseInt(sharesInput.value, 10);
-        trackHint.textContent = `ルール固定: 利確 ${targetInput.value}（+${C.target}%）／損切り ${stopInput.value}（−${C.stop}%）。` +
+        trackHint.textContent = `ルール固定: 利確 ${targetInput.value}（+${tgt}%）／損切り ${stopInput.value}（−${C.stop}%）。` +
           `許容株数 ${maxN}株（資金 $${C.capital.toLocaleString()} × ${C.riskPct}%）` +
           (n > maxN ? ' ⚠ 上限超え（裁量として記録されます）' : n > 0 ? ' ✔ ルール内' : '');
         trackHint.classList.toggle('warn', n > maxN);
