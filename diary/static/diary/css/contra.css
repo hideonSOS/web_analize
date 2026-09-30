@@ -17,8 +17,9 @@
 .ct-stale{ color:#f87171; }
 
 /* ---- ルール（ページ先頭・3つだけ） ---- */
-/* 画面下に固定・少し透過（ユーザー要望 2026-09-09）。本文が隠れないよう .ct に下余白 */
-.ct{ padding-bottom:96px; }
+/* 画面下に固定・少し透過（ユーザー要望 2026-09-09）→ 2026-09-30 撤去（利確率を選べるようになり内容が合わない）。
+   .ct-rule のスタイルは未使用 */
+.ct{ padding-bottom:24px; }
 .ct-rule{ position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; flex-wrap:wrap; justify-content:center; gap:6px 34px;
   border-top:2px solid rgba(59,130,246,.7); padding:10px 16px; margin:0;
   background:rgba(11,18,32,.78); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);

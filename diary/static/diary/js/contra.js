@@ -156,10 +156,10 @@
     $('ct-sim-stop-price').textContent = px(sp);
     $('ct-sim-entry-price').textContent = px(p);
     $('ct-sim-target-price').textContent = px(tp);
-    // 建値ストップ（2026-09-24）: +7% に届いたら損切りを建値へ
+    // 建値ストップ（2026-09-24）: +7% に届いたら損切りを建値へ。利確 +10% のときだけ（2026-09-30・contra.BE_TARGET_PCT）
     const beEl = $('ct-sim-be'), beP = parseFloat(root.dataset.be);
     if (beEl) {
-      if (beP > 0 && beP < targetPct) {
+      if (targetPct === 10 && beP > 0 && beP < targetPct) {
         beEl.hidden = false;
         beEl.innerHTML = `🛡 <b>${px(p * (1 + beP / 100))}</b>（+${beP}%）に届いたら、損切りを <b>${px(sp)}</b> → 建値 <b>${px(p)}</b> に上げる`;
       } else { beEl.hidden = true; }

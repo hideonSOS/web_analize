@@ -76,6 +76,16 @@ def plan_risk(trade: Trade) -> float:
 TARGET_CHOICES = (5, 7, 10)
 
 
+# 建値ストップ（+7% で損切りを建値へ）は利確 +10% で買った取引だけ（2026-09-30 ユーザー指示。
+# +5%・+7% の取引には付けない）。シミュレーター（contra.js）も同じ条件
+BE_TARGET_PCT = 10
+
+
+def be_trigger_for(setting: ContraSetting, target_pct: float) -> float | None:
+    trig = setting.be_trigger_pct or 0
+    return trig if target_pct == BE_TARGET_PCT and 0 < trig < target_pct else None
+
+
 def pick_target(setting: ContraSetting, value) -> float:
     """フォームの利確率 → TARGET_CHOICES のどれか。無効なら設定の既定"""
     try:
@@ -111,7 +121,7 @@ def open_from_entry(entry, setting: ContraSetting, risk_scenario: str = '', targ
         country=entry.stock.country, currency='USD' if entry.stock.country == 'US' else 'JPY',
         strategy='contra', entry_date=entry.recorded_at.date(), entry_price=price, shares=int(entry.shares),
         stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
-        be_trigger_pct=(setting.be_trigger_pct if 0 < (setting.be_trigger_pct or 0) < target_pct else None),
+        be_trigger_pct=be_trigger_for(setting, target_pct),
         stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
         entry_note=entry.reason, over_risk=int(entry.shares) > limit['shares'], entry_diary=entry,
         risk_scenario=risk_scenario,
@@ -198,7 +208,7 @@ def open_practice(setting: ContraSetting, stock, price: float, shares: int, entr
         currency='USD' if stock.country == 'US' else 'JPY', strategy='practice',
         entry_date=entry_date, entry_price=price, shares=int(shares),
         stop_pct=round(stop_pct, 2), target_pct=round(target_pct, 2),
-        be_trigger_pct=(setting.be_trigger_pct if 0 < (setting.be_trigger_pct or 0) < target_pct else None),
+        be_trigger_pct=be_trigger_for(setting, target_pct),
         stop_price=round(price * (1 - stop_pct / 100), 4), target_price=round(price * (1 + target_pct / 100), 4),
         entry_note=reason, over_risk=int(shares) > limit['shares'], risk_scenario=risk_scenario,
     )

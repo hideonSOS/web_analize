@@ -190,7 +190,7 @@
         <label>1回の損失上限（%）<input type="number" name="risk_pct" value="{{ setting.risk_pct }}" step="0.5" min="0.5" max="10"></label>
         <label>損切り（%）<input type="number" name="default_stop_pct" value="{{ setting.default_stop_pct }}" step="0.5"></label>
         <label>利確（%）<input type="number" name="default_target_pct" value="{{ setting.default_target_pct }}" step="0.5"></label>
-        <label>🛡 建値へ上げる（%・0で無効）<input type="number" name="be_trigger_pct" value="{{ setting.be_trigger_pct }}" step="0.5" min="0"></label>
+        <label>🛡 建値へ上げる（%・0で無効・利確 +10% で買った取引だけ）<input type="number" name="be_trigger_pct" value="{{ setting.be_trigger_pct }}" step="0.5" min="0"></label>
         <label>片道コスト（%）<input type="number" name="cost_pct" value="{{ setting.cost_pct }}" step="0.05"></label>
         <button class="ct-btn" type="submit">保存</button>
       </form>
@@ -199,14 +199,6 @@
 
   {% include 'diary/_after_exit.html' %}
 
-  {% comment %} ルール（画面下に固定・少し透過。短期トレードと同じ見せ方） {% endcomment %}
-  <section class="ct-rule">
-    <span class="ct-rule-item practice">練習</span>
-    <span class="ct-rule-item target">利確 <b>+{{ setting.default_target_pct|floatformat:"-1" }}%</b></span>
-    {% if setting.be_trigger_pct %}<span class="ct-rule-item be">🛡 <b>+{{ setting.be_trigger_pct|floatformat:"-1" }}%</b>で建値へ</span>{% endif %}
-    <span class="ct-rule-item stop">損切り <b>−{{ setting.default_stop_pct|floatformat:"-1" }}%</b></span>
-    <span class="ct-rule-item">最低勝率 <b>{{ be.with_cost|floatformat:0 }}%</b></span>
-  </section>
 
   {{ donut|json_script:"ct-donut-data" }}
   <script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";
