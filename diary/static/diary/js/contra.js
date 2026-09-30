@@ -250,7 +250,15 @@
 })();
 
 // 振り返りチャート（購入前の足つき・2026-09-30）: 開いたときは右端＝取得日〜売却後を見せる。左へスクロールで購入前
-const rvToRight = (root) => root.querySelectorAll('.rv-scroll.has-pre').forEach((el) => { el.scrollLeft = el.scrollWidth; });
-rvToRight(document);
-// 折りたたみ（details）の中は開いた時点で幅が決まるので、開いたときにも右端へ
-document.addEventListener('toggle', (e) => { if (e.target.open) rvToRight(e.target); }, true);
+// 勝ち／負けのタブや折りたたみで隠れている間は幅が 0 で、読み込み時にスクロールしても効かない
+// （2026-09-30 ユーザー指摘: 初期値は右に振った状態に）。見えるようになった（幅 0 → 正）時点で右端へ。
+// ユーザーが左へ戻した後は、窓の幅が変わっても勝手に戻さない
+document.querySelectorAll('.rv-scroll.has-pre').forEach((el) => {
+  let shown = false;
+  const toRight = () => {
+    if (el.clientWidth > 0 && !shown) { el.scrollLeft = el.scrollWidth; shown = true; }
+    else if (el.clientWidth === 0) shown = false;     // また隠れたら、次に見えたときに右端へ
+  };
+  toRight();
+  if (window.ResizeObserver) new ResizeObserver(toRight).observe(el);
+});
