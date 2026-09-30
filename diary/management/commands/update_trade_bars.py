@@ -4,6 +4,9 @@
     python manage.py update_trade_bars --trade 12 # 1件だけ（エントリー直後の即時反映用）
 
 - エントリー日から今日までを毎回取り直す（1銘柄1コール・数秒。保有中は数件しか無い）
+- 取得日の前 PRE_ENTRY_DAYS 日の足も入れる（2026-09-30 ユーザー要望: 振り返りで「買ったときのチャート」
+  ＝下ヒゲ・サポートラインを見返す）。⚠️ 保有中の判定（高値/安値・建値ストップ）は open_rows が
+  date >= entry_date で絞るので影響しない。振り返りチャート（review_candles）だけが使う
 - ⚠️ auto_adjust=False。指値は生の価格に置くので、判定に使う安値/高値も生の価格
 - 当日の途中バーも入れる（画面の「現在価格」に使う。翌日の取得で確定値に上書きされる）
 - 朝の us_index_update.sh（米国株の引け後）と夜の daily_update.sh（日本株の引け後）に同梱
@@ -16,15 +19,18 @@ from django.core.management.base import BaseCommand
 
 from diary.models import Trade, TradeBar
 
+PRE_ENTRY_DAYS = 45     # 取得日の前に取る日数（暦日・約1か月＝営業日30本前後）
+
 
 def yf_ticker(trade: Trade) -> str:
     return trade.ticker if trade.country == 'US' else f'{trade.ticker}.T'
 
 
 def fetch_bars(trade: Trade) -> int:
-    """エントリー日〜今日の日足を取り直して upsert。戻り値は保存した本数"""
+    """取得日の PRE_ENTRY_DAYS 日前〜今日の日足を取り直して upsert。戻り値は保存した本数"""
     import yfinance as yf
-    start = trade.entry_date - timedelta(days=1)
+    first = trade.entry_date - timedelta(days=PRE_ENTRY_DAYS)
+    start = first - timedelta(days=1)
     df = yf.download(yf_ticker(trade), start=start.isoformat(), interval='1d',
                      auto_adjust=False, progress=False)
     if df is None or df.empty:
@@ -37,7 +43,7 @@ def fetch_bars(trade: Trade) -> int:
     to_create, to_update = [], []
     for ts in df.index:
         d = ts.date() if hasattr(ts, 'date') else ts
-        if d < trade.entry_date:
+        if d < first:
             continue
         vals = [float(cols[n].loc[ts]) for n in ('Open', 'High', 'Low', 'Close')]
         if any(v != v for v in vals):     # NaN

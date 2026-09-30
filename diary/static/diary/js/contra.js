@@ -248,3 +248,9 @@
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 })();
+
+// 振り返りチャート（購入前の足つき・2026-09-30）: 開いたときは右端＝取得日〜売却後を見せる。左へスクロールで購入前
+const rvToRight = (root) => root.querySelectorAll('.rv-scroll.has-pre').forEach((el) => { el.scrollLeft = el.scrollWidth; });
+rvToRight(document);
+// 折りたたみ（details）の中は開いた時点で幅が決まるので、開いたときにも右端へ
+document.addEventListener('toggle', (e) => { if (e.target.open) rvToRight(e.target); }, true);

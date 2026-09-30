@@ -448,15 +448,19 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
     """
     if not t.exit_date:
         return None
-    rows = [b for b in bars if b['date'] and b['date'] >= t.entry_date
-            and None not in (b['open'], b['high'], b['low'], b['close'])]
+    ok = [b for b in bars if b['date'] and None not in (b['open'], b['high'], b['low'], b['close'])]
+    rows = [b for b in ok if b['date'] >= t.entry_date]
     if not rows:
         return None
+    # 取得日より前の足（2026-09-30 ユーザー要望「購入時のグラフが見えない」）。左に足して横スクロールで見る。
+    # 1日あたりの幅は取得日以降と同じ（取得日〜右端が今までどおり画面幅に収まる）ので、全体の幅＝W が広がる
+    pre = [b for b in ok if b['date'] < t.entry_date]
+    pre_days = ((t.entry_date - pre[0]['date']).days + 1) if pre else 0
     exit_d = (t.exit_date - t.entry_date).days
     span = max(TIME_LIMIT_DAYS, exit_d + 1, max((b['date'] - t.entry_date).days for b in rows))
     span = min(span, max(TIME_LIMIT_DAYS, exit_d + AFTER_EXIT_DAYS))
     rows = [b for b in rows if (b['date'] - t.entry_date).days <= span]
-    prices = [t.target_price, t.stop_price] + [b['high'] for b in rows] + [b['low'] for b in rows]
+    prices = ([t.target_price, t.stop_price] + [b['high'] for b in pre + rows] + [b['low'] for b in pre + rows])
     if t.exit_price:
         prices.append(t.exit_price)
     ymax, ymin = max(prices), min(prices)
@@ -466,27 +470,35 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
     def y(p):
         return round((ymax - p) / (ymax - ymin) * CANDLE_H, 2)
     step = CANDLE_W / span
+    x0 = round(pre_days * step, 2)          # 取得日の x（前の足が無ければ 0）
+    W = round(CANDLE_W + x0, 2)
     w = round(min(step * 0.6, CANDLE_W / TIME_LIMIT_DAYS * 0.6), 2)
     out = []
-    for b in rows:
+    for b in pre + rows:
         d = (b['date'] - t.entry_date).days
-        cx = round(d * step, 2)
+        cx = round(x0 + d * step, 2)
         top, bot = max(b['open'], b['close']), min(b['open'], b['close'])
         out.append({'cx': cx, 'x': round(cx - w / 2, 2), 'w': w,
                     'hi': y(b['high']), 'lo': y(b['low']),
                     'body_y': y(top), 'body_h': max(0.8, round(y(bot) - y(top), 2)),
-                    'up': b['close'] >= b['open'], 'date': b['date'], 'after': d > exit_d,
+                    'up': b['close'] >= b['open'], 'date': b['date'], 'after': d > exit_d, 'before': d < 0,
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
-    return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step,
-            'peak': _peak(t, [c for c in out if not c['after']], y, CANDLE_W),   # 保有期間（売却日まで）の最高値
-            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price)},
+    held = [c for c in out if not c['after'] and not c['before']]
+    exit_x = round(x0 + exit_d * step, 2)
+    return {'items': out, 'W': W, 'H': CANDLE_H, 'step': step, 'x0': x0,
+            # 表示枠に対する全体の幅（100 超なら横スクロール）。購入前の足があるときは、開いた時点（右端）で
+            # 取得日の少し手前（枠の約1割）まで見えるよう、1画面＝取得日以降の 1.1 倍にする
+            'width_pct': round(W / (CANDLE_W * (1.1 if pre else 1)) * 100, 2),
+            'before_n': len(pre),
+            'peak': _peak(t, held, y, W),   # 保有期間（取得日〜売却日）の最高値
+            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price), 'pos': round(x0 / W * 100, 2)},
             'last_box': ({'label': '売却価格', 'price': t.exit_price, 'y': y(t.exit_price),
-                          'pos': round(exit_d * step / CANDLE_W * 100, 2), 'date': t.exit_date,
+                          'pos': round(exit_x / W * 100, 2), 'date': t.exit_date,
                           'pct': (t.exit_price / t.entry_price - 1) * 100} if t.exit_price else None),
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
-            'half_x': round(TIME_WARN_DAYS * step, 2), 'limit_x': round(TIME_LIMIT_DAYS * step, 2),
-            'exit_x': round(exit_d * step, 2), 'exit_y': y(t.exit_price) if t.exit_price else None,
-            'after_w': round(max(0, CANDLE_W - exit_d * step), 2),
+            'half_x': round(x0 + TIME_WARN_DAYS * step, 2), 'limit_x': round(x0 + TIME_LIMIT_DAYS * step, 2),
+            'exit_x': exit_x, 'exit_y': y(t.exit_price) if t.exit_price else None,
+            'after_w': round(max(0, W - exit_x), 2),
             'span': span, 'after_n': sum(1 for c in out if c['after'])}
 
 
@@ -502,22 +514,23 @@ def chart_overlay(t: Trade, chart: dict | None, notes: list) -> None:
     if not chart:
         return
     from django.utils import timezone as dj_tz
-    W, step = chart['W'], chart['step']
+    W, step, x0 = chart['W'], chart['step'], chart.get('x0', 0)
     items = chart['items']
-    every = max(1, -(-len(items) // 10))            # 10本を超えたら間引く（切り上げ）
+    held_n = sum(1 for c in items if not c.get('before'))
+    every = max(1, -(-held_n // 10))                # 10本を超えたら間引く（切り上げ・取得日以降の本数で）
     dates = []
     for i, c in enumerate(items):
         if i % every == 0 or i == len(items) - 1:
             dates.append({'pos': round(c['cx'] / W * 100, 2), 'label': f"{c['date'].month}/{c['date'].day}"})
     chart['dates'] = dates
-    span_days = (W / step) if step else TIME_LIMIT_DAYS
+    span_days = ((W - x0) / step) if step else TIME_LIMIT_DAYS
     marks, per_day = [], {}
     for no, n in enumerate(notes, start=1):
         d = t.entry_date if n.at_entry else dj_tz.localtime(n.created_at).date()
         k = max(0, min((d - t.entry_date).days, int(span_days)))
         stack = per_day.get(k, 0)
         per_day[k] = stack + 1
-        marks.append({'pos': round(k * step / W * 100, 2), 'no': no, 'kind': n.kind or 'info', 'stack': stack,
+        marks.append({'pos': round((x0 + k * step) / W * 100, 2), 'no': no, 'kind': n.kind or 'info', 'stack': stack,
                       'kind_label': n.get_kind_display() or '情報',
                       'text': n.text, 'when': '購入時' if n.at_entry else f'{d.month}/{d.day}'})
     chart['marks'] = marks
@@ -557,7 +570,8 @@ def open_rows(setting: ContraSetting, today: date | None = None, strategy: str =
     rows = []
     for t in (Trade.objects.filter(exit_date__isnull=True, strategy=strategy)
               .select_related('stock').order_by('entry_date')):
-        bars = list(t.bars.order_by('date').values('date', 'open', 'high', 'low', 'close'))
+        # ⚠️ 取得日より前の足（振り返り用に取っている）は保有中の判定に入れない
+        bars = list(t.bars.filter(date__gte=t.entry_date).order_by('date').values('date', 'open', 'high', 'low', 'close'))
         last = bars[-1] if bars else None
         cur = last['close'] if last else None
         # ⚠️ 建てた当日は日足がまだ無い（米国の引け前）。現在値マーカーが消えて「反映されていない」と

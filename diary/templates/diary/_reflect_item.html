@@ -13,16 +13,23 @@
   {% if r.candles %}
   <div class="ct-review-chart">
     {% with c=r.candles %}{% include 'diary/_chart_legend.html' %}{% endwith %}
-    <div class="rv-plot">
-    <svg viewBox="0 0 {{ r.candles.W }} {{ r.candles.H }}" preserveAspectRatio="none" aria-label="取得から売却後までの日足">
-      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.target_y }}" y2="{{ r.candles.target_y }}" class="ln-target" />
+    {% comment %}
+      取得日より前の足（2026-09-30 ユーザー要望「購入時のグラフが見えない」）: 左に足して横スクロール。
+      開いたときは右端（取得日〜売却後＝今までの表示）に合わせ、左へスクロールすると買う前の値動き（contra.js）
+    {% endcomment %}
+    <div class="rv-scroll{% if r.candles.before_n %} has-pre{% endif %}">
+    <div class="rv-plot" style="width:{{ r.candles.width_pct }}%">
+    <svg viewBox="0 0 {{ r.candles.W }} {{ r.candles.H }}" preserveAspectRatio="none" aria-label="購入前から売却後までの日足">
+      {% if r.candles.x0 %}<rect x="0" y="0" width="{{ r.candles.x0 }}" height="{{ r.candles.H }}" class="rv-before-bg" />
+      <line x1="{{ r.candles.x0 }}" x2="{{ r.candles.x0 }}" y1="0" y2="{{ r.candles.H }}" class="ln-entry-day" />{% endif %}
+      <line x1="{{ r.candles.x0 }}" x2="{{ r.candles.W }}" y1="{{ r.candles.target_y }}" y2="{{ r.candles.target_y }}" class="ln-target" />
       <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.entry_y }}" y2="{{ r.candles.entry_y }}" class="ln-entry" />
-      <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.stop_y }}" y2="{{ r.candles.stop_y }}" class="ln-stop" />
+      <line x1="{{ r.candles.x0 }}" x2="{{ r.candles.W }}" y1="{{ r.candles.stop_y }}" y2="{{ r.candles.stop_y }}" class="ln-stop" />
       <line x1="{{ r.candles.half_x }}" x2="{{ r.candles.half_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-half" />
       <line x1="{{ r.candles.limit_x }}" x2="{{ r.candles.limit_x }}" y1="0" y2="{{ r.candles.H }}" class="ln-limit" />
       <rect x="{{ r.candles.exit_x }}" y="0" width="{{ r.candles.after_w }}" height="{{ r.candles.H }}" class="rv-after-bg" />
       {% for c in r.candles.items %}
-      <g class="{% if c.up %}cd-up{% else %}cd-down{% endif %}{% if c.after %} cd-after{% endif %}"><title>{{ c.date|date:"n/j" }}{% if c.after %}（売却後）{% endif %} 始{{ c.o|floatformat:2 }} 高{{ c.h|floatformat:2 }} 安{{ c.l|floatformat:2 }} 終{{ c.c|floatformat:2 }}</title>
+      <g class="{% if c.up %}cd-up{% else %}cd-down{% endif %}{% if c.after %} cd-after{% endif %}{% if c.before %} cd-before{% endif %}"><title>{{ c.date|date:"n/j" }}{% if c.after %}（売却後）{% endif %}{% if c.before %}（購入前）{% endif %} 始{{ c.o|floatformat:2 }} 高{{ c.h|floatformat:2 }} 安{{ c.l|floatformat:2 }} 終{{ c.c|floatformat:2 }}</title>
         <line x1="{{ c.cx }}" x2="{{ c.cx }}" y1="{{ c.hi }}" y2="{{ c.lo }}" class="wick" />
         <rect x="{{ c.x }}" y="{{ c.body_y }}" width="{{ c.w }}" height="{{ c.body_h }}" /></g>
       {% endfor %}
@@ -30,9 +37,11 @@
     </svg>
     {% with c=r.candles %}{% include 'diary/_chart_overlay.html' %}{% endwith %}
     {% if r.candles.exit_y is not None %}<span class="rv-exit-mark" style="left:calc({{ r.candles.exit_x }} / {{ r.candles.W }} * 100%); top:calc({{ r.candles.exit_y }} / {{ r.candles.H }} * 100%)" title="売却 {{ r.unit }}{{ r.t.exit_price|floatformat:2 }}">◆</span>{% endif %}
+    {% if r.candles.x0 %}<span class="rv-pre-label" style="right:calc(100% - {{ r.candles.x0 }} / {{ r.candles.W }} * 100%)">← 購入前</span>{% endif %}
+    </div>
     </div>
     <div class="rv-legend ct-sub"><span class="rv-leg-exit">│ 売却 {{ r.t.exit_date|date:"n/j" }} {{ r.unit }}{{ r.t.exit_price|floatformat:2 }}</span>
-      <span>緑=利確線・白=建値・赤=損切り線・点線=15日／20日</span>{% if r.candles.after_n %}<span>右の薄い足＝売却後 {{ r.candles.after_n }}本</span>{% endif %}</div>
+      <span>緑=利確線・白=建値・赤=損切り線・点線=15日／20日</span>{% if r.candles.after_n %}<span>右の薄い足＝売却後 {{ r.candles.after_n }}本</span>{% endif %}{% if r.candles.before_n %}<span>左へスクロールすると購入前 {{ r.candles.before_n }}本</span>{% endif %}</div>
   </div>
   {% endif %}
   {% comment %}
