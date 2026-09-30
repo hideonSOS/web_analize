@@ -416,6 +416,11 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
     over = span > TIME_LIMIT_DAYS
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
             'peak': _peak(t, out, y, CANDLE_W),
+            # 吹き出し用（2026-09-30）: 取得価格と最終価格（最新の終値）
+            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price)},
+            'last_box': ({'label': '最終価格', 'price': out[-1]['c'], 'y': y(out[-1]['c']),
+                          'pos': round(out[-1]['cx'] / CANDLE_W * 100, 2), 'date': out[-1]['date'],
+                          'pct': (out[-1]['c'] / t.entry_price - 1) * 100} if out else None),
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
             'be_y': be_y, 'half_x': round(TIME_WARN_DAYS * step, 2),
             'over': over, 'limit_x': round(TIME_LIMIT_DAYS * step, 2) if over else None,
@@ -474,6 +479,10 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step,
             'peak': _peak(t, [c for c in out if not c['after']], y, CANDLE_W),   # 保有期間（売却日まで）の最高値
+            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price)},
+            'last_box': ({'label': '売却価格', 'price': t.exit_price, 'y': y(t.exit_price),
+                          'pos': round(exit_d * step / CANDLE_W * 100, 2), 'date': t.exit_date,
+                          'pct': (t.exit_price / t.entry_price - 1) * 100} if t.exit_price else None),
             'entry_y': y(t.entry_price), 'stop_y': y(t.stop_price), 'target_y': y(t.target_price),
             'half_x': round(TIME_WARN_DAYS * step, 2), 'limit_x': round(TIME_LIMIT_DAYS * step, 2),
             'exit_x': round(exit_d * step, 2), 'exit_y': y(t.exit_price) if t.exit_price else None,
