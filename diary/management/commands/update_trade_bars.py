@@ -19,7 +19,7 @@ from django.core.management.base import BaseCommand
 
 from diary.models import Trade, TradeBar
 
-PRE_ENTRY_DAYS = 45     # 取得日の前に取る日数（暦日・約1か月＝営業日30本前後）
+from diary.contra import PRE_REVIEW_DAYS as PRE_ENTRY_DAYS   # 取得日の前に取る日数（暦日10日・振り返りチャートと同じ）
 
 
 def yf_ticker(trade: Trade) -> str:

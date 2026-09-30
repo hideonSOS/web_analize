@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 from .models import ContraSetting, PracticeMeta, Trade, TradeBar, TradeNote
 
@@ -417,7 +417,10 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
             'peak': _peak(t, out, y, CANDLE_W),
             # 吹き出し用（2026-09-30）: 取得価格と最終価格（最新の終値）
-            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price)},
+            # 購入日の白い ▲（2026-09-30 ユーザー指示）: 取得日（最初の足）の安値の真下に置く
+            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price),
+                          'pos': round(out[0]['cx'] / CANDLE_W * 100, 2) if out else 0,
+                          'mark_y': out[0]['lo'] if out else y(t.entry_price)},
             'last_box': ({'label': '最終価格', 'price': out[-1]['c'], 'y': y(out[-1]['c']),
                           'pos': round(out[-1]['cx'] / CANDLE_W * 100, 2), 'date': out[-1]['date'],
                           'pct': (out[-1]['c'] / t.entry_price - 1) * 100} if out else None),
@@ -437,6 +440,9 @@ def _peak(t: Trade, items: list[dict], y, W: float) -> dict | None:
             'x': c['cx'], 'y': c['hi'], 'pos': round(c['cx'] / W * 100, 2)}
 
 
+PRE_REVIEW_DAYS = 10    # 振り返りチャートに出す購入前の日数（暦日・2026-09-30 ユーザー指示。update_trade_bars も同じ値）
+
+
 def review_candles(t: Trade, bars: list[dict]) -> dict | None:
     """決済済みの取引の振り返り用ローソク足（2026-09-29 ユーザー要望「購入後のローソク足が非常に学習になる。
     利確・損切り後もチャートとコメントを振り返りたい」）。
@@ -452,9 +458,10 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
     rows = [b for b in ok if b['date'] >= t.entry_date]
     if not rows:
         return None
-    # 取得日より前の足（2026-09-30 ユーザー要望「購入時のグラフが見えない」）。左に足して横スクロールで見る。
+    # 取得日より前の足（2026-09-30 ユーザー要望「購入時のグラフが見えない」→ 同日「購入前は10日で大丈夫」）。
+    # 取得日の PRE_REVIEW_DAYS 日前（暦日）から。左に足して横スクロールで見る。
     # 1日あたりの幅は取得日以降と同じ（取得日〜右端が今までどおり画面幅に収まる）ので、全体の幅＝W が広がる
-    pre = [b for b in ok if b['date'] < t.entry_date]
+    pre = [b for b in ok if t.entry_date - timedelta(days=PRE_REVIEW_DAYS) <= b['date'] < t.entry_date]
     pre_days = ((t.entry_date - pre[0]['date']).days + 1) if pre else 0
     exit_d = (t.exit_date - t.entry_date).days
     span = max(TIME_LIMIT_DAYS, exit_d + 1, max((b['date'] - t.entry_date).days for b in rows))
@@ -491,7 +498,10 @@ def review_candles(t: Trade, bars: list[dict]) -> dict | None:
             'width_pct': round(W / (CANDLE_W * (1.1 if pre else 1)) * 100, 2),
             'before_n': len(pre),
             'peak': _peak(t, held, y, W),   # 保有期間（取得日〜売却日）の最高値
-            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price), 'pos': round(x0 / W * 100, 2)},
+            # 購入日の ▲ は取得日以降の最初の足の下（取得日が休場日でも足に揃う）
+            'entry_box': {'price': t.entry_price, 'y': y(t.entry_price),
+                          'pos': round((held[0]['cx'] if held else x0) / W * 100, 2),
+                          'mark_y': held[0]['lo'] if held else y(t.entry_price)},
             'last_box': ({'label': '売却価格', 'price': t.exit_price, 'y': y(t.exit_price),
                           'pos': round(exit_x / W * 100, 2), 'date': t.exit_date,
                           'pct': (t.exit_price / t.entry_price - 1) * 100} if t.exit_price else None),

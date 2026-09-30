@@ -3,7 +3,7 @@
   グラフ上の印（● ▼ ◆）と同じ色。グラフの外に置き、上下 10px あける
 {% endcomment %}
 <div class="cv-legend">
-  {% if c.entry_box %}<span class="entry"><i>●</i> 取得価格 <b>{{ c.entry_box.price|floatformat:2 }}</b></span>{% endif %}
+  {% if c.entry_box %}<span class="entry"><i>▲</i> 取得価格 <b>{{ c.entry_box.price|floatformat:2 }}</b></span>{% endif %}
   {% if c.peak %}<span class="peak"><i>▼</i> 期間内最高値 <b>{{ c.peak.price|floatformat:2 }}</b> <em>{% if c.peak.pct >= 0 %}+{% endif %}{{ c.peak.pct|floatformat:1 }}%</em> <small>{{ c.peak.date|date:"n/j" }}</small></span>{% endif %}
   {% if c.last_box %}<span class="last"><i>◆</i> {{ c.last_box.label }} <b>{{ c.last_box.price|floatformat:2 }}</b> <em>{% if c.last_box.pct >= 0 %}+{% endif %}{{ c.last_box.pct|floatformat:1 }}%</em> <small>{{ c.last_box.date|date:"n/j" }}</small></span>{% endif %}
 </div>

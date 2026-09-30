@@ -8,12 +8,12 @@
 <div class="cv-dates">{% for d in c.dates %}<span class="{% if d.pos > 96 %}edge-r{% elif d.pos < 3 %}edge-l{% endif %}" style="left:{{ d.pos }}%">{{ d.label }}</span>{% endfor %}</div>
 {% comment %}
   取得価格・最終価格（保有中＝最新の終値／決済後＝売却価格）・期間内最高値（2026-09-30）。
-  ユーザー指示「ラベルがグラフの視認性を下げる」: グラフ上は小さな印だけ（● 取得・◆ 最終・▼ 最高値）、
+  ユーザー指示「ラベルがグラフの視認性を下げる」: グラフ上は小さな印だけ（▲ 購入日（白・取得日の足の下）・◆ 最終・▼ 最高値）、
   文字はグラフの上に並べる（_chart_legend.html・グラフの外に通常の流れで置く）
 {% endcomment %}
 {% if c.peak %}
 <span class="cv-peak-line" style="top:calc({{ c.peak.y }} / {{ c.H }} * 100%)"></span>
 <span class="cv-pt peak" style="left:{{ c.peak.pos }}%; top:calc({{ c.peak.y }} / {{ c.H }} * 100%)" title="期間内最高値 {{ c.peak.price|floatformat:2 }}">▼</span>
 {% endif %}
-{% if c.entry_box %}<span class="cv-pt entry" style="left:{{ c.entry_box.pos|default:0 }}%; top:calc({{ c.entry_box.y }} / {{ c.H }} * 100%)" title="取得価格 {{ c.entry_box.price|floatformat:2 }}">●</span>{% endif %}
+{% if c.entry_box %}<span class="cv-pt entry" style="left:{{ c.entry_box.pos|default:0 }}%; top:calc({{ c.entry_box.mark_y }} / {{ c.H }} * 100%)" title="購入日・取得価格 {{ c.entry_box.price|floatformat:2 }}">▲</span>{% endif %}
 {% if c.last_box %}<span class="cv-pt last" style="left:{{ c.last_box.pos }}%; top:calc({{ c.last_box.y }} / {{ c.H }} * 100%)" title="{{ c.last_box.label }} {{ c.last_box.price|floatformat:2 }}">◆</span>{% endif %}
