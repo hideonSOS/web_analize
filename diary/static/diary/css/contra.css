@@ -493,3 +493,26 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 .cv-bub.last::before{ content:''; position:absolute; left:-7px; top:50%; transform:translateY(-50%); border:6px solid transparent; border-right-color:#22d3ee; border-left:0; }
 .cv-bub.last.right::before{ left:auto; right:-7px; border-right-color:transparent; border-left:6px solid #22d3ee; }
 @media (max-width:600px){ .cv-bub{ padding:3px 6px; gap:4px; } .cv-bub b{ font-size:13px; } .cv-bub i{ font-size:10px; } .cv-bub em{ font-size:11px; } }
+
+/* 2026-09-30 改: 吹き出しをやめ、グラフ上は小さな印・文字はグラフ上端の外の1行（視認性のため） */
+.cv-bub{ display:none; }
+.cv-pt{ position:absolute; z-index:3; pointer-events:auto; font-size:12px; line-height:1; transform:translate(-50%, -50%); text-shadow:0 0 4px #000, 0 0 6px #000; }
+.cv-pt.peak{ color:#facc15; transform:translate(-50%, calc(-100% - 2px)); }
+.cv-pt.entry{ color:#e5e7eb; transform:translate(-50%, -50%); font-size:10px; }
+.cv-pt.last{ color:#22d3ee; font-size:13px; }
+.cv-legend{ position:absolute; left:0; right:0; bottom:100%; margin-bottom:6px; display:flex; flex-wrap:wrap; gap:4px 16px;
+  font-size:13px; color:#cbd5e1; pointer-events:none; }
+.cv-legend span{ white-space:nowrap; }
+.cv-legend i{ font-style:normal; }
+.cv-legend b{ font-size:15px; font-variant-numeric:tabular-nums; }
+.cv-legend em{ font-style:normal; font-weight:bold; }
+.cv-legend small{ color:#6b7280; font-size:11px; }
+.cv-legend .entry i{ color:#e5e7eb; }
+.cv-legend .last i, .cv-legend .last b, .cv-legend .last em{ color:#22d3ee; }
+.cv-legend .peak i, .cv-legend .peak b, .cv-legend .peak em{ color:#facc15; }
+/* 凡例の1行ぶん、グラフの上を空ける */
+.ct-cdl{ margin-top:40px; }
+.rv-plot{ margin-top:34px; }
+@media (max-width:600px){ .cv-legend{ font-size:11px; gap:2px 10px; } .cv-legend b{ font-size:13px; } .ct-cdl{ margin-top:52px; } .rv-plot{ margin-top:48px; } }
+.ct-cdl .cv-legend span, .rv-plot .cv-legend span{ position:static; display:inline-block; }
+.cv-legend i{ display:inline; }
