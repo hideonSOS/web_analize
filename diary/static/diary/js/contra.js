@@ -202,8 +202,10 @@
     } else { mbox.hidden = true; }
   }
   [price, shares, support].forEach((el) => el.addEventListener('input', render));
-  // 戻る・再読み込みでブラウザが入力を復元することがあるので、開いたときに必ず空にする
-  [price, shares, support].forEach((el) => { el.value = ''; });
+  // 戻る・再読み込みでブラウザが入力を復元することがあるので、開いたときに必ず初期状態にする。
+  // 株数だけは 1 を既定にする（2026-09-30 ユーザー指示）
+  [price, support].forEach((el) => { el.value = ''; });
+  shares.value = '1';
   render();
 })();
 
