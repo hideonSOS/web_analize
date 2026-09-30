@@ -262,3 +262,76 @@ document.querySelectorAll('.rv-scroll.has-pre').forEach((el) => {
   toRight();
   if (window.ResizeObserver) new ResizeObserver(toRight).observe(el);
 });
+
+/* シミュレーターの2面タブと「到達価格から逆算」（2026-09-30 ユーザー指示）。
+   「最高値 5000 に届くと仮定して、いくらで入れば +5% を取れるか」: 買値の上限 = 到達価格 ÷ (1 + 利確率)。
+   現在価格からの距離ではなく、到達価格から値幅を逆算する。現在価格は任意（その買値まで あと何% かを添える）。
+   入力・タブは記憶しない（開くたびに空欄・①のタブ） */
+(() => {
+  const root = document.getElementById('ct-sim');
+  const tabs = document.getElementById('ct-sim-tabs');
+  if (!root || !tabs) return;
+  const panels = [...root.querySelectorAll('.ct-sim-panel')];
+  tabs.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sim-panel]');
+    if (!b) return;
+    tabs.querySelectorAll('.ct-tab').forEach((x) => x.classList.toggle('active', x === b));
+    panels.forEach((p) => { p.hidden = p.dataset.simPanel !== b.dataset.simPanel; });
+  });
+
+  const reach = document.getElementById('ct-rev-reach'), cur = document.getElementById('ct-rev-cur');
+  if (!reach) return;
+  const $ = (id) => document.getElementById(id);
+  const px = (v) => v.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pct = (v) => (v > 0 ? '+' : (v < 0 ? '−' : '')) + Math.abs(v).toFixed(1) + '%';
+  const stopPct = parseFloat(root.dataset.stop) || 5, cost = (parseFloat(root.dataset.cost) || 0) / 100;
+  const btns = [...document.querySelectorAll('#ct-rev-rates button')];
+  let rate = parseFloat(root.dataset.target);
+  if (!btns.some((b) => parseFloat(b.dataset.rate) === rate)) rate = 10;
+  const mark = () => btns.forEach((b) => b.classList.toggle('active', parseFloat(b.dataset.rate) === rate));
+  btns.forEach((b) => b.addEventListener('click', () => { rate = parseFloat(b.dataset.rate); mark(); render(); }));
+  mark();
+
+  function render() {
+    const R = parseFloat(reach.value), C = parseFloat(cur.value);
+    const vis = $('ct-rev-vis');
+    if (!(R > 0)) { vis.hidden = true; return; }
+    vis.hidden = false;
+    const buyOf = (r) => R / (1 + r / 100);
+    const buy = buyOf(rate);
+    $('ct-rev-pct').textContent = rate;
+    $('ct-rev-buy').textContent = px(buy);
+    $('ct-rev-width').textContent = px(R - buy);
+    $('ct-rev-stop-pct').textContent = stopPct;
+    document.querySelectorAll('.ct-rev-stop-pct2').forEach((el) => { el.textContent = stopPct; });
+    $('ct-rev-stop').textContent = px(buy * (1 - stopPct / 100));
+    $('ct-rev-reach-v').textContent = px(R);
+    // コスト（片道×2）込みで +r% を手元に残すなら、さらに少し下で入る
+    $('ct-rev-cost').innerHTML = cost > 0
+      ? `コスト往復 ${(cost * 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%×2 も込みで +${rate}% を残すなら <b>${px(R / (1 + rate / 100 + 2 * cost))}</b> 以下`
+      : '';
+    const msg = $('ct-rev-cur-msg');
+    if (C > 0) {
+      msg.hidden = false;
+      const need = (buy / C - 1) * 100;
+      if (C <= buy) {
+        msg.className = 'ct-sim-support ok';
+        msg.innerHTML = `✔ 現在価格 <b>${px(C)}</b> は買値の上限 <b>${px(buy)}</b> 以下。到達価格まで <b>${pct((R / C - 1) * 100)}</b> の値幅`;
+      } else {
+        msg.className = 'ct-sim-support warn';
+        msg.innerHTML = `現在価格 <b>${px(C)}</b> から <b>${pct(need)}</b> 下がって <b>${px(buy)}</b> 以下になるまで待つ（今入ると到達価格まで ${pct((R / C - 1) * 100)}）`;
+      }
+    } else { msg.hidden = true; }
+    const table = document.querySelector('.ct-rev-table');
+    table.classList.toggle('no-cur', !(C > 0));
+    $('ct-rev-rows').innerHTML = btns.map((b) => {
+      const r = parseFloat(b.dataset.rate), v = buyOf(r);
+      const d = C > 0 ? (v / C - 1) * 100 : null;
+      const curCell = d === null ? '' : (C <= v ? '<td class="ct-rev-cur-col ok">買える ✔</td>' : `<td class="ct-rev-cur-col wait">${pct(d)}</td>`);
+      return `<tr class="${r === rate ? 'active' : ''}"><td>+${r}%</td><td>${px(v)}</td><td>${px(R - v)}</td><td class="stop">${px(v * (1 - stopPct / 100))}</td>${curCell || '<td class="ct-rev-cur-col"></td>'}</tr>`;
+    }).join('');
+  }
+  [reach, cur].forEach((el) => el.addEventListener('input', render));
+  reach.value = ''; cur.value = '';
+  render();
+})();

@@ -529,3 +529,22 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 /* 購入日の白い ▲（2026-09-30）: 取得日以降の最初の足の安値の少し下 */
 .cv-pt.entry{ color:#fff; font-size:14px; transform:translate(-50%, 4px); }
 .cv-legend .entry i{ color:#fff; }
+
+/* シミュレーターの2面タブ（2026-09-30）: ① 損切り・利確 ② 到達価格から逆算 */
+.ct-sim-tabs{ margin-bottom:8px; }
+.ct-sim-tabs .ct-tab{ font-size:15px; padding:8px 18px; }
+.ct-sim-lead{ display:block; margin:0 0 6px; }
+.ct-rev-top{ grid-template-columns:1fr 1fr; }
+.ct-rev-top .ct-rev-buy{ text-align:left; border-color:#3b82f6; }
+.ct-rev-top .ct-rev-buy b#ct-rev-buy{ font-size:34px; color:#93c5fd; }
+.ct-rev-top .ct-sim-after b{ font-size:14px; color:#fff; }
+.ct-rev-cost{ margin:8px 0 0; font-size:12.5px; color:#9ca3af; }
+.ct-rev-cost b{ color:#e5e7eb; }
+.ct-rev-table{ width:100%; margin-top:12px; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
+.ct-rev-table th{ font-size:11px; font-weight:400; color:#9ca3af; text-align:right; padding:4px 8px; border-bottom:1px solid #1f2937; }
+.ct-rev-table th:first-child, .ct-rev-table td:first-child{ text-align:left; }
+.ct-rev-table td{ text-align:right; padding:6px 8px; border-bottom:1px solid #111827; color:#cbd5e1; }
+.ct-rev-table tr.active td{ background:rgba(59,130,246,.14); color:#fff; font-weight:700; }
+.ct-rev-table td.stop{ color:#fca5a5; } .ct-rev-table td.ok{ color:#4ade80; } .ct-rev-table td.wait{ color:#fcd34d; }
+.ct-rev-table.no-cur .ct-rev-cur-col{ display:none; }
+@media (max-width:640px){ .ct-rev-top{ grid-template-columns:1fr; } .ct-rev-table{ font-size:12.5px; } .ct-rev-table th, .ct-rev-table td{ padding:5px 4px; } }

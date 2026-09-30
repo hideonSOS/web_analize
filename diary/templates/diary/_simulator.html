@@ -13,8 +13,17 @@
          data-stop="{{ setting.default_stop_pct }}" data-target="{{ setting.default_target_pct }}" data-be="{{ setting.be_trigger_pct }}"
          data-cost="{{ setting.cost_pct }}" data-capital="{{ setting.capital }}" data-risk="{{ setting.risk_pct }}"
          data-key="{{ sim_key|default:'contra' }}">
-  <h2>損切り・利確シミュレーター
-    <span class="ct-hint">株価を入れると 利確・損切り（下のボタンで選ぶ）のラインが出る・通貨なしの数値計算（ドルでも円でも）</span></h2>
+  {% comment %}
+    2面のタブ（2026-09-30 ユーザー指示）: ① 損切り・利確（買値 → 上下のライン）② 到達価格から逆算
+    （「最高値 5000 に届くと仮定して、いくらで入れば +5% を取れるか」＝到達価格 ÷ (1+利確率) が買値の上限）。
+    タブの選択も記憶しない
+  {% endcomment %}
+  <div class="ct-tabs ct-sim-tabs" id="ct-sim-tabs">
+    <button type="button" class="ct-tab active" data-sim-panel="line">損切り・利確シミュレーター</button>
+    <button type="button" class="ct-tab" data-sim-panel="rev">到達価格から逆算</button>
+  </div>
+  <div class="ct-sim-panel" data-sim-panel="line">
+  <p class="ct-hint ct-sim-lead">株価を入れると 利確・損切り（下のボタンで選ぶ）のラインが出る・通貨なしの数値計算（ドルでも円でも）</p>
   {% comment %}
     利確率のボタン（2026-09-30 ユーザー指示: 5・7・10・15% を用意し、有効にした率で計算）。既定はページの利確設定。
     通貨記号は付けない（円の銘柄でも使うので、ただの数値計算。同日ユーザー指示）
@@ -73,6 +82,41 @@
           <b id="ct-sim-verdict"></b></span>
       </div>
       <div class="ct-sim-gauge"><div class="ct-sim-gauge-fill" id="ct-sim-gauge"></div></div><span class="ct-sim-gauge-l" id="ct-sim-gauge-l"></span>
+    </div>
+  </div>
+  </div>
+
+  {% comment %}
+    ② 到達価格から逆算（2026-09-30）。現在価格からの距離ではなく「最高値（到達価格）に届くと仮定して、
+    利確率ぶんの値幅を残すには いくら以下で入るか」を出す。買値の上限 = 到達価格 ÷ (1 + 利確率)。
+    現在価格は任意（入れたときだけ、その買値まで あと何% 下がるかを添える）
+  {% endcomment %}
+  <div class="ct-sim-panel" data-sim-panel="rev" hidden>
+    <p class="ct-hint ct-sim-lead">到達価格（想定の最高値）を入れると、利確ぶんの値幅を取るために いくら以下で入ればよいかを逆算</p>
+    <div class="ct-sim-rates" id="ct-rev-rates">
+      <span class="k">利確</span>
+      <button type="button" data-rate="5">+5%</button>
+      <button type="button" data-rate="7">+7%</button>
+      <button type="button" data-rate="10">+10%</button>
+      <button type="button" data-rate="15">+15%</button>
+    </div>
+    <div class="ct-sim-in">
+      <label class="main">到達価格<input type="number" id="ct-rev-reach" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 5000"></label>
+      <label>現在価格（任意）<input type="number" id="ct-rev-cur" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="今との距離を見る"></label>
+    </div>
+    <div class="ct-sim-vis" id="ct-rev-vis" hidden>
+      <div class="ct-sim-top ct-rev-top">
+        <div class="ct-sim-box entry ct-rev-buy"><span class="k">この価格以下でイン（+<span id="ct-rev-pct"></span>%）</span><b id="ct-rev-buy"></b>
+          <span class="ct-sim-after">値幅 <b id="ct-rev-width"></b> ・ 損切り（−<span id="ct-rev-stop-pct"></span>%）<b id="ct-rev-stop"></b></span></div>
+        <div class="ct-sim-box target"><span class="k">到達価格</span><b id="ct-rev-reach-v"></b><span class="ct-sim-after">ここに指値の売り</span></div>
+      </div>
+      <p class="ct-rev-cost" id="ct-rev-cost"></p>
+      <p class="ct-sim-support" id="ct-rev-cur-msg" hidden></p>
+      {% comment %} 4つの利確率の比較（選んだ率の行を強調） {% endcomment %}
+      <table class="ct-rev-table">
+        <thead><tr><th>利確</th><th>買値の上限</th><th>値幅</th><th>損切り（−<span class="ct-rev-stop-pct2"></span>%）</th><th class="ct-rev-cur-col">現在から</th></tr></thead>
+        <tbody id="ct-rev-rows"></tbody>
+      </table>
     </div>
   </div>
 </section>
