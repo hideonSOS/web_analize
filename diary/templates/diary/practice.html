@@ -107,12 +107,7 @@
         {% comment %} 購入時のチャート（スクリーンショット）は 2026-09-29 に撤去（ユーザー指示: 不要） {% endcomment %}
         <label class="ct-fld">マイナスになる想定（必須）
           <textarea name="risk_scenario" rows="2" required placeholder="例: 決算の悪材料が続くとサポートを割って−5%に届く。指数が崩れたら道連れ"></textarea></label>
-        <div class="ct-form-row">
-          <div class="ct-fld"><span>判断理由タグ</span>
-            <div class="dy-check-row">{% for t in tags %}<label><input type="checkbox" name="tags" value="{{ t }}"> {{ t }}</label>{% endfor %}</div></div>
-          <div class="ct-fld"><span>心理</span>
-            <div class="dy-radio-row">{% for m in moods %}<label><input type="radio" name="mood" value="{{ m }}" {% if m == '中立' %}checked{% endif %}> {{ m }}</label>{% endfor %}</div></div>
-        </div>
+        {% comment %} 判断理由タグ（テクニカル等）・心理は 2026-09-30 に削除（ユーザー指示: 不要） {% endcomment %}
         <button class="ct-btn" type="submit">買ったつもりで記録</button>
       </form>
     </details>
