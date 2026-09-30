@@ -461,3 +461,7 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 .ct-sim-rates.stop button.active{ border-color:#ef4444; background:rgba(239,68,68,.16); color:#fee2e2; box-shadow:0 0 10px rgba(239,68,68,.3); }
 /* 利確・損切のラベル幅を固定してボタンの横位置を揃える（2026-09-30） */
 .ct-sim-rates .k{ display:inline-block; width:2.6em; margin-right:0; }
+/* 狭い画面でも4つを1行に（折り返すと上下の列がずれる）。ボタンは同じ幅で並べる */
+.ct-sim-rates{ flex-wrap:nowrap; }
+.ct-sim-rates button{ flex:0 1 72px; min-width:0; padding:7px 4px; }
+@media (max-width:600px){ .ct-sim-rates{ gap:6px; } .ct-sim-rates button{ flex:1 1 0; font-size:13px; } }
