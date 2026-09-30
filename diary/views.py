@@ -36,6 +36,7 @@ def index(request):
         buys_by_stock.setdefault(b.stock_id, []).append(b)
 
     rows = []
+    entries = entries.prefetch_related('limit_orders')
     for e in entries:
         change = pnl = rr = None
         realized = realized_pct = buy_ref = None
@@ -81,6 +82,7 @@ def index(request):
             'trackable': e.action == 'buy' and bool(e.stock and e.price and e.shares),
             'tracked_open': bool(e.trade and e.trade.exit_date is None),
             'tracked_closed': bool(e.trade and e.trade.exit_date is not None),
+            'from_limit': next(iter(e.limit_orders.all()), None),   # 指値注文が約定して作った買い
         })
 
     all_entries = DiaryEntry.objects.all()
@@ -91,6 +93,14 @@ def index(request):
     }
     from .models import ContraSetting, Trade
     open_trades_n = Trade.objects.filter(exit_date__isnull=True, strategy='contra').count()
+
+    # 指値の買い注文（2026-09-30）: 指値中は上に、約定しなかった注文は振り返り用に下へ
+    from . import limit_orders as LO
+    from .models import LimitOrder
+    orders = list(LimitOrder.objects.select_related('stock'))
+    pending_orders = [LO.row(o) for o in orders if o.status == 'pending']
+    pending_orders.sort(key=lambda r: r['o'].placed_at)
+    unfilled_orders = [LO.row(o) for o in orders if o.status == 'unfilled']
 
     context = {
         'rows': rows,
@@ -107,6 +117,10 @@ def index(request):
         'action_choices': DiaryEntry.ACTION_CHOICES,
         'result_choices': DiaryEntry.RESULT_CHOICES,
         'sell_prefill': _sell_prefill(request),
+        'pending_orders': pending_orders,
+        'unfilled_orders': unfilled_orders,
+        'order_summary': LO.summary(orders),
+        'order_after_bars': LO.AFTER_BARS,
     }
     return render(request, 'diary/index.html', context)
 
@@ -201,6 +215,11 @@ def create(request):
         rf = request.POST.get('rule_followed', '')
         rule_followed = True if rf == 'yes' else (False if rf == 'no' else None)
 
+    from django.contrib import messages
+    if action == 'buy' and request.POST.get('order_type') == 'limit':
+        return _create_limit_order(request, stock, name, code, recorded_at, price, shares,
+                                   _float_or_none('target_price'), _float_or_none('stop_price'))
+
     entry = DiaryEntry.objects.create(
         stock=stock,
         stock_name=name,
@@ -221,8 +240,6 @@ def create(request):
     # 短期との連動（入力は日記に統一・2026-09-09）:
     #   買い＋「短期トレードとして追跡」チェック → Trade を起こす（損切り/利確は日記の価格から）
     #   売り → 同じ銘柄の保有中の短期取引があれば決済（理由は選択、未選択なら価格から推定）
-    from django.contrib import messages
-
     from . import contra as C
     from .models import ContraSetting
     if action == 'buy' and request.POST.get('track_contra'):
@@ -239,6 +256,102 @@ def create(request):
         if t:
             net = t.pnl_pct_net(ContraSetting.get().cost_pct)
             messages.success(request, f'短期トレードの {t.ticker} を{t.get_exit_reason_display()}で決済（コスト込み {net:+.2f}%）。')
+    return redirect('diary:index')
+
+
+def _create_limit_order(request, stock, name, code, recorded_at, price, shares, target_price, stop_price):
+    """指値の買い（当日限り・2026-09-30）。約定するまで DiaryEntry は作らない（保有数・短期・損益に混ぜない）。
+    短期の追跡の有無・利確率は注文に持たせ、約定したとき（order_fill）に約定価格で始める"""
+    from django.contrib import messages
+
+    from . import limit_orders as LO
+    from .contra import TARGET_CHOICES
+    from .models import LimitOrder
+    if stock is None or not price or not shares:
+        messages.error(request, '指値の記録には銘柄・指値・株数が必要です（記録していません）。')
+        return redirect('diary:index')
+    country = 'US' if stock.country == 'US' else 'JP'
+    try:
+        tt = float(request.POST.get('track_target', ''))
+    except ValueError:
+        tt = None
+    o = LimitOrder.objects.create(
+        stock=stock, stock_name=name, stock_code=stock.display_code if stock else code,
+        placed_at=recorded_at, session_date=LO.session_date_for(recorded_at, country),
+        limit_price=price, shares=shares, target_price=target_price, stop_price=stop_price,
+        reason=request.POST.get('reason', '').strip(),
+        track_contra=bool(request.POST.get('track_contra')),
+        track_target=tt if tt in TARGET_CHOICES else None,
+        risk_scenario=request.POST.get('risk_scenario', '').strip(),
+    )
+    messages.success(request, f'{o.stock_name} の指値 {o.limit_price:g} × {o.shares}株 を記録しました'
+                     f'（{o.session_date.month}/{o.session_date.day} の当日限り）。約定したかは翌日に上の「指値中」で確定します。')
+    return redirect('diary:index')
+
+
+@require_POST
+def order_fill(request, pk):
+    """指値が約定した → 通常の買いの日記を作る（約定日時＝注文日時・株数＝注文の株数・約定価格は既定で指値）。
+    注文時に「短期トレードとして追跡」を選んでいたら、ここで約定価格から追跡を始める"""
+    from django.contrib import messages
+
+    from . import contra as C
+    from .models import ContraSetting, LimitOrder
+    o = get_object_or_404(LimitOrder, pk=pk, status='pending')
+    try:
+        fill = float(request.POST.get('price', ''))
+    except ValueError:
+        fill = o.limit_price
+    if not fill or fill <= 0:
+        fill = o.limit_price
+    entry = DiaryEntry.objects.create(
+        stock=o.stock, stock_name=o.stock_name, stock_code=o.stock_code, recorded_at=o.placed_at,
+        price=fill, shares=o.shares, target_price=o.target_price, stop_price=o.stop_price,
+        action='buy', tags='', mood='', reason=o.reason, impression='',
+    )
+    o.status, o.entry, o.resolved_at = 'filled', entry, timezone.now()
+    o.save(update_fields=['status', 'entry', 'resolved_at'])
+    msg = f'{o.stock_name} を {fill:g} で約定として記録しました（買いの日記に追加）。'
+    if o.track_contra:
+        t = C.open_from_entry(entry, ContraSetting.get(), o.risk_scenario, target_pct=o.track_target)
+        if t:
+            msg += f' 短期トレードとして追跡します（利確 +{t.target_pct:g}%：{t.target_price:g}／損切り {t.stop_price:g}）。'
+    messages.success(request, msg)
+    return redirect('diary:index')
+
+
+@require_POST
+def order_unfill(request, pk):
+    """指値が約定しなかった → 一言だけ残す（日記・保有数には入らない）"""
+    from django.contrib import messages
+
+    from .models import LimitOrder
+    o = get_object_or_404(LimitOrder, pk=pk, status='pending')
+    o.status, o.note, o.resolved_at = 'unfilled', request.POST.get('note', '').strip(), timezone.now()
+    o.save(update_fields=['status', 'note', 'resolved_at'])
+    messages.success(request, f'{o.stock_name} の指値 {o.limit_price:g} は約定しなかったとして記録しました。')
+    return redirect('diary:index')
+
+
+@require_POST
+def order_delete(request, pk):
+    """指値の記録を消す（入力ミスなど）。約定済み（日記がある）ものはここでは消さない"""
+    from .models import LimitOrder
+    o = get_object_or_404(LimitOrder, pk=pk)
+    if o.status != 'filled':
+        o.delete()
+    return redirect('diary:index')
+
+
+@require_POST
+def order_refresh(request):
+    """「日足を確認」ボタン: 指値中・約定しなかった注文の日足をその場で取る（毎日のバッチを待たずに）"""
+    from django.contrib import messages
+    from django.core.management import call_command
+    try:
+        call_command('update_limit_orders')
+    except Exception as e:   # noqa: BLE001
+        messages.error(request, f'日足の取得に失敗しました: {e}')
     return redirect('diary:index')
 
 
@@ -397,6 +510,9 @@ def review_delete(request, pk):
 @require_POST
 def delete(request, pk):
     entry = get_object_or_404(DiaryEntry, pk=pk)
+    # 指値注文が約定して作った日記を消したら、注文は「指値中」に戻す（約定したか決め直せる・2026-09-30）
+    from .models import LimitOrder
+    LimitOrder.objects.filter(entry=entry).update(status='pending', entry=None, resolved_at=None)
     # 短期のエントリー記録を消したら、その取引（日足・決済の紐付け）も消す。
     # 決済側の記録だけ消した場合は取引を未決済に戻す
     t = entry.trade

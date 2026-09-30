@@ -156,6 +156,31 @@
   actionRadios.forEach((r) => r.addEventListener('change', toggleExit));
   toggleExit();
 
+  // 注文方法（買いのみ・2026-09-30）: 指値（当日限り）を選ぶと、株価欄は「指値」、ボタンは「指値を記録する」
+  const orderField = document.getElementById('dy-order-field');
+  const orderRadios = [...document.querySelectorAll('#dy-form input[name="order_type"]')];
+  function applyOrderType() {
+    if (!orderField) return;
+    const checked = actionRadios.find((r) => r.checked);
+    const isBuy = !!(checked && checked.value === 'buy');
+    orderField.hidden = !isBuy;
+    if (!isBuy) orderRadios.forEach((r) => { r.checked = r.value === 'done'; });
+    const isLimit = isBuy && orderRadios.some((r) => r.checked && r.value === 'limit');
+    const lab = document.getElementById('dy-price-label');
+    if (lab) lab.textContent = isLimit ? '指値' : '株価';
+    const hint = document.getElementById('dy-order-hint');
+    if (hint) hint.hidden = !isLimit;
+    const btn = document.getElementById('dy-submit');
+    if (btn) btn.textContent = isLimit ? '指値を記録する' : '記録する';
+    // 指値は銘柄・価格・株数が必須
+    priceInput.required = isLimit;
+    const sh = document.getElementById('dy-shares');
+    if (sh) sh.required = isLimit;
+  }
+  orderRadios.forEach((r) => r.addEventListener('change', applyOrderType));
+  actionRadios.forEach((r) => r.addEventListener('change', applyOrderType));
+  applyOrderType();
+
   // 短期で追跡（ルール固定）: チェックすると目標・損切りを既定%（利確+10/損切り-5）で
   // 埋めてロックする。手入力で崩せないようにするのが目的（サーバー側でも同じ値で上書きする）。
   // 許容株数（資金×リスク% ÷ 1株あたりの損失）も出す

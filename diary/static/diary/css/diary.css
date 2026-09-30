@@ -358,3 +358,51 @@
   border:1px solid #334155; background:#0f172a; color:#9ca3af; font-size:14px; font-weight:bold; cursor:pointer; }
 .dy-track-targets input:checked + span{ border-color:#22c55e; background:rgba(34,197,94,.18); color:#dcfce7; box-shadow:0 0 10px rgba(34,197,94,.3); }
 .dy-track-sel{ background:#0f172a; border:1px solid #334155; border-radius:6px; color:#e5e7eb; font-size:12px; padding:2px 4px; margin-right:4px; }
+
+/* ---- 指値の買い注文（2026-09-30）: 指値中／約定しなかった指値 ---- */
+.lo-sec{ margin:14px 0 18px; }
+.lo-head{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; justify-content:space-between; }
+.lo-head h2{ margin:0; font-size:17px; color:#fcd34d; }
+.lo-head h2 span{ font-size:12px; color:#9ca3af; font-weight:400; margin-left:6px; }
+.lo-refresh{ background:#0f172a; border:1px solid #334155; color:#cbd5e1; border-radius:8px; padding:6px 12px; font-size:12px; cursor:pointer; }
+.lo-refresh:hover{ border-color:#f59e0b; color:#fde68a; }
+.lo-card{ border:1px solid #7c5a1e; border-radius:12px; background:rgba(245,158,11,.05); padding:12px 14px; margin-top:10px; }
+.lo-card.reached{ border-color:#1e5c2f; background:rgba(34,197,94,.05); }
+.lo-card.missed{ border-color:#475569; }
+.lo-card.lo-missed{ border-color:#334155; background:#0b1220; }
+.lo-card-head{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.lo-badge{ font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; background:rgba(245,158,11,.2); color:#fcd34d; border:1px solid #f59e0b; }
+.lo-badge.gray{ background:rgba(107,114,128,.2); color:#d1d5db; border-color:#6b7280; }
+.lo-badge.small{ font-size:11px; padding:2px 8px; }
+.lo-date{ font-size:12px; color:#9ca3af; margin-left:auto; }
+.lo-del{ margin:0; } .lo-del button{ background:none; border:none; cursor:pointer; font-size:14px; opacity:.7; }
+.lo-body{ margin-top:8px; }
+.lo-price{ display:flex; align-items:baseline; gap:8px; }
+.lo-price .k{ font-size:12px; color:#9ca3af; } .lo-price b{ font-size:26px; color:#fff; font-variant-numeric:tabular-nums; } .lo-price .sub{ color:#cbd5e1; font-size:13px; }
+.lo-verdict{ margin:8px 0 0; font-size:13.5px; line-height:1.6; border-radius:8px; padding:7px 10px; border:1px solid #334155; color:#cbd5e1; }
+.lo-verdict b{ color:#fff; }
+.lo-verdict.reached{ border-color:#1e5c2f; color:#bbf7d0; } .lo-verdict.missed{ border-color:#7c2d2d; color:#fecaca; } .lo-verdict.wait{ color:#9ca3af; }
+.lo-track{ margin:6px 0 0; font-size:12px; color:#fde68a; }
+.lo-reason{ margin:6px 0 0; font-size:13px; color:#cbd5e1; }
+.lo-actions{ display:flex; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
+.lo-actions form{ display:flex; align-items:end; gap:6px; margin:0; flex:1 1 280px; }
+.lo-actions label{ display:flex; flex-direction:column; font-size:11px; color:#9ca3af; gap:2px; }
+.lo-actions input{ background:#0b1220; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:7px 9px; font-size:14px; }
+.lo-fill input{ width:120px; } .lo-unfill input{ flex:1; min-width:0; }
+.lo-actions button{ white-space:nowrap; border-radius:8px; padding:8px 14px; font-size:14px; font-weight:700; cursor:pointer; border:1px solid #334155; background:#0f172a; color:#cbd5e1; }
+.lo-fill.primary button{ border-color:#22c55e; background:rgba(34,197,94,.2); color:#dcfce7; }
+.lo-unfill.primary button{ border-color:#94a3b8; background:rgba(148,163,184,.2); color:#f1f5f9; }
+.lo-missed-sec > summary{ cursor:pointer; list-style:none; }
+.lo-missed-sec > summary::-webkit-details-marker{ display:none; }
+.lo-missed-sec .lo-head h2{ color:#cbd5e1; }
+.lo-missed-sec .lo-head h2::before{ content:"\25B8  "; color:#6b7280; }
+.lo-missed-sec[open] .lo-head h2::before{ content:"\25BE  "; }
+.lo-sum{ font-size:12.5px; color:#9ca3af; } .lo-sum b{ color:#fff; }
+.lo-line{ display:flex; flex-wrap:wrap; gap:4px 18px; font-size:13.5px; color:#cbd5e1; } .lo-line b{ color:#fff; }
+.lo-miss{ color:#fca5a5 !important; }
+.lo-note{ margin:6px 0 0; font-size:14px; color:#fde68a; }
+.lo-after{ margin:6px 0 0; font-size:13px; color:#cbd5e1; } .lo-after b{ color:#fff; }
+.lo-after.up b{ color:#4ade80; } .lo-after.wait b{ color:#fcd34d; }
+.lo-sub{ font-size:11px; color:#6b7280; margin-left:4px; }
+.dy-order-hint{ display:block; font-size:11.5px; color:#fcd34d; margin-top:4px; }
+@media (max-width:600px){ .lo-date{ margin-left:0; width:100%; order:5; } .lo-actions form{ flex-basis:100%; } }

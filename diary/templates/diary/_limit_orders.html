@@ -1,0 +1,80 @@
+{% load humanize %}
+{% comment %}
+  指値の買い注文（2026-09-30 ユーザー要望）。当日限り。
+  - 指値中: 翌日、その日の安値が指値に届いたかの目安を見て「約定した」「約定しなかった」を押す（自動では確定しない）。
+    約定した → 通常の買いの日記を作る（約定価格は既定で指値。寄り付きが指値より下なら始値を既定に）
+  - 約定しなかった注文: 一言と、あと何% 届かなかったか・その後どう動いたか（答え合わせ）
+  指値中／約定しなかった注文は、日記の一覧・ポートフォリオの保有数・短期トレードには入らない
+{% endcomment %}
+{% if pending_orders %}
+<section class="lo-sec">
+  <div class="lo-head">
+    <h2>指値中 <span>{{ pending_orders|length }}件・当日限り</span></h2>
+    <form method="post" action="{% url 'diary:order_refresh' %}">{% csrf_token %}<button type="submit" class="lo-refresh" title="注文日の日足（安値）を取りに行く">日足を確認</button></form>
+  </div>
+  {% for r in pending_orders %}
+  <article class="lo-card {{ r.verdict }}">
+    <header class="lo-card-head">
+      <span class="lo-badge">指値</span>
+      <span class="dy-stock">{{ r.o.stock_name }}<span class="dy-stock-code">（{{ r.o.stock_code }}）</span>{% if r.is_us %}<span class="dy-us-tag">US</span>{% endif %}</span>
+      <span class="lo-date">{{ r.o.session_date|date:"n/j" }}（{{ r.o.session_date|date:"D" }}）の当日限り</span>
+      <form method="post" action="{% url 'diary:order_delete' r.o.pk %}" class="lo-del" onsubmit="return confirm('この指値の記録を削除しますか？（入力ミスなど）');">{% csrf_token %}<button type="submit" title="削除">🗑</button></form>
+    </header>
+    <div class="lo-body">
+      <div class="lo-price"><span class="k">指値</span><b>{{ r.cur_pre }}{{ r.o.limit_price|floatformat:2 }}{{ r.cur_suf }}</b><span class="sub">× {{ r.o.shares|intcomma }}株</span></div>
+      {% if r.verdict == 'missed' %}
+      <p class="lo-verdict missed">✖ 届かず：その日の安値 <b>{{ r.cur_pre }}{{ r.o.day_low|floatformat:2 }}</b>（指値まで あと <b>{{ r.miss_pct|floatformat:1 }}%</b>）→ 約定していないはず</p>
+      {% elif r.verdict == 'reached' %}
+      <p class="lo-verdict reached">✔ その日の安値 <b>{{ r.cur_pre }}{{ r.o.day_low|floatformat:2 }}</b> で指値に到達 → 約定したはず（ちょうど触れただけなら約定していないこともあります）
+        {% if r.gap_open %}<br>⚠ 寄り付き <b>{{ r.cur_pre }}{{ r.o.day_open|floatformat:2 }}</b> が指値より下 → 始値で約定した可能性（下の価格を既定にしています）{% endif %}</p>
+      {% elif r.closed %}
+      <p class="lo-verdict wait">引けました。「日足を確認」で安値を取ると、約定したかの目安が出ます（毎日の更新でも入ります）</p>
+      {% else %}
+      <p class="lo-verdict wait">注文中（引け前）{% if r.to_limit is not None %}・直近の終値 {{ r.cur_pre }}{{ r.cur|floatformat:2 }} から指値まで <b>{{ r.to_limit|floatformat:1 }}%</b>{% endif %}</p>
+      {% endif %}
+      {% if r.o.track_contra %}<p class="lo-track">⚡ 約定したら短期トレードとして追跡（利確 +{{ r.o.track_target|default:10|floatformat:"-1" }}%・約定価格から）</p>{% endif %}
+      {% if r.o.reason %}<p class="lo-reason">{{ r.o.reason|linebreaksbr }}</p>{% endif %}
+    </div>
+    <div class="lo-actions">
+      <form method="post" action="{% url 'diary:order_fill' r.o.pk %}" class="lo-fill{% if r.verdict == 'reached' %} primary{% endif %}">{% csrf_token %}
+        <label>約定価格<input type="number" name="price" value="{{ r.fill_price|floatformat:'-2' }}" step="0.01" min="0.01" inputmode="decimal"></label>
+        <button type="submit">約定した</button>
+      </form>
+      <form method="post" action="{% url 'diary:order_unfill' r.o.pk %}" class="lo-unfill{% if r.verdict == 'missed' %} primary{% endif %}">{% csrf_token %}
+        <input type="text" name="note" placeholder="一言（例: 流石にそこまでは下がらなかった）" maxlength="300">
+        <button type="submit">約定しなかった</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if unfilled_orders %}
+<details class="lo-sec lo-missed-sec">
+  <summary class="lo-head"><h2>約定しなかった指値 <span>{{ unfilled_orders|length }}件</span></h2>
+    <span class="lo-sum">約定率 <b>{{ order_summary.fill_rate|floatformat:0 }}%</b>（約定 {{ order_summary.filled }}／約定せず {{ order_summary.unfilled }}）{% if order_summary.avg_miss is not None %}・届かなかった幅 平均 <b>{{ order_summary.avg_miss|floatformat:1 }}%</b>{% endif %}</span></summary>
+  {% for r in unfilled_orders %}
+  <article class="lo-card lo-missed">
+    <header class="lo-card-head">
+      <span class="lo-badge gray">約定せず</span>
+      <span class="dy-stock">{{ r.o.stock_name }}<span class="dy-stock-code">（{{ r.o.stock_code }}）</span>{% if r.is_us %}<span class="dy-us-tag">US</span>{% endif %}</span>
+      <span class="lo-date">{{ r.o.session_date|date:"Y/n/j" }}</span>
+      <form method="post" action="{% url 'diary:order_delete' r.o.pk %}" class="lo-del" onsubmit="return confirm('この記録を削除しますか？');">{% csrf_token %}<button type="submit" title="削除">🗑</button></form>
+    </header>
+    <div class="lo-body">
+      <div class="lo-line">
+        <span>指値 <b>{{ r.cur_pre }}{{ r.o.limit_price|floatformat:2 }}{{ r.cur_suf }}</b> × {{ r.o.shares|intcomma }}株</span>
+        {% if r.o.day_low is not None %}<span>その日の安値 <b>{{ r.cur_pre }}{{ r.o.day_low|floatformat:2 }}</b>{% if r.miss_pct is not None %}（あと <b class="lo-miss">{{ r.miss_pct|floatformat:1 }}%</b> 届かず）{% else %}（指値に触れた）{% endif %}</span>{% endif %}
+      </div>
+      {% if r.o.note %}<p class="lo-note">「{{ r.o.note }}」</p>{% endif %}
+      {% if r.after %}
+      <p class="lo-after {{ r.after.tone }}">その後 {{ r.after.n }}{% if not r.after.done %}/{{ order_after_bars }}{% endif %}営業日：<b>{{ r.after.word }}</b>
+        {% if r.after.up is not None %}・最高 {% if r.after.up >= 0 %}+{% endif %}{{ r.after.up|floatformat:1 }}%{% endif %}{% if r.after.last is not None %}・{{ r.o.after_close_date|date:"n/j" }}終値 {% if r.after.last >= 0 %}+{% endif %}{{ r.after.last|floatformat:1 }}%{% endif %}<span class="lo-sub">（指値比）</span></p>
+      {% else %}<p class="lo-after flat">その後の値動きは翌営業日以降に入ります</p>{% endif %}
+      {% if r.o.reason %}<p class="lo-reason">{{ r.o.reason|linebreaksbr }}</p>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</details>
+{% endif %}

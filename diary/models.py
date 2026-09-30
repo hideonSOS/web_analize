@@ -236,3 +236,60 @@ class TradeBar(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=['trade', 'date'], name='uniq_trade_bar')]
         ordering = ['date']
+
+
+class LimitOrder(models.Model):
+    """指値の買い注文（2026-09-30 ユーザー要望: 指値を入れた段階で記録し、約定しなかった注文からも学ぶ）。
+
+    - 当日限りのみ・指値の変更なし・一部約定なし（ユーザー決定）。買いのみ。練習ページには入れない
+    - **約定するまで DiaryEntry は作らない**。約定したら通常の買いの日記（DiaryEntry）を作って entry に紐付け、
+      以降は今までどおり（ポートフォリオの保有数・短期の追跡・実現損益）。指値中／約定しなかった注文は
+      日記・保有数・短期のどこにも混ざらない
+    - 約定の判定は画面が目安を出すだけ（その日の安値が指値以下か）。確定はユーザーが押す（自動では確定しない）
+    - 注文日の OHLC と「その後」は update_limit_orders（毎日の日足更新に同梱・yfinance）が埋める
+    """
+    STATUS = [('pending', '指値中'), ('filled', '約定'), ('unfilled', '約定せず')]
+
+    stock = models.ForeignKey(Stock, on_delete=models.SET_NULL, null=True, blank=True)
+    stock_name = models.CharField(max_length=100)
+    stock_code = models.CharField(max_length=20, blank=True)
+    placed_at = models.DateTimeField()                      # 注文を入れた日時（記録フォームの日時）
+    session_date = models.DateField()                       # その注文が有効な取引日（米国株は米国の日付）
+    limit_price = models.FloatField()
+    shares = models.IntegerField()
+    target_price = models.FloatField(null=True, blank=True)
+    stop_price = models.FloatField(null=True, blank=True)
+    reason = models.TextField()
+    # 約定したら短期トレードとして追跡するか（注文時に選ぶ。追跡は約定時に約定価格で始める）
+    track_contra = models.BooleanField(default=False)
+    track_target = models.FloatField(null=True, blank=True)
+    risk_scenario = models.TextField(blank=True)
+
+    status = models.CharField(max_length=10, choices=STATUS, default='pending')
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(blank=True)                     # 約定しなかったときの一言
+    entry = models.ForeignKey(DiaryEntry, null=True, blank=True, on_delete=models.SET_NULL,
+                              related_name='limit_orders')  # 約定して作った買いの日記
+
+    # 注文日の日足（生の OHLC・auto_adjust なし）。引けた後に入る
+    bar_date = models.DateField(null=True, blank=True)
+    day_open = models.FloatField(null=True, blank=True)
+    day_high = models.FloatField(null=True, blank=True)
+    day_low = models.FloatField(null=True, blank=True)
+    day_close = models.FloatField(null=True, blank=True)
+    # その後（注文日の翌営業日から AFTER_BARS 本）。約定しなかった注文の答え合わせ用
+    after_n = models.IntegerField(default=0)
+    after_high = models.FloatField(null=True, blank=True)
+    after_high_date = models.DateField(null=True, blank=True)
+    after_low = models.FloatField(null=True, blank=True)
+    after_low_date = models.DateField(null=True, blank=True)
+    after_close = models.FloatField(null=True, blank=True)
+    after_close_date = models.DateField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-placed_at']
+
+    def __str__(self):
+        return f'{self.session_date} {self.stock_name} 指値 {self.limit_price:g} ({self.get_status_display()})'

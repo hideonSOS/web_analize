@@ -41,6 +41,8 @@
     </form>
   </div>
 
+  {% include 'diary/_limit_orders.html' %}
+
   {% if view %}
   <div class="dy-table-wrap">
     <table class="dy-table">
@@ -88,6 +90,7 @@
   <article class="dy-card dy-card-{{ r.e.action }}">
     <header class="dy-card-head">
       <span class="dy-badge dy-badge-{{ r.e.action }}">{{ r.e.get_action_display }}</span>
+      {% if r.from_limit %}<span class="lo-badge small" title="指値 {{ r.from_limit.limit_price|floatformat:2 }} の注文が約定">指値で約定</span>{% endif %}
       <span class="dy-stock">
         {% if r.e.stock %}<a href="{% url 'japan_kabu:stock_detail' r.e.stock.display_code %}" title="カルテ">{{ r.e.stock_name }}</a>{% else %}{{ r.e.stock_name }}{% endif %}
         {% if r.e.stock_code %}<span class="dy-stock-code">（{{ r.e.stock_code }}）</span>{% endif %}
@@ -238,7 +241,7 @@
         <label class="dy-field">日時
           <input type="datetime-local" name="recorded_at" id="dy-recorded-at" required />
         </label>
-        <label class="dy-field">株価（<span class="dy-cur-unit">円</span>）
+        <label class="dy-field"><span id="dy-price-label">株価</span>（<span class="dy-cur-unit">円</span>）
           <input type="number" name="price" id="dy-price" step="0.01" inputmode="decimal" placeholder="銘柄選択で自動入力" />
         </label>
       </div>
@@ -257,6 +260,18 @@
           <label><input type="radio" name="action" value="{{ val }}" {% if forloop.first %}checked{% endif %} /> {{ label }}</label>
           {% endfor %}
         </div>
+      </div>
+      {% comment %}
+        注文方法（買いのみ・2026-09-30）: 約定済み（今までどおり日記に記録）／指値（当日限り）。
+        指値は約定するまで日記・保有数・短期に入れず、上の「指値中」で翌日に約定したかを確定する
+      {% endcomment %}
+      <div class="dy-field" id="dy-order-field">
+        <span class="dy-field-label">注文</span>
+        <div class="dy-radio-row dy-order-type">
+          <label><input type="radio" name="order_type" value="done" checked /> 約定済み</label>
+          <label><input type="radio" name="order_type" value="limit" /> 指値（当日限り）</label>
+        </div>
+        <span class="dy-order-hint" id="dy-order-hint" hidden>日時は注文を入れた日時。約定したかは翌日に「指値中」で確定します（約定したら買いの日記になります）</span>
       </div>
       <div id="dy-exit">
         {% comment %} 追跡ボタンは目標・損切りの上（ユーザー指示 2026-09-19）。押した瞬間に +10%/−5% の価格で固定 {% endcomment %}
@@ -333,7 +348,7 @@
       </label>
       {% comment %} 感想・メモは 2026-09-19 に廃止（ユーザー指示「判断理由だけで充分」）。列は過去の記録の表示のため残す {% endcomment %}
       <div class="dy-form-row">
-        <button type="submit" class="dy-submit">記録する</button>
+        <button type="submit" class="dy-submit" id="dy-submit">記録する</button>
       </div>
     </form>
   </div>

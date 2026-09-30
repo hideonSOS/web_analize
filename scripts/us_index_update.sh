@@ -77,6 +77,15 @@ else
     echo "----- FAILED (exit $status) -----" >> "$LOG"
 fi
 
+# 指値の買い注文（指値中・約定しなかった注文）の注文日の日足とその後（2026-09-30）。米国株の引け後に取る
+echo "===== $(date '+%F %T') manage.py update_limit_orders =====" >> "$LOG"
+if "$PY" manage.py update_limit_orders >> "$LOG" 2>&1; then
+    echo "----- OK -----" >> "$LOG"
+else
+    status=$?
+    echo "----- FAILED (exit $status) -----" >> "$LOG"
+fi
+
 # 30日より古いログは削除する
 find "$LOG_DIR" -name 'us_index_*.log' -mtime +30 -delete 2>/dev/null
 
