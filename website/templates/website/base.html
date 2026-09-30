@@ -60,8 +60,8 @@
           <li class="nav-group">
             <span class="nav-cap">市場</span>
             <ul>
-              <li><a href="{% url 'japan_kabu:index' %}">時価総額</a></li>
-              <li><a href="{% url 'japan_kabu:volume' %}">出来高急増</a></li>
+              {% comment %} 時価総額・出来高急増は 2026-09-30 に削除（ユーザー指示: 使わない）。代わりにカレンダー {% endcomment %}
+              <li><a href="{% url 'market_calendar:index' %}">カレンダー</a></li>
               <li><a href="{% url 'japan_kabu:impulse' %}">インパルス</a></li>
               <li><a href="{% url 'japan_kabu:drawdown' %}">ドローダウン</a></li>
               <li><a href="{% url 'japan_kabu:macro' %}">マクロ</a></li>

@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'watch',
     'spending',
     'kabutan',
+    'market_calendar',   # スイングトレード用のカレンダー（2026-09-30）
 ]
 
 MIDDLEWARE = [

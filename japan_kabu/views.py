@@ -1,5 +1,4 @@
 import bisect
-import math
 import statistics
 from collections import defaultdict
 from datetime import timedelta
@@ -8,7 +7,6 @@ from django.shortcuts import render
 
 from .models import DailyPrice, MacroIndicator, Stock
 
-RANKING_LIMIT = 100  # 常に上位100件を表示（TOP選択UIは廃止）
 
 # 国別タブ（時価総額・出来高ランキング共通）。主戦場が米国株なのでUSを先頭・既定にする
 COUNTRIES = [('US', '米国株'), ('JP', '日本株')]
@@ -19,78 +17,6 @@ def _parse_country(request):
     return c if c in dict(COUNTRIES) else 'US'
 
 # 指標ごとの表示レンジ（棒グラフのx軸min/max）。日本株の一般的な水準を目安に設定
-
-
-def _karte_codes():
-    """カルテがある銘柄の code 集合（ランキングの銘柄リンク先の出し分け用・2026-09-16）"""
-    from karte.models import StockKarte
-    return set(StockKarte.objects.values_list('stock_id', flat=True))
-
-
-def index(request):
-    """時価総額ランキング（横棒グラフ）。国別タブで日本株/米国株を切替。
-    常に上位100件を表示（TOP選択・セクター絞り込みUIは廃止）。"""
-    country = _parse_country(request)
-    qs = Stock.objects.filter(country=country, market_cap__isnull=False)
-
-    stocks = list(qs.order_by('-market_cap')[:RANKING_LIMIT])
-    chart_data = {
-        'labels': [f'{s.display_code} {s.name}' for s in stocks],
-        'values': [s.market_cap for s in stocks],
-        'markets': [s.market for s in stocks],
-        'sectors': [s.sector33 for s in stocks],
-        'currency': 'USD' if country == 'US' else 'JPY',
-    }
-    price_date = stocks[0].price_date if stocks else None
-    context = {
-        'stocks': stocks,
-        'chart_data': chart_data,
-        'price_date': price_date,
-        'karte_codes': _karte_codes(),
-        'total_count': qs.count(),
-        'country': country,
-        'countries': COUNTRIES,
-        'is_us': country == 'US',
-    }
-    return render(request, 'japan_kabu/index.html', context)
-
-
-def volume_ranking(request):
-    """出来高急増ランキング
-
-    並び順は対数出来高のz-score（標準化された異常度）、
-    表示は倍率（過去20日平均比）と確率値 p = Φ(z) を併記する。
-    常に上位100件を表示（TOP選択UIは廃止）。
-    """
-    country = _parse_country(request)
-    qs = Stock.objects.filter(country=country, volume_z__isnull=False)
-    stocks = list(qs.order_by('-volume_z')[:RANKING_LIMIT])
-
-    rows = []
-    for rank, s in enumerate(stocks, 1):
-        p = 0.5 * (1 + math.erf(s.volume_z / math.sqrt(2)))  # Φ(z)
-        rows.append({'rank': rank, 'stock': s, 'p': p * 100})
-
-    chart_data = {
-        'labels': [f'{s.display_code} {s.name}' for s in stocks],
-        'z': [round(s.volume_z, 2) for s in stocks],
-        'ratios': [round(s.volume_ratio, 2) for s in stocks],
-        'p': [round(r['p'], 2) for r in rows],
-        'sectors': [s.sector33 for s in stocks],
-    }
-    context = {
-        'rows': rows,
-        'chart_data': chart_data,
-        'volume_date': stocks[0].volume_date if stocks else None,
-        'karte_codes': _karte_codes(),
-        'total_count': qs.count(),
-        'country': country,
-        'countries': COUNTRIES,
-        'is_us': country == 'US',
-    }
-    return render(request, 'japan_kabu/volume.html', context)
-
-
 
 
 def _mad_sigma(values):

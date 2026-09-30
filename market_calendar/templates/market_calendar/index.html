@@ -1,0 +1,106 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block title %}カレンダー | KABU ANALYZE{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'market_calendar/css/calendar.css' %}?v={% now 'U' %}" />
+{% endblock %}
+
+{% block content %}
+{% comment %}
+  スイングトレード用のカレンダー（2026-09-30 ユーザー要望）。1か月表示で、決算・FOMC・経済指標・政治イベントなどを
+  手で書き込む。月曜始まり（取引日が左に並ぶ）。日付のマスを押すと追加フォームにその日が入る。予定を押すと編集
+{% endcomment %}
+<main class="cal">
+  <div class="cal-head">
+    <a class="cal-nav" href="?ym={{ prev_ym }}">‹ 前月</a>
+    <h1 class="cal-title">{{ month|date:"Y年n月" }}</h1>
+    <a class="cal-nav" href="?ym={{ next_ym }}">翌月 ›</a>
+    {% if not is_this_month %}<a class="cal-nav cal-today-link" href="?ym={{ this_ym }}">今月</a>{% endif %}
+    <button type="button" class="cal-add-btn" id="cal-open-add">＋ 予定を追加</button>
+  </div>
+
+  {% for m in messages %}<div class="cal-msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+
+  <div class="cal-legend">
+    {% for key, label in categories %}<span class="cal-chip {{ key }}">{{ label }}</span>{% endfor %}
+    <span class="cal-chip important-sample">★ 重要</span>
+  </div>
+
+  <div class="cal-grid">
+    {% for w in weekdays %}<div class="cal-wd {% if forloop.counter >= 6 %}weekend{% endif %}">{{ w }}</div>{% endfor %}
+    {% for wk in weeks %}{% for c in wk %}
+    <div class="cal-day{% if not c.in_month %} out{% endif %}{% if c.today %} today{% endif %}{% if c.weekend %} weekend{% endif %}"
+         data-date="{{ c.date|date:'Y-m-d' }}">
+      <div class="cal-num">{{ c.date.day }}{% if c.today %}<span class="cal-today-tag">今日</span>{% endif %}</div>
+      {% for ev in c.events %}
+      <button type="button" class="cal-ev {{ ev.category }}{% if ev.important %} important{% endif %}"
+              data-id="{{ ev.id }}" data-date="{{ ev.date|date:'Y-m-d' }}" data-category="{{ ev.category }}"
+              data-title="{{ ev.title }}" data-ticker="{{ ev.ticker }}" data-time="{{ ev.time_note }}"
+              data-memo="{{ ev.memo }}" data-important="{{ ev.important|yesno:'1,' }}"
+              title="{{ ev.get_category_display }}{% if ev.time_note %}・{{ ev.time_note }}{% endif %}{% if ev.memo %}：{{ ev.memo }}{% endif %}">
+        {% if ev.important %}★{% endif %}{% if ev.ticker %}<b>{{ ev.ticker }}</b> {% endif %}{{ ev.title }}{% if ev.time_note %}<i>{{ ev.time_note }}</i>{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+    {% endfor %}{% endfor %}
+  </div>
+
+  <div class="cal-lists">
+    <section class="cal-card">
+      <h2>これからの予定</h2>
+      {% for ev in upcoming %}
+      <div class="cal-row"><span class="cal-row-date">{{ ev.date|date:"n/j" }}（{{ ev.date|date:"D" }}）</span>
+        <span class="cal-chip {{ ev.category }}">{{ ev.get_category_display }}</span>
+        <span class="cal-row-title">{% if ev.important %}★ {% endif %}{% if ev.ticker %}<b>{{ ev.ticker }}</b> {% endif %}{{ ev.title }}{% if ev.time_note %}<i>{{ ev.time_note }}</i>{% endif %}</span></div>
+      {% empty %}<p class="cal-empty">これからの予定はまだありません。</p>{% endfor %}
+    </section>
+    <section class="cal-card">
+      <h2>{{ month|date:"n月" }}の予定 <span class="cal-hint">{{ month_events|length }}件</span></h2>
+      {% for ev in month_events %}
+      <div class="cal-row"><span class="cal-row-date">{{ ev.date|date:"n/j" }}（{{ ev.date|date:"D" }}）</span>
+        <span class="cal-chip {{ ev.category }}">{{ ev.get_category_display }}</span>
+        <span class="cal-row-title">{% if ev.important %}★ {% endif %}{% if ev.ticker %}<b>{{ ev.ticker }}</b> {% endif %}{{ ev.title }}{% if ev.memo %}<span class="cal-row-memo">{{ ev.memo }}</span>{% endif %}</span></div>
+      {% empty %}<p class="cal-empty">この月の予定はまだありません。日付のマスを押すと追加できます。</p>{% endfor %}
+    </section>
+  </div>
+</main>
+
+{% comment %} 追加・編集のフォーム（1つを使い回す）。日付のマスを押すと追加、予定を押すと編集 {% endcomment %}
+<div class="cal-modal" id="cal-modal" hidden>
+  <div class="cal-modal-box">
+    <div class="cal-modal-head"><b id="cal-modal-title">予定を追加</b><button type="button" class="cal-x" id="cal-close">×</button></div>
+    <form method="post" id="cal-form">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" id="cal-form-id" value="add">
+      <input type="hidden" name="id" id="cal-id">
+      <div class="cal-row2">
+        <label>日付<input type="date" name="date" id="cal-date" required></label>
+        <label>時刻など（任意）<input type="text" name="time_note" id="cal-time" placeholder="例: 引け後／22:30" maxlength="20"></label>
+      </div>
+      <label>種類
+        <div class="cal-cats">
+          {% for key, label in categories %}
+          <label class="cal-cat"><input type="radio" name="category" value="{{ key }}" {% if forloop.first %}checked{% endif %}><span class="cal-chip {{ key }}">{{ label }}</span></label>
+          {% endfor %}
+        </div></label>
+      <div class="cal-row2">
+        <label class="grow">タイトル<input type="text" name="title" id="cal-title" required maxlength="100" placeholder="例: 決算発表／FOMC 結果発表／米CPI"></label>
+        <label>銘柄（任意）<input type="text" name="ticker" id="cal-ticker" maxlength="20" placeholder="例: NVDA"></label>
+      </div>
+      <label>メモ（任意）<textarea name="memo" id="cal-memo" rows="2" placeholder="市場予想・注目点など"></textarea></label>
+      <label class="cal-imp"><input type="checkbox" name="important" id="cal-important" value="1"> ★ 重要（相場が大きく動きうる）</label>
+      <div class="cal-actions">
+        <button type="submit" class="cal-save">保存する</button>
+      </div>
+    </form>
+    <form method="post" id="cal-del-form" hidden onsubmit="return confirm('この予定を削除しますか？');">
+      {% csrf_token %}<input type="hidden" name="form_id" value="delete"><input type="hidden" name="id" id="cal-del-id">
+      <button type="submit" class="cal-del">この予定を削除</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'market_calendar/js/calendar.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

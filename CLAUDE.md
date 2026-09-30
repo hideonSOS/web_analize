@@ -443,6 +443,16 @@ TTMの計算は `japan_kabu/indicators.py` の `_ttm_np`（日本株）と `_ttm
 - PayPay の TTM 純利益には 2025/7–9 期の税効果（繰延税金資産）が入り、実績 PER 15 倍は実力より低い。
   Yahoo の予想 PER は 23.6 倍。**米国株の予想 EPS（アナリスト予想）は未取得**
 
+## 📅 カレンダー（`/calendar/`・`market_calendar` アプリ・2026-09-30）
+スイングトレード用。**時価総額・出来高急増のページを削除（ユーザー指示: 使わない）した代わり**にナビ「市場」の先頭へ。
+1か月表示（月曜始まり・前後月の日は薄く・今日はシアン枠）で、決算・FOMC・経済指標・政治イベントなどを**手で書き込む**
+（自動取得はしない＝「自動のしくみは極力控える」方針）。`CalendarEvent`（date・category＝決算/FOMC・金融政策/経済指標/
+政治・選挙/配当・権利/その他・title・ticker・time_note・memo・important）。日付のマスを押すと追加、予定を押すと編集・削除
+（1つのモーダルを使い回す・`calendar.js`）。下に「これからの予定」と「その月の予定」の一覧。
+- ⚠️ 削除したのはページ（`japan_kabu` の index/volume ビュー・テンプレ・marketcap.js/volume.js）だけ。旧 URL
+  （/japan_kabu/・/japan_kabu/volume/）はカレンダーへリダイレクト。**`update_jp_ranking`/`update_us_ranking` のバッチは残す**
+  （Stock.close・change_pct・時価総額はカルテ・ポートフォリオ・ヒートマップが使う）。`marketcap.css` は他ページが共用
+
 ## 米国株ランキング（時価総額・出来高）— 国別タブ
 
 時価総額ランキング(`/japan_kabu/`)と出来高急増ランキング(`/japan_kabu/volume/`)は

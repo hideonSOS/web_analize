@@ -25,8 +25,7 @@ WINDOW_MINUTES = 60        # 失敗回数を数える窓
 
 # ナビゲーション・トップページ共通の機能一覧（実装が決まり次第、名称と説明を差し替える）
 FEATURES = {
-    1: {'name': '時価総額ランキング', 'description': '日本株の時価総額TOPを横棒グラフで表示', 'url': 'japan_kabu:index'},
-    2: {'name': '出来高急増ランキング', 'description': '出来高の統計的異常度（対数z-score）ランキング', 'url': 'japan_kabu:volume'},
+    1: {'name': 'カレンダー', 'description': '決算・FOMC・経済指標・政治イベントを1か月表示で書き込む（スイングトレード用）', 'url': 'market_calendar:index'},
     3: {'name': '銘柄カルテ', 'description': '興味ある銘柄だけ登録して調べる。定性分析＋指標（PER/PBR/ROE等）＋株価レンジ', 'url': 'karte:index'},
     4: {'name': '売買日記', 'description': '売買判断の記録と振り返り。その後の値動きを自動表示', 'url': 'diary:index'},
     5: {'name': 'スイング候補', 'description': '株タン手法（押し目買い）の日次スクリーニング。JPX400∪カルテ銘柄から買い候補を提示', 'url': 'kabutan:index'},
