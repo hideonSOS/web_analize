@@ -14,7 +14,7 @@
          data-cost="{{ setting.cost_pct }}" data-capital="{{ setting.capital }}" data-risk="{{ setting.risk_pct }}"
          data-key="{{ sim_key|default:'contra' }}">
   <h2>損切り・利確シミュレーター
-    <span class="ct-hint">株価を入れると 損切り −{{ setting.default_stop_pct|floatformat:"-1" }}%／利確（下のボタンで選ぶ）のラインが出る・通貨なしの数値計算（ドルでも円でも）</span></h2>
+    <span class="ct-hint">株価を入れると 利確・損切り（下のボタンで選ぶ）のラインが出る・通貨なしの数値計算（ドルでも円でも）</span></h2>
   {% comment %}
     利確率のボタン（2026-09-30 ユーザー指示: 5・7・10・15% を用意し、有効にした率で計算）。既定はページの利確設定。
     通貨記号は付けない（円の銘柄でも使うので、ただの数値計算。同日ユーザー指示）
@@ -25,6 +25,14 @@
     <button type="button" data-rate="7">+7%</button>
     <button type="button" data-rate="10">+10%</button>
     <button type="button" data-rate="15">+15%</button>
+  </div>
+  {% comment %} 損切り率のボタン（2026-09-30 ユーザー指示: 利確の下に4つ。損切りラインも同時に確認する）。既定はページの損切り設定 {% endcomment %}
+  <div class="ct-sim-rates stop" id="ct-sim-stops">
+    <span class="k">損切り</span>
+    <button type="button" data-rate="3">−3%</button>
+    <button type="button" data-rate="5">−5%</button>
+    <button type="button" data-rate="7">−7%</button>
+    <button type="button" data-rate="10">−10%</button>
   </div>
   <div class="ct-sim-in">
     <label class="main">買値<input type="number" id="ct-sim-price" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 25.40"></label>

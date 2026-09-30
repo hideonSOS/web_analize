@@ -454,3 +454,8 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
   color:#9ca3af; font-size:14px; font-weight:bold; cursor:pointer; }
 .ct-sim-rates button:hover{ border-color:#15803d; color:#bbf7d0; }
 .ct-sim-rates button.active{ border-color:#22c55e; background:rgba(34,197,94,.18); color:#dcfce7; box-shadow:0 0 10px rgba(34,197,94,.3); }
+
+/* 損切り率のボタン（2026-09-30）: 利確の緑に対して赤 */
+.ct-sim-rates.stop{ margin-top:-4px; }
+.ct-sim-rates.stop button:hover{ border-color:#b91c1c; color:#fecaca; }
+.ct-sim-rates.stop button.active{ border-color:#ef4444; background:rgba(239,68,68,.16); color:#fee2e2; box-shadow:0 0 10px rgba(239,68,68,.3); }

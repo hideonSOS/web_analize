@@ -103,8 +103,16 @@
   const price = document.getElementById('ct-sim-price');
   if (!root || !price) return;
   const shares = document.getElementById('ct-sim-shares'), support = document.getElementById('ct-sim-support');
-  const stopPct = parseFloat(root.dataset.stop);
-  const stop = stopPct / 100;
+  // 損切り率もボタンで切り替える（3・5・7・10%。2026-09-30）。既定はページの設定、無ければ 5%
+  const stopBtns = [...document.querySelectorAll('#ct-sim-stops button')];
+  let stopPct = parseFloat(root.dataset.stop);
+  if (stopBtns.length && !stopBtns.some((b) => parseFloat(b.dataset.rate) === stopPct)) stopPct = 5;
+  let stop = stopPct / 100;
+  function markStop() { stopBtns.forEach((b) => b.classList.toggle('active', parseFloat(b.dataset.rate) === stopPct)); }
+  stopBtns.forEach((b) => b.addEventListener('click', () => {
+    stopPct = parseFloat(b.dataset.rate); stop = stopPct / 100; markStop(); render();
+  }));
+  markStop();
   // 利確率はボタンで切り替える（5・7・10・15%。2026-09-30）。既定はページの設定、無ければ 10%
   const rateBtns = [...document.querySelectorAll('#ct-sim-rates button')];
   let targetPct = parseFloat(root.dataset.target);
@@ -129,7 +137,8 @@
     const out = [];
     const push = (pct, kind) => out.push({ pct, kind, pos: (pct - lo) / span * 100, price: p * (1 + pct) });
     push(lo, 'stop');
-    for (let x = -0.025; x < hi - 1e-9; x += 0.025) {
+    // 損切り率を変えても間の目盛り（−2.5 刻み）が出るよう、損切り線の上の最初の 2.5% 刻みから始める
+    for (let x = Math.ceil((lo + 1e-9) / 0.025) * 0.025; x < hi - 1e-9; x += 0.025) {
       if (Math.abs(x - lo) < 1e-9) continue;
       push(x, Math.abs(x) < 1e-9 ? 'entry' : (Math.abs(x - target / 2) < 1e-9 ? 'half' : 'minor'));
     }
@@ -158,7 +167,7 @@
     // 目盛りバー（価格）
     const tk = ticks(p);
     $('ct-sim-track').innerHTML = tk.map((k) => `<span class="ct-slit ${k.kind}" style="left:${k.pos.toFixed(1)}%"></span>`).join('');
-    $('ct-sim-ticks').innerHTML = tk.map((k) => `<span class="ct-tick ${k.kind}" style="left:${k.pos.toFixed(1)}%">${px(k.price)}<i>${k.pct > 0 ? '+' : ''}${(k.pct * 100).toFixed(1).replace(/\.0$/, '')}%</i></span>`).join('');
+    $('ct-sim-ticks').innerHTML = tk.map((k) => `<span class="ct-tick ${k.kind}" style="left:${k.pos.toFixed(1)}%">${px(k.price)}<i>${Math.abs(k.pct) < 1e-9 ? '0' : (k.pct > 0 ? '+' : '') + (k.pct * 100).toFixed(1).replace(/\.0$/, '')}%</i></span>`).join('');
     // サポート（ここまでは落ちない価格）との関係
     const sv = parseFloat(support.value), sbox = $('ct-sim-support-box'), smsg = $('ct-sim-support-msg');
     if (sv > 0) {
