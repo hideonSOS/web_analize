@@ -103,14 +103,25 @@
   const price = document.getElementById('ct-sim-price');
   if (!root || !price) return;
   const shares = document.getElementById('ct-sim-shares'), support = document.getElementById('ct-sim-support');
-  const stopPct = parseFloat(root.dataset.stop), targetPct = parseFloat(root.dataset.target);
-  const stop = stopPct / 100, target = targetPct / 100;
+  const stopPct = parseFloat(root.dataset.stop);
+  const stop = stopPct / 100;
+  // 利確率はボタンで切り替える（5・7・10・15%。2026-09-30）。既定はページの設定、無ければ 10%
+  const rateBtns = [...document.querySelectorAll('#ct-sim-rates button')];
+  let targetPct = parseFloat(root.dataset.target);
+  if (!rateBtns.some((b) => parseFloat(b.dataset.rate) === targetPct)) targetPct = 10;
+  let target = targetPct / 100;
+  function markRate() { rateBtns.forEach((b) => b.classList.toggle('active', parseFloat(b.dataset.rate) === targetPct)); }
+  rateBtns.forEach((b) => b.addEventListener('click', () => {
+    targetPct = parseFloat(b.dataset.rate); target = targetPct / 100; markRate(); render();
+  }));
+  markRate();
   const cost = parseFloat(root.dataset.cost) / 100, capital = parseFloat(root.dataset.capital) || 0;
   const riskPct = parseFloat(root.dataset.risk) || 0;
   try { localStorage.removeItem('ct-sim:' + (root.dataset.key || 'contra')); } catch (_) { /* noop */ }
   const $ = (id) => document.getElementById(id);
-  const px = (v) => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const money = (v, sign) => (sign ? (v < 0 ? '−' : '+') : '') + '$' + Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  // 通貨記号は付けない（ドルでも円でも使う数値計算。2026-09-30 ユーザー指示）
+  const px = (v) => v.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = (v, sign) => (sign ? (v < 0 ? '−' : '+') : '') + Math.abs(v).toLocaleString('ja-JP', { maximumFractionDigits: 0 });
 
   // 目盛り: 損切り／−2.5／0／+2.5／+5／+7.5／利確（保有中のレンジバー contra._ticks と同じ並び）
   function ticks(p) {
@@ -177,7 +188,7 @@
       $('ct-sim-seg-stop-l').textContent = money(-loss, true);
       $('ct-sim-seg-target-l').textContent = money(gain, true);
       const budget = capital * riskPct / 100, ratio = budget > 0 ? loss / budget : 0;
-      $('ct-sim-cap').textContent = capital.toLocaleString('en-US');
+      $('ct-sim-cap').textContent = capital.toLocaleString('ja-JP');
       $('ct-sim-risk-pct').textContent = riskPct;
       $('ct-sim-budget').textContent = money(budget);
       const v = $('ct-sim-verdict');

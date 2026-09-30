@@ -14,9 +14,20 @@
          data-cost="{{ setting.cost_pct }}" data-capital="{{ setting.capital }}" data-risk="{{ setting.risk_pct }}"
          data-key="{{ sim_key|default:'contra' }}">
   <h2>損切り・利確シミュレーター
-    <span class="ct-hint">株価を入れると 損切り −{{ setting.default_stop_pct|floatformat:"-1" }}%／利確 +{{ setting.default_target_pct|floatformat:"-1" }}% のラインが出る</span></h2>
+    <span class="ct-hint">株価を入れると 損切り −{{ setting.default_stop_pct|floatformat:"-1" }}%／利確（下のボタンで選ぶ）のラインが出る・通貨なしの数値計算（ドルでも円でも）</span></h2>
+  {% comment %}
+    利確率のボタン（2026-09-30 ユーザー指示: 5・7・10・15% を用意し、有効にした率で計算）。既定はページの利確設定。
+    通貨記号は付けない（円の銘柄でも使うので、ただの数値計算。同日ユーザー指示）
+  {% endcomment %}
+  <div class="ct-sim-rates" id="ct-sim-rates">
+    <span class="k">利確</span>
+    <button type="button" data-rate="5">+5%</button>
+    <button type="button" data-rate="7">+7%</button>
+    <button type="button" data-rate="10">+10%</button>
+    <button type="button" data-rate="15">+15%</button>
+  </div>
   <div class="ct-sim-in">
-    <label class="main">買値（$）<input type="number" id="ct-sim-price" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 25.40"></label>
+    <label class="main">買値<input type="number" id="ct-sim-price" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 25.40"></label>
     <label>株数（任意）<input type="number" id="ct-sim-shares" autocomplete="off" min="1" step="1" inputmode="numeric" placeholder="金額を見る"></label>
     <label>サポート（任意）<input type="number" id="ct-sim-support" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="ここまでは落ちない価格"></label>
   </div>
@@ -50,7 +61,7 @@
         <span class="ct-sub">コスト往復 {{ setting.cost_pct }}%×2 込み</span>
       </div>
       <div class="ct-sim-foot">
-        <span>軍資金 $<b id="ct-sim-cap"></b> の <b id="ct-sim-risk-pct"></b>% ＝ 1回の損失は <b id="ct-sim-budget"></b> まで →
+        <span>軍資金 <b id="ct-sim-cap"></b> の <b id="ct-sim-risk-pct"></b>% ＝ 1回の損失は <b id="ct-sim-budget"></b> まで →
           <b id="ct-sim-verdict"></b></span>
       </div>
       <div class="ct-sim-gauge"><div class="ct-sim-gauge-fill" id="ct-sim-gauge"></div></div><span class="ct-sim-gauge-l" id="ct-sim-gauge-l"></span>
