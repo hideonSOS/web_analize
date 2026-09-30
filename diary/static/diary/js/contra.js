@@ -284,7 +284,14 @@ document.querySelectorAll('.rv-scroll.has-pre').forEach((el) => {
   const $ = (id) => document.getElementById(id);
   const px = (v) => v.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const pct = (v) => (v > 0 ? '+' : (v < 0 ? '−' : '')) + Math.abs(v).toFixed(1) + '%';
-  const stopPct = parseFloat(root.dataset.stop) || 5, cost = (parseFloat(root.dataset.cost) || 0) / 100;
+  const cost = (parseFloat(root.dataset.cost) || 0) / 100;
+  // 損切り率もボタンで（3・5・7・10%。既定はページの損切り設定。2026-09-30 追加）
+  const stopBtns = [...document.querySelectorAll('#ct-rev-stops button')];
+  let stopPct = parseFloat(root.dataset.stop) || 5;
+  if (stopBtns.length && !stopBtns.some((b) => parseFloat(b.dataset.rate) === stopPct)) stopPct = 5;
+  const markStop = () => stopBtns.forEach((b) => b.classList.toggle('active', parseFloat(b.dataset.rate) === stopPct));
+  stopBtns.forEach((b) => b.addEventListener('click', () => { stopPct = parseFloat(b.dataset.rate); markStop(); render(); }));
+  markStop();
   const btns = [...document.querySelectorAll('#ct-rev-rates button')];
   let rate = parseFloat(root.dataset.target);
   if (!btns.some((b) => parseFloat(b.dataset.rate) === rate)) rate = 10;
@@ -301,11 +308,19 @@ document.querySelectorAll('.rv-scroll.has-pre').forEach((el) => {
     const buy = buyOf(rate);
     $('ct-rev-pct').textContent = rate;
     $('ct-rev-buy').textContent = px(buy);
-    $('ct-rev-width').textContent = px(R - buy);
+    const sl = buy * (1 - stopPct / 100);
+    $('ct-rev-width').textContent = '+' + px(R - buy) + '（+' + rate + '%）';
     $('ct-rev-stop-pct').textContent = stopPct;
     document.querySelectorAll('.ct-rev-stop-pct2').forEach((el) => { el.textContent = stopPct; });
-    $('ct-rev-stop').textContent = px(buy * (1 - stopPct / 100));
+    $('ct-rev-stop').textContent = px(sl);
+    $('ct-rev-loss-w').textContent = '−' + px(buy - sl) + '（−' + stopPct + '%）';
     $('ct-rev-reach-v').textContent = px(R);
+    // 損切り幅：利確幅 の帯（長さは値幅の比）
+    const lw = buy - sl, gw = R - buy;
+    $('ct-rev-seg-stop').style.width = (lw / (lw + gw) * 100).toFixed(1) + '%';
+    $('ct-rev-seg-target').style.width = (gw / (lw + gw) * 100).toFixed(1) + '%';
+    $('ct-rev-seg-stop-l').textContent = '−' + px(lw);
+    $('ct-rev-seg-target-l').textContent = '+' + px(gw);
     // コスト（片道×2）込みで +r% を手元に残すなら、さらに少し下で入る
     $('ct-rev-cost').innerHTML = cost > 0
       ? `コスト往復 ${(cost * 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%×2 も込みで +${rate}% を残すなら <b>${px(R / (1 + rate / 100 + 2 * cost))}</b> 以下`

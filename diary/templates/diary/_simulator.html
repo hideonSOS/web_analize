@@ -100,15 +100,34 @@
       <button type="button" data-rate="10">+10%</button>
       <button type="button" data-rate="15">+15%</button>
     </div>
+    {% comment %} 損切り率（2026-09-30 追加: インする価格で買ったときの損切りラインを見て、想定到達価格と見比べる） {% endcomment %}
+    <div class="ct-sim-rates stop" id="ct-rev-stops">
+      <span class="k">損切</span>
+      <button type="button" data-rate="3">−3%</button>
+      <button type="button" data-rate="5">−5%</button>
+      <button type="button" data-rate="7">−7%</button>
+      <button type="button" data-rate="10">−10%</button>
+    </div>
     <div class="ct-sim-in">
-      <label class="main">到達価格<input type="number" id="ct-rev-reach" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 5000"></label>
+      <label class="main">想定到達価格<input type="number" id="ct-rev-reach" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="例: 5000"></label>
       <label>現在価格（任意）<input type="number" id="ct-rev-cur" autocomplete="off" min="0.01" step="0.01" inputmode="decimal" placeholder="今との距離を見る"></label>
     </div>
     <div class="ct-sim-vis" id="ct-rev-vis" hidden>
+      {% comment %}
+        3つの価格を並べる（2026-09-30 ユーザー指示）: 損切りライン／インする価格／想定到達価格。
+        直感で「想定到達価格まで取りに行くか、損切りに掛かるか」を見比べる資料。下の帯は 損切り幅：利確幅 の比
+      {% endcomment %}
       <div class="ct-sim-top ct-rev-top">
-        <div class="ct-sim-box entry ct-rev-buy"><span class="k">この価格以下でイン（+<span id="ct-rev-pct"></span>%）</span><b id="ct-rev-buy"></b>
-          <span class="ct-sim-after">値幅 <b id="ct-rev-width"></b> ・ 損切り（−<span id="ct-rev-stop-pct"></span>%）<b id="ct-rev-stop"></b></span></div>
-        <div class="ct-sim-box target"><span class="k">到達価格</span><b id="ct-rev-reach-v"></b><span class="ct-sim-after">ここに指値の売り</span></div>
+        <div class="ct-sim-box stop"><span class="k">損切りライン（−<span id="ct-rev-stop-pct"></span>%）</span><b id="ct-rev-stop"></b>
+          <span class="ct-sim-after">インする価格から <b id="ct-rev-loss-w"></b></span></div>
+        <div class="ct-sim-box entry ct-rev-buy"><span class="k">インする価格（+<span id="ct-rev-pct"></span>% を取る）</span><b id="ct-rev-buy"></b>
+          <span class="ct-sim-after">この価格以下で買う</span></div>
+        <div class="ct-sim-box target"><span class="k">想定到達価格</span><b id="ct-rev-reach-v"></b>
+          <span class="ct-sim-after">インする価格から <b id="ct-rev-width"></b></span></div>
+      </div>
+      <div class="ct-sim-bar ct-rev-bar">
+        <div class="ct-sim-seg stop" id="ct-rev-seg-stop"><span id="ct-rev-seg-stop-l"></span></div>
+        <div class="ct-sim-seg target" id="ct-rev-seg-target"><span id="ct-rev-seg-target-l"></span></div>
       </div>
       <p class="ct-rev-cost" id="ct-rev-cost"></p>
       <p class="ct-sim-support" id="ct-rev-cur-msg" hidden></p>
