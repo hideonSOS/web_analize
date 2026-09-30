@@ -12,6 +12,7 @@
   {% endcomment %}
   {% if r.candles %}
   <div class="ct-review-chart">
+    {% with c=r.candles %}{% include 'diary/_chart_legend.html' %}{% endwith %}
     <div class="rv-plot">
     <svg viewBox="0 0 {{ r.candles.W }} {{ r.candles.H }}" preserveAspectRatio="none" aria-label="取得から売却後までの日足">
       <line x1="0" x2="{{ r.candles.W }}" y1="{{ r.candles.target_y }}" y2="{{ r.candles.target_y }}" class="ln-target" />

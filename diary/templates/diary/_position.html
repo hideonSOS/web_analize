@@ -47,6 +47,7 @@
     取得日からのローソク足（2026-09-24）: 価格バーと期限の線の間。横軸は期限の線と同じ（左端=取得日・右端=20日）、
     縦軸は損切り〜利確。水平線: 緑=利確線／白=建値／赤=損切り線。縦の点線=15日。SVG はサーバーで座標を作る
   {% endcomment %}
+  {% if r.candles %}<span></span>{% with c=r.candles %}{% include 'diary/_chart_legend.html' %}{% endwith %}{% endif %}
   <span class="ct-cdl-k">日足</span>
   <div class="ct-cdl">
     {% if r.candles %}
