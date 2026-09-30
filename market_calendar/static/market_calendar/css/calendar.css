@@ -76,4 +76,24 @@
   .cal-row2{ flex-direction:column; gap:0; }
   .cal-add-btn{ margin-left:0; }
 }
-@media (max-width:760px){ .cal-today-tag{ display:none; } }
+
+/* スマホ（〜600px）は各日を縦に並べる（2026-09-30 ユーザー指示）: 曜日の見出しと前後の月の日は隠し、
+   1日＝1行（左に日付と曜日・右に予定）。予定の無い日は細い行 */
+.cal-m-md, .cal-m-wd{ display:none; }
+@media (max-width:600px){
+  .cal-grid{ display:block; border-radius:10px; }
+  .cal-wd{ display:none; }
+  .cal-day.out{ display:none; }
+  .cal-day{ display:grid; grid-template-columns:72px 1fr; align-items:start; gap:6px; min-height:0;
+    padding:8px 10px; border-right:none; border-bottom:1px solid #111827; }
+  .cal-num{ margin:0; font-size:14px; line-height:1.5; }
+  .cal-m-md{ display:inline; color:#6b7280; font-weight:normal; }
+  .cal-m-wd{ display:inline; font-size:11px; color:#9ca3af; font-weight:normal; }
+  .cal-day.weekend .cal-m-wd{ color:#6b7280; }
+  .cal-today-tag{ display:inline-block; margin-left:0; margin-top:2px; }
+  .cal-day:not(:has(.cal-ev)){ padding-top:4px; padding-bottom:4px; }
+  .cal-day:not(:has(.cal-ev)) .cal-num{ font-size:12px; color:#6b7280; }
+  .cal-ev{ font-size:13px; padding:5px 8px; white-space:normal; }
+  .cal-ev i{ display:inline; }
+  .cal-day.today{ box-shadow:inset 3px 0 0 #22d3ee; }
+}

@@ -31,7 +31,7 @@
     {% for wk in weeks %}{% for c in wk %}
     <div class="cal-day{% if not c.in_month %} out{% endif %}{% if c.today %} today{% endif %}{% if c.weekend %} weekend{% endif %}"
          data-date="{{ c.date|date:'Y-m-d' }}">
-      <div class="cal-num">{{ c.date.day }}{% if c.today %}<span class="cal-today-tag">今日</span>{% endif %}</div>
+      <div class="cal-num"><span class="cal-m-md">{{ c.date|date:"n/" }}</span>{{ c.date.day }}<span class="cal-m-wd">（{{ c.date|date:"D" }}）</span>{% if c.today %}<span class="cal-today-tag">今日</span>{% endif %}</div>
       {% for ev in c.events %}
       <button type="button" class="cal-ev {{ ev.category }}{% if ev.important %} important{% endif %}"
               data-id="{{ ev.id }}" data-date="{{ ev.date|date:'Y-m-d' }}" data-category="{{ ev.category }}"
