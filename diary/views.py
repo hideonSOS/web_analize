@@ -369,7 +369,7 @@ def fix(request, pk):
     売り（決済）＝売却価格"""
     from django.contrib import messages
 
-    from .contra import max_shares
+    from .contra import TARGET_CHOICES, be_trigger_for, max_shares
     from .models import ContraSetting
     entry = get_object_or_404(DiaryEntry, pk=pk)
     try:
@@ -391,15 +391,27 @@ def fix(request, pk):
     t = entry.trade
     note = ''
     if t is not None and t.entry_diary_id == entry.id:
+        # 利確率の修正（2026-10-03 ユーザー要望）: 保有中の取引だけ +5/+7/+10% から選び直せる。
+        # 建値ストップは +10% の取引だけ（be_trigger_for）なので率に合わせて付け外す
+        old_tp = t.target_pct
+        try:
+            tp = float(request.POST.get('target', ''))
+        except ValueError:
+            tp = None
+        if t.exit_date is None and tp in TARGET_CHOICES and tp != t.target_pct:
+            t.target_pct = tp
+            t.be_trigger_pct = be_trigger_for(ContraSetting.get(), tp)
         t.entry_price, t.shares = price, int(entry.shares)
         t.stop_price = round(price * (1 - t.stop_pct / 100), 4)
         t.target_price = round(price * (1 + t.target_pct / 100), 4)
         t.over_risk = int(entry.shares) > max_shares(ContraSetting.get(t.strategy if t.strategy == 'practice' else 'contra'),
                                                      price, t.stop_pct)['shares']
-        t.save(update_fields=['entry_price', 'shares', 'stop_price', 'target_price', 'over_risk'])
+        t.save(update_fields=['entry_price', 'shares', 'stop_price', 'target_price', 'over_risk',
+                              'target_pct', 'be_trigger_pct'])
         entry.stop_price, entry.target_price = t.stop_price, t.target_price
         fields += ['stop_price', 'target_price']
-        note = f'短期トレードも合わせました（損切り {t.stop_price:g}／利確 {t.target_price:g}）。'
+        note = (f'短期トレードも合わせました（損切り {t.stop_price:g}／利確 +{t.target_pct:g}%：{t.target_price:g}'
+                + (f'・利確率 +{old_tp:g}% → +{t.target_pct:g}%' if old_tp != t.target_pct else '') + '）。')
     elif t is not None and t.exit_diary_id == entry.id:
         t.exit_price = price
         t.save(update_fields=['exit_price'])

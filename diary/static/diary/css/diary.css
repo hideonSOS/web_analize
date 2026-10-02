@@ -413,3 +413,5 @@
 .dy-fix-form input{ width:130px; background:#0b1220; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:7px 9px; font-size:14px; }
 .dy-fix-form button{ border-radius:8px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid #3b82f6; background:rgba(59,130,246,.2); color:#dbeafe; }
 .dy-fix-hint{ font-size:11.5px; color:#fcd34d; }
+
+.dy-fix-sel{ background:#0b1220; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:7px 9px; font-size:14px; }

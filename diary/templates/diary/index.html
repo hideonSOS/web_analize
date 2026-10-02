@@ -210,8 +210,12 @@
         {% csrf_token %}
         <label>{% if r.e.action == 'sell' %}売却価格{% else %}約定価格{% endif %}（{% if r.is_us %}${% else %}円{% endif %}）<input type="number" name="price" value="{{ r.e.price|default_if_none:''|floatformat:'-4' }}" step="0.0001" min="0.0001" inputmode="decimal" required></label>
         <label>株数<input type="number" name="shares" value="{{ r.e.shares|default_if_none:'' }}" step="1" min="1" inputmode="numeric" required></label>
+        {% comment %} 利確率（2026-10-03 ユーザー要望）: 短期トレードで保有中の取引だけ選び直せる {% endcomment %}
+        {% if r.tracked_open and r.trade.entry_diary_id == r.e.id %}
+        <label>利確<select name="target" class="dy-fix-sel">{% for v in target_choices %}<option value="{{ v }}" {% if v == r.trade.target_pct %}selected{% endif %}>+{{ v }}%</option>{% endfor %}</select></label>
+        {% endif %}
         <button type="submit">修正する</button>
-        {% if r.tracked_open or r.tracked_closed %}<span class="dy-fix-hint">短期トレードの建値・損切り・利確も合わせて直ります</span>{% endif %}
+        {% if r.tracked_open or r.tracked_closed %}<span class="dy-fix-hint">短期トレードの建値・損切り・利確も合わせて直ります{% if r.tracked_open %}（建値ストップは利確 +10% のときだけ）{% endif %}</span>{% endif %}
       </form>
     </details>
     {% endif %}
