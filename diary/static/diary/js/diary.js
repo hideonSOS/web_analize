@@ -172,10 +172,11 @@
     if (hint) hint.hidden = !isLimit;
     const btn = document.getElementById('dy-submit');
     if (btn) btn.textContent = isLimit ? '指値を記録する' : '記録する';
-    // 指値は銘柄・価格・株数が必須
+    // 指値は価格が必須。株数は買い・売りとも必須（2026-10-03 再発防止: 株数なしの記録は保有数・短期に反映されない）
     priceInput.required = isLimit;
+    const isSell = !!(checked && checked.value === 'sell');
     const sh = document.getElementById('dy-shares');
-    if (sh) sh.required = isLimit;
+    if (sh) sh.required = isBuy || isSell;
   }
   orderRadios.forEach((r) => r.addEventListener('change', applyOrderType));
   actionRadios.forEach((r) => r.addEventListener('change', applyOrderType));

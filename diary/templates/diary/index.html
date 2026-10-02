@@ -199,6 +199,23 @@
     {% endif %}
     {% endwith %}
 
+    {% comment %}
+      価格・株数の修正（2026-10-03 ユーザー要望: 約定価格が変わった）。事実だけ直す（判断＝理由は書き換えない）。
+      短期トレードに紐付いていれば、建値・損切り・利確（売りなら売却価格）も合わせる
+    {% endcomment %}
+    {% if r.e.action != 'pass' %}
+    <details class="dy-actions dy-fix">
+      <summary>価格・株数を修正</summary>
+      <form method="post" action="{% url 'diary:fix' r.e.pk %}" class="dy-fix-form">
+        {% csrf_token %}
+        <label>{% if r.e.action == 'sell' %}売却価格{% else %}約定価格{% endif %}（{% if r.is_us %}${% else %}円{% endif %}）<input type="number" name="price" value="{{ r.e.price|default_if_none:''|floatformat:'-4' }}" step="0.0001" min="0.0001" inputmode="decimal" required></label>
+        <label>株数<input type="number" name="shares" value="{{ r.e.shares|default_if_none:'' }}" step="1" min="1" inputmode="numeric" required></label>
+        <button type="submit">修正する</button>
+        {% if r.tracked_open or r.tracked_closed %}<span class="dy-fix-hint">短期トレードの建値・損切り・利確も合わせて直ります</span>{% endif %}
+      </form>
+    </details>
+    {% endif %}
+
     <details class="dy-actions">
       <summary>振り返りを追記</summary>
       <form method="post" action="{% url 'diary:review' r.e.pk %}" class="dy-review-form">

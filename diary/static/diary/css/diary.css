@@ -406,3 +406,10 @@
 .lo-sub{ font-size:11px; color:#6b7280; margin-left:4px; }
 .dy-order-hint{ display:block; font-size:11.5px; color:#fcd34d; margin-top:4px; }
 @media (max-width:600px){ .lo-date{ margin-left:0; width:100%; order:5; } .lo-actions form{ flex-basis:100%; } }
+
+/* 価格・株数の修正（2026-10-03） */
+.dy-fix-form{ display:flex; flex-wrap:wrap; align-items:end; gap:8px 12px; margin-top:8px; }
+.dy-fix-form label{ display:flex; flex-direction:column; gap:2px; font-size:11px; color:#9ca3af; }
+.dy-fix-form input{ width:130px; background:#0b1220; border:1px solid #334155; border-radius:8px; color:#e5e7eb; padding:7px 9px; font-size:14px; }
+.dy-fix-form button{ border-radius:8px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid #3b82f6; background:rgba(59,130,246,.2); color:#dbeafe; }
+.dy-fix-hint{ font-size:11.5px; color:#fcd34d; }

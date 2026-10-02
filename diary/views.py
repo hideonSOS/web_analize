@@ -216,6 +216,12 @@ def create(request):
         rule_followed = True if rf == 'yes' else (False if rf == 'no' else None)
 
     from django.contrib import messages
+    # 買い・売りは株数が必須（2026-10-03 ユーザー指示・再発防止）。株数が空の記録はポートフォリオの保有数にも
+    # 短期トレードにも反映されない（実例: AMZN の買いが株数なしで保存され、どちらにも出なかった）。
+    # 画面でも必須にしているが、サーバー側でも保存しない
+    if action in ('buy', 'sell') and not (shares and shares > 0):
+        messages.error(request, '株数が入っていません。買い・売りは株数が必要です（記録していません）。')
+        return redirect('diary:index')
     if action == 'buy' and request.POST.get('order_type') == 'limit':
         return _create_limit_order(request, stock, name, code, recorded_at, price, shares,
                                    _float_or_none('target_price'), _float_or_none('stop_price'))
@@ -352,6 +358,54 @@ def order_refresh(request):
         call_command('update_limit_orders')
     except Exception as e:   # noqa: BLE001
         messages.error(request, f'日足の取得に失敗しました: {e}')
+    return redirect('diary:index')
+
+
+@require_POST
+def fix(request, pk):
+    """価格・株数の修正（2026-10-03 ユーザー要望: 約定価格が記録と違ったので直したい）。
+    判断（理由など）は書き換えない方針のまま、事実（約定価格・株数）だけ直す（ポートフォリオの diary_fix と同じ考え）。
+    短期トレードに紐付いていれば取引も合わせる: 買い＝建値・株数と、建値から引いた損切り・利確の価格（%は固定のまま）。
+    売り（決済）＝売却価格"""
+    from django.contrib import messages
+
+    from .contra import max_shares
+    from .models import ContraSetting
+    entry = get_object_or_404(DiaryEntry, pk=pk)
+    try:
+        price = float(request.POST.get('price', ''))
+    except ValueError:
+        price = None
+    try:
+        shares = int(request.POST.get('shares', ''))
+    except ValueError:
+        shares = None
+    if not price or price <= 0 or (entry.action in ('buy', 'sell') and not (shares and shares > 0)):
+        messages.error(request, '価格と株数を正しく入れてください（修正していません）。')
+        return redirect('diary:index')
+    old = (entry.price, entry.shares)
+    entry.price = price
+    if shares:
+        entry.shares = shares
+    fields = ['price', 'shares']
+    t = entry.trade
+    note = ''
+    if t is not None and t.entry_diary_id == entry.id:
+        t.entry_price, t.shares = price, int(entry.shares)
+        t.stop_price = round(price * (1 - t.stop_pct / 100), 4)
+        t.target_price = round(price * (1 + t.target_pct / 100), 4)
+        t.over_risk = int(entry.shares) > max_shares(ContraSetting.get(t.strategy if t.strategy == 'practice' else 'contra'),
+                                                     price, t.stop_pct)['shares']
+        t.save(update_fields=['entry_price', 'shares', 'stop_price', 'target_price', 'over_risk'])
+        entry.stop_price, entry.target_price = t.stop_price, t.target_price
+        fields += ['stop_price', 'target_price']
+        note = f'短期トレードも合わせました（損切り {t.stop_price:g}／利確 {t.target_price:g}）。'
+    elif t is not None and t.exit_diary_id == entry.id:
+        t.exit_price = price
+        t.save(update_fields=['exit_price'])
+        note = '短期トレードの売却価格も合わせました。'
+    entry.save(update_fields=fields)
+    messages.success(request, f'{entry.stock_name} の記録を修正しました（価格 {old[0]:g} → {price:g}・株数 {old[1] or "—"} → {entry.shares}）。' + note)
     return redirect('diary:index')
 
 
