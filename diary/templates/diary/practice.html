@@ -129,7 +129,7 @@
         これが自分を知る教科書になる、というユーザーの方針）
       {% endcomment %}
       <details class="ct-close">
-        <summary class="ct-close-btn">売却を記録する（損切り・利確・早期利確）</summary>
+        <summary class="ct-close-btn" title="損切り・利確・早期利確">売却を記録</summary>
         <form method="post" class="ct-close-form">
           {% csrf_token %}<input type="hidden" name="form_id" value="close"><input type="hidden" name="id" value="{{ r.t.id }}">
           <div class="ct-form-row">

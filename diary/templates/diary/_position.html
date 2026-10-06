@@ -116,7 +116,7 @@
   売却ボタン（2026-09-29 ユーザー指示）: 短期トレードの売りは売買日記で記録する決まりなので、押すと日記の記録画面を
   「売り・この銘柄・株数・現在値」を入れた状態で開く（diary.views._sell_prefill）。保存すると取引は自動で決済される
 {% endcomment %}
-<a class="ct-close-btn ct-sell-link" href="{% url 'diary:index' %}?sell={{ r.t.stock_id|urlencode }}&shares={{ r.t.shares }}">売却を記録する（売買日記で「売り」を記録）</a>
+<a class="ct-close-btn ct-sell-link" href="{% url 'diary:index' %}?sell={{ r.t.stock_id|urlencode }}&shares={{ r.t.shares }}" title="売買日記で「売り」を記録">売却を記録</a>
 {% endif %}
 {% comment %}
   購入時の想定（2026-09-29 ユーザー指示: 想定と、その後チャートを見て動いた心理は明確に分ける）:
