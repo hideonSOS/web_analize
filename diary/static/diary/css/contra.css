@@ -550,3 +550,22 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
 @media (max-width:640px){ .ct-rev-top{ grid-template-columns:1fr 1fr; } .ct-rev-top .ct-rev-buy{ grid-column:1 / -1; order:-1; } .ct-rev-top .ct-rev-buy b#ct-rev-buy{ font-size:28px; } .ct-rev-table{ font-size:12.5px; } .ct-rev-table th, .ct-rev-table td{ padding:5px 4px; } }
 
 .ct-rev-bar{ margin-top:10px; }
+
+/* ---- スマホ（〜600px）の保有中カード（2026-10-06 ユーザー指摘: グラフ・ラベルが余白で潰れる）----
+   PC の3列 grid（左ラベル｜バー・チャート｜右ラベル）だと中央が 120px ほどに潰れるので、スマホは
+   「損切り｜利確」のラベル行 → 価格バー → 凡例 → チャート → 期限（ラベル行＋線）を全部横幅いっぱいに積む。PC は変えない */
+@media (max-width:600px){
+  .ct-range{ grid-template-columns:1fr 1fr; gap:6px 10px;
+    grid-template-areas:"stop target" "track track" "legend legend" "cdl cdl" "timek timev" "time time"; }
+  .ct-range > .ct-range-stop{ grid-area:stop; text-align:left; font-size:12px; }
+  .ct-range > .ct-range-target{ grid-area:target; text-align:right; font-size:12px; }
+  .ct-range > .ct-track-wrap{ grid-area:track; }
+  .ct-range > .cv-legend{ grid-area:legend; }
+  .ct-range > .ct-cdl{ grid-area:cdl; }
+  .ct-range > .ct-cdl-k, .ct-range > .ct-cdl-v, .ct-range > span:empty{ display:none; }
+  .ct-range > .ct-time-k{ grid-area:timek; text-align:left; margin-top:6px; }
+  .ct-range > .ct-time-v{ grid-area:timev; text-align:right; margin-top:6px; }
+  .ct-range > .ct-time-wrap{ grid-area:time; margin-top:0; }
+  .ct-donut{ margin:0 auto; }
+  .rv-pre-label{ display:none; }     /* 枠の左端で切れる。チャート下の「左へスクロールすると購入前」で足りる */
+}
