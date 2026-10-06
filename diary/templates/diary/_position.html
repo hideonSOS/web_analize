@@ -5,7 +5,7 @@
   レンジバー: 左端=損切り線、右端=利確線。▲建値、●現在値。目盛りは 損切り／0／利確の半分／利確。
 {% endcomment %}
 <div class="ct-pos-top">
-  <div class="ct-pos-name"><b>{{ r.t.ticker }}</b> {{ r.t.stock_name|truncatechars:28 }}
+  <div class="ct-pos-name"><b>{{ r.t.ticker }}</b> <span class="ct-pos-sname">{{ r.t.stock_name|truncatechars:28 }}</span>
     <span class="ct-sub">{{ r.t.entry_date|date:"n/j" }} 建て・<b class="ct-days">{{ r.days }}日経過</b>・{{ r.t.shares }}株・取得 <b class="ct-entry-price">{% if r.unit == '$' %}${{ r.t.entry_price|floatformat:2 }}{% else %}{{ r.t.entry_price|floatformat:0|intcomma }}円{% endif %}</b>{% if r.entry_jpy %}（¥{{ r.entry_jpy|floatformat:0|intcomma }}）{% endif %}</span></div>
   <div class="ct-pos-now">
     {% comment %} 右上は「購入価格から1株あたり いくら動いたか」を $ と ¥ の2つだけ（2026-09-24 ユーザー指示）。

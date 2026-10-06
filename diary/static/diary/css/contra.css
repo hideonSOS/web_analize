@@ -569,3 +569,8 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
   .ct-donut{ margin:0 auto; }
   .rv-pre-label{ display:none; }     /* 枠の左端で切れる。チャート下の「左へスクロールすると購入前」で足りる */
 }
+
+/* 保有中の銘柄名を目立たせる（2026-10-06 ユーザー指示: 少し大きく・黄色）。ティッカーと銘柄名だけ（下の建て日などは従来どおり） */
+.ct-pos-name > b{ font-size:20px; color:#facc15; letter-spacing:.5px; }
+.ct-pos-sname{ font-size:17px; font-weight:700; color:#fde047; }
+@media (max-width:600px){ .ct-pos-name > b{ font-size:18px; } .ct-pos-sname{ font-size:15px; } }
