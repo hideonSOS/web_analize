@@ -451,7 +451,58 @@ def _fib(bars, entry_date, y, ymin, ymax):
     wave = (f'{low:,.2f}({_d(d_low)})→{high:,.2f}({_d(d_high)})' if up
             else f'{high:,.2f}({_d(d_high)})→{low:,.2f}({_d(d_low)})')
     return {'low': low, 'high': high, 'lines': lines, 'up': up,
+            'd_high': d_high, 'd_low': d_low,
             'kind': '押し' if up else '戻り', 'wave': wave}
+
+
+FIBCTX_W, FIBCTX_H = 1000, 140   # コンテキストチャートの SVG 座標系
+
+
+def fib_context(t: Trade, src: list[dict], fib: dict | None) -> dict | None:
+    """フィボの波の全体図（120日・終値ライン）。2026-10-07 ユーザー指摘
+    「アンカーの波が画面に無く、不揃いな線が何を示すのか理解できない。黄金比に見えない」。
+
+    フィボの比率はアンカーの波を分割して初めて意味を持つが、ポジションチャートは
+    取得日〜20日しか描けず波（例: 8/3→9/16）が写らない。そこで波そのものを見せる
+    小さな全体図を別枠で出す: 終値ライン＋アンカー（高値▼・安値▲）＋全5水準＋
+    建値と現在値。フィボ水準はここでは可視範囲で切らない（全体図が目的のため）。
+    """
+    if not fib or fib.get('small'):
+        return None
+    rows = [b for b in src if b.get('close') is not None]
+    if len(rows) < 10:
+        return None
+    high, low = fib['high'], fib['low']
+    ymax = max(max(b['high'] for b in rows if b.get('high') is not None), high)
+    ymin = min(min(b['low'] for b in rows if b.get('low') is not None), low)
+    pad = (ymax - ymin) * 0.05 or 1
+    ymax, ymin = ymax + pad, ymin - pad
+
+    def y(p):
+        return round((ymax - p) / (ymax - ymin) * FIBCTX_H, 2)
+    n = len(rows)
+    step = FIBCTX_W / max(1, n - 1)
+
+    def x_at(d):
+        for i, b in enumerate(rows):
+            if b['date'] == d:
+                return round(i * step, 1)
+        return None
+    pts = ' '.join(f'{round(i * step, 1)},{y(b["close"])}' for i, b in enumerate(rows))
+    # 全5水準（可視範囲で切らない）
+    lines = []
+    for r in FIB_RATIOS:
+        price = (high - (high - low) * r / 100) if fib['up'] else (low + (high - low) * r / 100)
+        lines.append({'ratio': r, 'price': price, 'y': y(price)})
+    entry_x = next((round(i * step, 1) for i, b in enumerate(rows)
+                    if b['date'] >= t.entry_date), None)
+    return {'W': FIBCTX_W, 'H': FIBCTX_H, 'pts': pts, 'lines': lines,
+            'hi': {'x': x_at(fib['d_high']), 'y': y(high), 'price': high},
+            'lo': {'x': x_at(fib['d_low']), 'y': y(low), 'price': low},
+            'entry': ({'x': entry_x, 'y': y(t.entry_price)} if entry_x is not None else None),
+            'last': {'x': round((n - 1) * step, 1), 'y': y(rows[-1]['close']),
+                     'price': rows[-1]['close']},
+            'days': (rows[-1]['date'] - rows[0]['date']).days}
 
 
 def candles(t: Trade, bars: list[dict]) -> dict | None:
@@ -489,9 +540,10 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
     # フィボのアンカーは購入前の足も含めて取る（直近の主要な波＝120日窓。
     # ⚠️ 引数の bars は open_rows が判定用に取得日以降へ絞っているので、ここで別途クエリする）
     fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
-                   .order_by('date').values('date', 'high', 'low'))
+                   .order_by('date').values('date', 'high', 'low', 'close'))
+    fib = _fib(fib_src, t.entry_date, y, ymin, ymax)
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
-            'fib': _fib(fib_src, t.entry_date, y, ymin, ymax),
+            'fib': fib, 'fibctx': fib_context(t, fib_src, fib),
             'peak': _peak(t, out, y, CANDLE_W),
             # 吹き出し用（2026-09-30）: 取得価格と最終価格（最新の終値）
             # 購入日の白い ▲（2026-09-30 ユーザー指示）: 取得日（最初の足）の安値の真下に置く
