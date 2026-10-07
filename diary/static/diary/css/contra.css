@@ -311,10 +311,11 @@
 .ct-cdl .ct-sub{ position:absolute; left:8px; top:40%; }
 @media (max-width:600px){ .ct-cdl{ height:240px; } }   /* スマホは画面に収まるよう控えめに（200×1.2） */
 
-/* フィボナッチ・リトレースメント（2026-10-07）: アンカー=スイング安値→高値（自動）。紫の細い点線 */
+/* フィボナッチ・リトレースメント（2026-10-07）: アンカー=スイング高安（自動・波の向きを時系列判定）。紫の細い点線 */
 .ct-cdl .ln-fib{ stroke:rgba(167,139,250,.5); stroke-width:1; stroke-dasharray:2 3; }
 .cv-fib-lab{ position:absolute; right:4px; transform:translateY(-110%); font-size:10px; color:#a78bfa;
   pointer-events:none; z-index:1; white-space:nowrap; text-shadow:0 0 4px #000, 0 0 8px #000; }
+.cv-legend .fib{ color:#a78bfa; } .cv-legend .fib i{ font-style:normal; }
 
 /* 建値ストップ（2026-09-24） */
 .ct-be-slit{ position:absolute; top:-4px; bottom:-4px; width:2px; transform:translateX(-50%); background:#fbbf24; box-shadow:0 0 6px rgba(251,191,36,.8); }

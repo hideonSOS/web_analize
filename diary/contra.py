@@ -398,8 +398,11 @@ FIB_RATIOS = (23.6, 38.2, 50.0, 61.8, 78.6)
 def _fib(bars, entry_date, y, ymin, ymax):
     """フィボナッチ・リトレースメント（2026-10-07・原則どおりの実装）。
 
-    アンカーは自動: 購入10日前（PRE_REVIEW_DAYS）〜現在の スイング安値→スイング高値。
-    上昇波の押しの深さを測る（38.2〜61.8%で止まれば健全な押し、78.6%超は波が崩れた目安）。
+    アンカーは自動: 購入10日前（PRE_REVIEW_DAYS）〜現在の スイング安値とスイング高値。
+    **波の向きを時系列で判定**（2026-10-07 追加・ユーザーの画面で発覚）:
+      安値が先 → 上昇波。高値からの「押し」を測る（38.2〜61.8%で止まれば健全な押し）
+      高値が先 → 下落波。安値からの「戻り」を測る（押し目買い後の反発の抵抗水準）
+    23.6%と78.6%は上下対称でない（78.6=√61.8）ため、向きを無視すると線の価格がズレる。
     ⚠️ エントリー価格・利確価格をアンカーにしないこと（他の市場参加者と共有されない線に
     なり、水準として機能する根拠が消える。2026-10-07 にユーザーと合意済み）。
     可視範囲（損切り〜利確＋はみ出し）の外の線は描かない（軸を広げて足を潰さない）。
@@ -409,16 +412,23 @@ def _fib(bars, entry_date, y, ymin, ymax):
           and None not in (b['high'], b['low'])]
     if len(ok) < 3:
         return None
-    low = min(b['low'] for b in ok)
-    high = max(b['high'] for b in ok)
+    low_i = min(range(len(ok)), key=lambda i: ok[i]['low'])
+    high_i = max(range(len(ok)), key=lambda i: ok[i]['high'])
+    low, high = ok[low_i]['low'], ok[high_i]['high']
     if high <= low:
         return None
+    up = low_i <= high_i          # 安値が先＝上昇波（押し）／高値が先＝下落波（戻り）
     lines = []
     for r in FIB_RATIOS:
-        price = high - (high - low) * r / 100
+        # 上昇波: 高値から r% 押した価格 ／ 下落波: 安値から r% 戻した価格
+        price = (high - (high - low) * r / 100) if up else (low + (high - low) * r / 100)
         if ymin <= price <= ymax:
             lines.append({'ratio': r, 'price': price, 'y': y(price)})
-    return {'low': low, 'high': high, 'lines': lines} if lines else None
+    if not lines:
+        return None
+    return {'low': low, 'high': high, 'lines': lines, 'up': up,
+            'kind': '押し' if up else '戻り',
+            'wave': f'{low:,.2f}→{high:,.2f}' if up else f'{high:,.2f}→{low:,.2f}'}
 
 
 def candles(t: Trade, bars: list[dict]) -> dict | None:

@@ -6,4 +6,6 @@
   {% if c.entry_box %}<span class="entry"><i>▲</i> 取得価格 <b>{{ c.entry_box.price|floatformat:2 }}</b></span>{% endif %}
   {% if c.peak %}<span class="peak"><i>▼</i> 期間内最高値 <b>{{ c.peak.price|floatformat:2 }}</b> <em>{% if c.peak.pct >= 0 %}+{% endif %}{{ c.peak.pct|floatformat:1 }}%</em> <small>{{ c.peak.date|date:"n/j" }}</small></span>{% endif %}
   {% if c.last_box %}<span class="last"><i>◆</i> {{ c.last_box.label }} <b>{{ c.last_box.price|floatformat:2 }}</b> <em>{% if c.last_box.pct >= 0 %}+{% endif %}{{ c.last_box.pct|floatformat:1 }}%</em> <small>{{ c.last_box.date|date:"n/j" }}</small></span>{% endif %}
+  {% comment %} フィボのアンカー（2026-10-07）: 波は購入前10日の足も含むためチャートに全部は写らない。何を分割した線かを常時表示 {% endcomment %}
+  {% if c.fib %}<span class="fib"><i>┄</i> フィボ: {% if c.fib.up %}上昇波{% else %}下落波{% endif %} <b>{{ c.fib.wave }}</b> の{{ c.fib.kind }}</span>{% endif %}
 </div>
