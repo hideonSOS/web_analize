@@ -404,11 +404,15 @@ FIB_MIN_WAVE_PCT = 8.0
 def _fib(bars, entry_date, y, ymin, ymax):
     """フィボナッチ・リトレースメント（2026-10-07・原則どおりの実装）。
 
-    アンカーは自動: 購入 FIB_WINDOW_DAYS（120日）前〜現在の スイング安値とスイング高値。
-    **波の向きを時系列で判定**（2026-10-07 追加・ユーザーの画面で発覚）:
-      安値が先 → 上昇波。高値からの「押し」を測る（38.2〜61.8%で止まれば健全な押し）
-      高値が先 → 下落波。安値からの「戻り」を測る（押し目買い後の反発の抵抗水準）
-    23.6%と78.6%は上下対称でない（78.6=√61.8）ため、向きを無視すると線の価格がズレる。
+    アンカーは自動・**直近レグ優先**（2026-10-07 ユーザー指摘「線に意味を感じない」で確定）:
+      1. 窓内の最高値→その後の安値（直近の下落レグ）が FIB_MIN_WAVE_PCT 以上
+         → そのレグの「戻り」を測る＝**上の抵抗水準**。押し目買いで保有中に見るべきはこちら
+         （戻りがどこで失速するか・どこを抜ければ下落レグ否定か）
+      2. 高値からの押しが小さい（高値圏にいる）ときだけ、安値→最高値の上昇レグの
+         「押し」を測る＝下の支持水準（押し目の深さ・保有継続の判断）
+    ⚠️ 「窓内の最安値→最高値」を機械的に取らないこと（4月の安値→9月の高値のような
+    大波の支持線が出て、買った後の判断と向きが逆になる。実際にAMZNでユーザー指摘）。
+    23.6%と78.6%は上下対称でない（78.6=√61.8）ため、向きの取り違えは価格もズレる。
     ⚠️ エントリー価格・利確価格をアンカーにしないこと（他の市場参加者と共有されない線に
     なり、水準として機能する根拠が消える。2026-10-07 にユーザーと合意済み）。
     可視範囲（損切り〜利確＋はみ出し）の外の線は描かない（軸を広げて足を潰さない）。
@@ -418,28 +422,36 @@ def _fib(bars, entry_date, y, ymin, ymax):
           and None not in (b['high'], b['low'])]
     if len(ok) < 10:
         return None
-    low_i = min(range(len(ok)), key=lambda i: ok[i]['low'])
-    high_i = max(range(len(ok)), key=lambda i: ok[i]['high'])
-    low, high = ok[low_i]['low'], ok[high_i]['high']
-    if high <= low:
-        return None
-    up = low_i <= high_i          # 安値が先＝上昇波（押し）／高値が先＝下落波（戻り）
-    wave_pct = (high / low - 1) * 100
-    if wave_pct < FIB_MIN_WAVE_PCT:
+    h_i = max(range(len(ok)), key=lambda i: ok[i]['high'])
+    high, d_high = ok[h_i]['high'], ok[h_i]['date']
+    # 高値より後の最安値（直近の下落レグの終点）と、高値より前の最安値（上昇レグの起点）
+    la_i = min(range(h_i, len(ok)), key=lambda i: ok[i]['low'])
+    lb_i = min(range(0, h_i + 1), key=lambda i: ok[i]['low'])
+    dn_pct = (high / ok[la_i]['low'] - 1) * 100 if ok[la_i]['low'] < high else 0.0
+    up_pct = (high / ok[lb_i]['low'] - 1) * 100 if ok[lb_i]['low'] < high else 0.0
+    if dn_pct >= FIB_MIN_WAVE_PCT:
+        up, low, d_low = False, ok[la_i]['low'], ok[la_i]['date']     # 下落レグの戻り
+    elif up_pct >= FIB_MIN_WAVE_PCT:
+        up, low, d_low = True, ok[lb_i]['low'], ok[lb_i]['date']      # 上昇レグの押し
+    else:
         # 波が小さすぎて水準として機能しない → 線は出さず、凡例に理由だけ出す
-        return {'small': True, 'pct': wave_pct, 'lines': [], 'up': up,
-                'low': low, 'high': high, 'kind': '', 'wave': ''}
+        return {'small': True, 'pct': max(dn_pct, up_pct), 'lines': [], 'up': True,
+                'low': None, 'high': high, 'kind': '', 'wave': ''}
     lines = []
     for r in FIB_RATIOS:
-        # 上昇波: 高値から r% 押した価格 ／ 下落波: 安値から r% 戻した価格
+        # 上昇レグ: 高値から r% 押した価格 ／ 下落レグ: 安値から r% 戻した価格
         price = (high - (high - low) * r / 100) if up else (low + (high - low) * r / 100)
         if ymin <= price <= ymax:
             lines.append({'ratio': r, 'price': price, 'y': y(price)})
     if not lines:
         return None
+
+    def _d(d):
+        return f'{d.month}/{d.day}'
+    wave = (f'{low:,.2f}({_d(d_low)})→{high:,.2f}({_d(d_high)})' if up
+            else f'{high:,.2f}({_d(d_high)})→{low:,.2f}({_d(d_low)})')
     return {'low': low, 'high': high, 'lines': lines, 'up': up,
-            'kind': '押し' if up else '戻り',
-            'wave': f'{low:,.2f}→{high:,.2f}' if up else f'{high:,.2f}→{low:,.2f}'}
+            'kind': '押し' if up else '戻り', 'wave': wave}
 
 
 def candles(t: Trade, bars: list[dict]) -> dict | None:
