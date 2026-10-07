@@ -108,7 +108,9 @@ japan_kabu_* はバッチで再生成できるが、**銘柄カルテ(karte_*)�
   `SECURE_HSTS_SECONDS=86400` を有効化。`CSRF_TRUSTED_ORIGINS` に `https://<IP>` が必要
 - ⚠️ `SECURE_SSL_REDIRECT` があるため、**サーバー内の動作確認で http://localhost を
   叩くと 301 になる**。Django の test Client で確認するときは `c.get(url, secure=True)`
-  を付けること（付けずに「全ページ301＝壊れた」と誤診しかけた）
+  を付けること（付けずに「全ページ301＝壊れた」と誤診しかけた）。さらに本番は
+  ALLOWED_HOSTS が明示指定のため **`HTTP_HOST='<サーバーIP>'` も必須**（無いと
+  testserver が弾かれて 400 になる。2026-10-07 に「ページが壊れた」と誤診しかけた）
 
 ### 2段階認証（TOTP・`/security/` で設定可能。**現在は未使用**）
 - ユーザー方針で **ログインはメール＋パスワードのみ**（TOTP を試したが「6桁を毎回
