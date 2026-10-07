@@ -317,23 +317,8 @@
   pointer-events:none; z-index:1; white-space:nowrap; text-shadow:0 0 4px #000, 0 0 8px #000; }
 .cv-legend .fib{ color:#a78bfa; } .cv-legend .fib i{ font-style:normal; }
 
-/* フィボの波の全体図（2026-10-07）: 120日の終値ライン＋アンカー＋全5水準。
-   ポジションチャートに写らない波を見せ、下のフィボ線が「この波の分割」だと分かるようにする */
-.ct-fibctx-k{ text-align:right; color:#a78bfa; white-space:nowrap; font-size:11px; }
-.cv-fibctx{ position:relative; height:130px; border-left:1px solid #1f2937; border-bottom:1px solid #1f2937;
-  background:rgba(167,139,250,.03); }
-.cv-fibctx svg{ display:block; width:100%; height:100%; overflow:visible; }
-.cv-fibctx line{ vector-effect:non-scaling-stroke; }
-.cv-fibctx .ln-fib{ stroke:rgba(167,139,250,.45); stroke-width:1; stroke-dasharray:2 3; }
-.cv-fibctx .fibctx-close{ fill:none; stroke:#94a3b8; stroke-width:1.5; vector-effect:non-scaling-stroke; }
-.cv-fibctx .fibctx-leg{ stroke:rgba(250,204,21,.5); stroke-width:1; stroke-dasharray:6 4; }
-.fibctx-pt{ position:absolute; transform:translate(-50%,-50%); font-size:11px; pointer-events:auto;
-  text-shadow:0 0 4px #000; z-index:2; }
-.fibctx-pt.hi{ color:#facc15; transform:translate(-50%,-100%); }
-.fibctx-pt.lo{ color:#facc15; transform:translate(-50%,0); }
-.fibctx-pt.entry{ color:#fff; transform:translate(-50%,0); }
-.fibctx-pt.last{ color:#22d3ee; }
-@media (max-width:600px){ .cv-fibctx{ height:110px; grid-area:fibctx; } }
+/* フィボの波の全体図（.cv-fibctx）は 2026-10-07 に撤去（ユーザー指示「フィボ線中心の描画に」。
+   チャートの縦軸が5水準込みで取られるようになったため不要） */
 
 /* 建値ストップ（2026-09-24） */
 .ct-be-slit{ position:absolute; top:-4px; bottom:-4px; width:2px; transform:translateX(-50%); background:#fbbf24; box-shadow:0 0 6px rgba(251,191,36,.8); }
@@ -581,8 +566,7 @@ a.ct-sell-link{ display:inline-block; text-decoration:none; margin:8px 0 2px; }
    「損切り｜利確」のラベル行 → 価格バー → 凡例 → チャート → 期限（ラベル行＋線）を全部横幅いっぱいに積む。PC は変えない */
 @media (max-width:600px){
   .ct-range{ grid-template-columns:1fr 1fr; gap:6px 10px;
-    grid-template-areas:"stop target" "track track" "legend legend" "fibctx fibctx" "cdl cdl" "timek timev" "time time"; }
-  .ct-range > .ct-fibctx-k{ display:none; }
+    grid-template-areas:"stop target" "track track" "legend legend" "cdl cdl" "timek timev" "time time"; }
   .ct-range > .ct-range-stop{ grid-area:stop; text-align:left; font-size:12px; }
   .ct-range > .ct-range-target{ grid-area:target; text-align:right; font-size:12px; }
   .ct-range > .ct-track-wrap{ grid-area:track; }

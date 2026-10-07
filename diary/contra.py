@@ -401,7 +401,7 @@ FIB_WINDOW_DAYS = 120
 FIB_MIN_WAVE_PCT = 8.0
 
 
-def _fib(bars, entry_date, y, ymin, ymax):
+def _fib(bars, entry_date):
     """フィボナッチ・リトレースメント（2026-10-07・原則どおりの実装）。
 
     アンカーは自動・**直近レグ優先**（2026-10-07 ユーザー指摘「線に意味を感じない」で確定）:
@@ -415,7 +415,10 @@ def _fib(bars, entry_date, y, ymin, ymax):
     23.6%と78.6%は上下対称でない（78.6=√61.8）ため、向きの取り違えは価格もズレる。
     ⚠️ エントリー価格・利確価格をアンカーにしないこと（他の市場参加者と共有されない線に
     なり、水準として機能する根拠が消える。2026-10-07 にユーザーと合意済み）。
-    可視範囲（損切り〜利確＋はみ出し）の外の線は描かない（軸を広げて足を潰さない）。
+    戻り値の levels は価格のみ（Y座標は candles() がチャートの縦軸を5水準込みで
+    決めたあとに付ける＝**フィボ中心の描画**。2026-10-07 ユーザー指示「波の線グラフは
+    非表示でよい・フィボナッチの線を中心とした描画に」で、可視範囲クリップと
+    全体図チャートは廃止した。クリップに戻すと61.8%等の重要水準が画面から消える）。
     """
     ok = [b for b in bars
           if b['date'] and b['date'] >= entry_date - timedelta(days=FIB_WINDOW_DAYS)
@@ -435,79 +438,28 @@ def _fib(bars, entry_date, y, ymin, ymax):
         up, low, d_low = True, ok[lb_i]['low'], ok[lb_i]['date']      # 上昇レグの押し
     else:
         # 波が小さすぎて水準として機能しない → 線は出さず、凡例に理由だけ出す
-        return {'small': True, 'pct': max(dn_pct, up_pct), 'lines': [], 'up': True,
-                'low': None, 'high': high, 'kind': '', 'wave': ''}
-    lines = []
-    for r in FIB_RATIOS:
-        # 上昇レグ: 高値から r% 押した価格 ／ 下落レグ: 安値から r% 戻した価格
-        price = (high - (high - low) * r / 100) if up else (low + (high - low) * r / 100)
-        if ymin <= price <= ymax:
-            lines.append({'ratio': r, 'price': price, 'y': y(price)})
-    if not lines:
-        return None
+        return {'small': True, 'pct': max(dn_pct, up_pct), 'lines': [], 'levels': [],
+                'up': True, 'low': None, 'high': high, 'kind': '', 'wave': ''}
+    # 上昇レグ: 高値から r% 押した価格 ／ 下落レグ: 安値から r% 戻した価格
+    levels = [{'ratio': r,
+               'price': (high - (high - low) * r / 100) if up else (low + (high - low) * r / 100)}
+              for r in FIB_RATIOS]
 
     def _d(d):
         return f'{d.month}/{d.day}'
     wave = (f'{low:,.2f}({_d(d_low)})→{high:,.2f}({_d(d_high)})' if up
             else f'{high:,.2f}({_d(d_high)})→{low:,.2f}({_d(d_low)})')
-    return {'low': low, 'high': high, 'lines': lines, 'up': up,
+    return {'low': low, 'high': high, 'levels': levels, 'up': up,
             'd_high': d_high, 'd_low': d_low,
             'kind': '押し' if up else '戻り', 'wave': wave}
 
 
-FIBCTX_W, FIBCTX_H = 1000, 140   # コンテキストチャートの SVG 座標系
-
-
-def fib_context(t: Trade, src: list[dict], fib: dict | None) -> dict | None:
-    """フィボの波の全体図（120日・終値ライン）。2026-10-07 ユーザー指摘
-    「アンカーの波が画面に無く、不揃いな線が何を示すのか理解できない。黄金比に見えない」。
-
-    フィボの比率はアンカーの波を分割して初めて意味を持つが、ポジションチャートは
-    取得日〜20日しか描けず波（例: 8/3→9/16）が写らない。そこで波そのものを見せる
-    小さな全体図を別枠で出す: 終値ライン＋アンカー（高値▼・安値▲）＋全5水準＋
-    建値と現在値。フィボ水準はここでは可視範囲で切らない（全体図が目的のため）。
-    """
-    if not fib or fib.get('small'):
-        return None
-    rows = [b for b in src if b.get('close') is not None]
-    if len(rows) < 10:
-        return None
-    high, low = fib['high'], fib['low']
-    ymax = max(max(b['high'] for b in rows if b.get('high') is not None), high)
-    ymin = min(min(b['low'] for b in rows if b.get('low') is not None), low)
-    pad = (ymax - ymin) * 0.05 or 1
-    ymax, ymin = ymax + pad, ymin - pad
-
-    def y(p):
-        return round((ymax - p) / (ymax - ymin) * FIBCTX_H, 2)
-    n = len(rows)
-    step = FIBCTX_W / max(1, n - 1)
-
-    def x_at(d):
-        for i, b in enumerate(rows):
-            if b['date'] == d:
-                return round(i * step, 1)
-        return None
-    pts = ' '.join(f'{round(i * step, 1)},{y(b["close"])}' for i, b in enumerate(rows))
-    # 全5水準（可視範囲で切らない）
-    lines = []
-    for r in FIB_RATIOS:
-        price = (high - (high - low) * r / 100) if fib['up'] else (low + (high - low) * r / 100)
-        lines.append({'ratio': r, 'price': price, 'y': y(price)})
-    entry_x = next((round(i * step, 1) for i, b in enumerate(rows)
-                    if b['date'] >= t.entry_date), None)
-    return {'W': FIBCTX_W, 'H': FIBCTX_H, 'pts': pts, 'lines': lines,
-            'hi': {'x': x_at(fib['d_high']), 'y': y(high), 'price': high},
-            'lo': {'x': x_at(fib['d_low']), 'y': y(low), 'price': low},
-            'entry': ({'x': entry_x, 'y': y(t.entry_price)} if entry_x is not None else None),
-            'last': {'x': round((n - 1) * step, 1), 'y': y(rows[-1]['close']),
-                     'price': rows[-1]['close']},
-            'days': (rows[-1]['date'] - rows[0]['date']).days}
-
-
 def candles(t: Trade, bars: list[dict]) -> dict | None:
     """取得日からのローソク足（2026-09-24 ユーザー要望）。横軸は期限の線と同じ（左端=取得日・右端=
-    TIME_LIMIT_DAYS）、縦軸は 損切り線〜利確線（はみ出した日があればそこまで広げる）。
+    TIME_LIMIT_DAYS）、縦軸は **フィボ5水準＋損切り線〜利確線＋足** が全部入るように取る
+    （＝フィボ中心の描画。2026-10-07 ユーザー指示「フィボナッチの線を中心とした描画に」。
+    旧実装の「損切り〜利確だけの縦軸＋範囲外のフィボ線はクリップ」は 61.8% 等の重要水準が
+    画面から消えて不評だった。全体図チャート（fib_context）も同日撤去）。
     サーバー側で SVG の座標まで作る（JS なし）。
     期限（20日）を過ぎて持ち続けたら横軸を今日まで伸ばし、全部の足を描く（2026-09-29 ユーザー決定。以前は
     20日で止めていて、期限超過の値動きと心情が見えなかった）。20日の位置に赤い縦線・右側は薄い赤の背景（over）"""
@@ -515,8 +467,13 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
             and None not in (b['open'], b['high'], b['low'], b['close'])]
     if not rows:
         return None
-    ymax = max([t.target_price] + [b['high'] for b in rows])
-    ymin = min([t.stop_price] + [b['low'] for b in rows])
+    # フィボを先に計算し、縦軸のレンジに5水準を含める
+    fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
+                   .order_by('date').values('date', 'high', 'low'))
+    fib = _fib(fib_src, t.entry_date)
+    fib_prices = [l['price'] for l in fib['levels']] if fib else []
+    ymax = max([t.target_price] + [b['high'] for b in rows] + fib_prices)
+    ymin = min([t.stop_price] + [b['low'] for b in rows] + fib_prices)
     pad = (ymax - ymin) * 0.04 or 1
     ymax, ymin = ymax + pad, ymin - pad
 
@@ -537,13 +494,12 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
     over = span > TIME_LIMIT_DAYS
-    # フィボのアンカーは購入前の足も含めて取る（直近の主要な波＝120日窓。
-    # ⚠️ 引数の bars は open_rows が判定用に取得日以降へ絞っているので、ここで別途クエリする）
-    fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
-                   .order_by('date').values('date', 'high', 'low', 'close'))
-    fib = _fib(fib_src, t.entry_date, y, ymin, ymax)
+    # フィボ水準にY座標を付ける（レンジに含めてあるので全5本が必ず画面内）
+    if fib:
+        fib['lines'] = [{'ratio': l['ratio'], 'price': l['price'], 'y': y(l['price'])}
+                        for l in fib['levels']]
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
-            'fib': fib, 'fibctx': fib_context(t, fib_src, fib),
+            'fib': fib,
             'peak': _peak(t, out, y, CANDLE_W),
             # 吹き出し用（2026-09-30）: 取得価格と最終価格（最新の終値）
             # 購入日の白い ▲（2026-09-30 ユーザー指示）: 取得日（最初の足）の安値の真下に置く

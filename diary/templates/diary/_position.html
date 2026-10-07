@@ -49,26 +49,9 @@
   {% endcomment %}
   {% if r.candles %}<span></span>{% with c=r.candles %}{% include 'diary/_chart_legend.html' %}{% endwith %}{% endif %}
   {% comment %}
-    フィボの波の全体図（2026-10-07 ユーザー指摘「波が画面に無く線の意味が分からない」）:
-    120日の終値ライン＋アンカー（▼高値・▲安値）＋全5水準。下のポジションチャートの
-    フィボ線は「この波の分割の、いま見えている部分」だと分かるようにする
+    フィボの波の全体図（線グラフ）は 2026-10-07 に撤去（ユーザー指示「非表示でよい・
+    フィボナッチの線を中心とした描画に」）。代わりに下のチャートの縦軸が5水準込みで取られる
   {% endcomment %}
-  {% if r.candles.fibctx %}
-  <span class="ct-fibctx-k">フィボ<br>の波</span>
-  <div class="cv-fibctx">
-    <svg viewBox="0 0 {{ r.candles.fibctx.W }} {{ r.candles.fibctx.H }}" preserveAspectRatio="none" aria-label="フィボナッチの波（120日）">
-      {% for f in r.candles.fibctx.lines %}<line x1="0" x2="{{ r.candles.fibctx.W }}" y1="{{ f.y }}" y2="{{ f.y }}" class="ln-fib" />{% endfor %}
-      <polyline points="{{ r.candles.fibctx.pts }}" class="fibctx-close" />
-      {% if r.candles.fibctx.hi.x is not None %}<line x1="{{ r.candles.fibctx.hi.x }}" x2="{{ r.candles.fibctx.lo.x }}" y1="{{ r.candles.fibctx.hi.y }}" y2="{{ r.candles.fibctx.lo.y }}" class="fibctx-leg" />{% endif %}
-    </svg>
-    {% for f in r.candles.fibctx.lines %}<span class="cv-fib-lab" style="top:calc({{ f.y }} / {{ r.candles.fibctx.H }} * 100%)">{{ f.ratio }}% {{ r.unit }}{{ f.price|floatformat:2 }}</span>{% endfor %}
-    {% if r.candles.fibctx.hi.x is not None %}<span class="fibctx-pt hi" style="left:calc({{ r.candles.fibctx.hi.x }} / {{ r.candles.fibctx.W }} * 100%); top:calc({{ r.candles.fibctx.hi.y }} / {{ r.candles.fibctx.H }} * 100%)" title="アンカー高値 {{ r.candles.fibctx.hi.price|floatformat:2 }}">▼</span>{% endif %}
-    {% if r.candles.fibctx.lo.x is not None %}<span class="fibctx-pt lo" style="left:calc({{ r.candles.fibctx.lo.x }} / {{ r.candles.fibctx.W }} * 100%); top:calc({{ r.candles.fibctx.lo.y }} / {{ r.candles.fibctx.H }} * 100%)" title="アンカー安値 {{ r.candles.fibctx.lo.price|floatformat:2 }}">▲</span>{% endif %}
-    {% if r.candles.fibctx.entry %}<span class="fibctx-pt entry" style="left:calc({{ r.candles.fibctx.entry.x }} / {{ r.candles.fibctx.W }} * 100%); top:calc({{ r.candles.fibctx.entry.y }} / {{ r.candles.fibctx.H }} * 100%)" title="取得 {{ r.t.entry_price|floatformat:2 }}">▲</span>{% endif %}
-    <span class="fibctx-pt last" style="left:calc({{ r.candles.fibctx.last.x }} / {{ r.candles.fibctx.W }} * 100%); top:calc({{ r.candles.fibctx.last.y }} / {{ r.candles.fibctx.H }} * 100%)" title="現在 {{ r.candles.fibctx.last.price|floatformat:2 }}">●</span>
-  </div>
-  <span></span>
-  {% endif %}
   <span class="ct-cdl-k">日足</span>
   <div class="ct-cdl">
     {% if r.candles %}
