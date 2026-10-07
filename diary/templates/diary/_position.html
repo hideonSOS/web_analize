@@ -106,17 +106,20 @@
   未入力なら自動（直近レグ）が初期値。チャートツールの手動描画と同じ思想
 {% endcomment %}
 <details class="ct-fib-set">
-  <summary>⚙ フィボのアンカー{% if r.t.fib_high and r.t.fib_low %}: 手動 {{ r.t.fib_low|floatformat:2 }}→{{ r.t.fib_high|floatformat:2 }}{% else %}（自動: 直近レグ）{% endif %}</summary>
+  <summary>⚙ フィボのアンカー{% if r.t.fib_high and r.t.fib_low %}: 手動 {{ r.t.fib_low|floatformat:2 }}→{{ r.t.fib_high|floatformat:2 }}{% elif r.t.fib_dir == 'down' %}: 下降波を指定（端点は自動）{% elif r.t.fib_dir == 'up' %}: 上昇波を指定（端点は自動）{% else %}（自動: 直近レグ優先）{% endif %}</summary>
   <form method="post" class="ct-fib-form">{% csrf_token %}
     <input type="hidden" name="form_id" value="fib_anchor"><input type="hidden" name="id" value="{{ r.t.id }}">
-    <label>波の高値 <input type="number" name="fib_high" step="0.01" min="0" inputmode="decimal" value="{{ r.t.fib_high|default_if_none:'' }}" placeholder="{{ r.candles.fib.high|floatformat:2 }}"></label>
-    <label>波の安値 <input type="number" name="fib_low" step="0.01" min="0" inputmode="decimal" value="{{ r.t.fib_low|default_if_none:'' }}" placeholder="{{ r.candles.fib.low|floatformat:2 }}"></label>
+    {% comment %} ①まず波の向きを選ぶ（2026-10-08 ユーザーの定式化）。②価格は任意＝空なら端点は向きの制約で自動
+      （下降波=窓内最大→その後の最小／上昇波=窓内最小→その後の最大）。両方入れれば完全手動 {% endcomment %}
     <span class="ct-fib-dirs">
-      <label><input type="radio" name="fib_dir" value="down" {% if r.t.fib_dir != 'up' %}checked{% endif %}> 下落波の戻り（上の抵抗）</label>
-      <label><input type="radio" name="fib_dir" value="up" {% if r.t.fib_dir == 'up' %}checked{% endif %}> 上昇波の押し（下の支持）</label>
+      <label><input type="radio" name="fib_dir" value="" {% if not r.t.fib_dir %}checked{% endif %}> 自動（直近レグ優先）</label>
+      <label><input type="radio" name="fib_dir" value="down" {% if r.t.fib_dir == 'down' %}checked{% endif %}> 下降波の戻り（上の抵抗＝出口の地図）</label>
+      <label><input type="radio" name="fib_dir" value="up" {% if r.t.fib_dir == 'up' %}checked{% endif %}> 上昇波の押し（下の支持＝入口の地図）</label>
     </span>
+    <label>波の高値 <input type="number" name="fib_high" step="0.01" min="0" inputmode="decimal" value="{{ r.t.fib_high|default_if_none:'' }}" placeholder="空=自動 {{ r.candles.fib.high|floatformat:2 }}"></label>
+    <label>波の安値 <input type="number" name="fib_low" step="0.01" min="0" inputmode="decimal" value="{{ r.t.fib_low|default_if_none:'' }}" placeholder="空=自動 {{ r.candles.fib.low|floatformat:2 }}"></label>
     <button type="submit" class="ct-btn-sub">保存</button>
-    {% if r.t.fib_high and r.t.fib_low %}<button type="submit" name="clear" value="1" class="ct-btn-sub ct-fib-clear">自動に戻す</button>{% endif %}
+    {% if r.t.fib_high or r.t.fib_dir %}<button type="submit" name="clear" value="1" class="ct-btn-sub ct-fib-clear">すべて自動に戻す</button>{% endif %}
   </form>
 </details>
 {% comment %}

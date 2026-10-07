@@ -447,27 +447,41 @@ def track(request, pk):
 
 
 def _save_fib_anchor(request, t):
-    """フィボの手動アンカーの保存／クリア（2026-10-08 ユーザー決定「上端・下端は人間が設定する」。
-    短期トレード・練習の両ページから form_id='fib_anchor' で呼ばれる。戦略の縛りは呼び出し側）"""
+    """フィボのアンカー設定の保存／クリア（2026-10-08 ユーザー決定「上端・下端は人間が設定する」
+    → 同日「①まず波の向きを選ぶ ②端点は向きの制約で自動（価格入力は任意）」に拡張）。
+    短期トレード・練習の両ページから form_id='fib_anchor' で呼ばれる。戦略の縛りは呼び出し側"""
     if request.POST.get('clear'):
         t.fib_high = t.fib_low = None
         t.fib_dir = ''
         t.save(update_fields=['fib_high', 'fib_low', 'fib_dir'])
-        messages.success(request, f'{t.ticker}: フィボのアンカーを自動（直近レグ）に戻しました。')
+        messages.success(request, f'{t.ticker}: フィボをすべて自動（直近レグ優先）に戻しました。')
+        return
+    d = request.POST.get('fib_dir', '')
+    d = d if d in ('up', 'down') else ''
+    hi_s, lo_s = request.POST.get('fib_high', '').strip(), request.POST.get('fib_low', '').strip()
+    if not hi_s and not lo_s:
+        # 価格なし＝向きだけ指定（端点は向きの制約で自動）。向きも空なら完全自動
+        t.fib_high = t.fib_low = None
+        t.fib_dir = d
+        t.save(update_fields=['fib_high', 'fib_low', 'fib_dir'])
+        label = {'': '自動（直近レグ優先）', 'down': '下降波の戻り（端点は自動）',
+                 'up': '上昇波の押し（端点は自動）'}[d]
+        messages.success(request, f'{t.ticker}: フィボを {label} にしました。')
         return
     try:
-        hi = float(request.POST.get('fib_high', ''))
-        lo = float(request.POST.get('fib_low', ''))
+        hi, lo = float(hi_s), float(lo_s)
     except (TypeError, ValueError):
-        messages.error(request, 'フィボのアンカーは数値で入力してください。')
+        messages.error(request, 'フィボのアンカーは高値・安値の両方を数値で入力してください（片方だけは不可）。')
         return
     if not (hi > lo > 0):
         messages.error(request, 'フィボのアンカーは 高値 > 安値 > 0 で入力してください。')
         return
-    t.fib_high, t.fib_low = hi, lo
-    t.fib_dir = 'up' if request.POST.get('fib_dir') == 'up' else 'down'
+    if not d:
+        messages.error(request, '価格を手動指定するときは波の向き（戻り／押し）を選んでください。')
+        return
+    t.fib_high, t.fib_low, t.fib_dir = hi, lo, d
     t.save(update_fields=['fib_high', 'fib_low', 'fib_dir'])
-    kind = '押し（下の支持）' if t.fib_dir == 'up' else '戻り（上の抵抗）'
+    kind = '押し（下の支持）' if d == 'up' else '戻り（上の抵抗）'
     messages.success(request, f'{t.ticker}: フィボを 手動アンカー {lo:,.2f}→{hi:,.2f} の{kind}で引き直しました。')
 
 

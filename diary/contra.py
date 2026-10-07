@@ -401,7 +401,7 @@ FIB_WINDOW_DAYS = 120
 FIB_MIN_WAVE_PCT = 8.0
 
 
-def _fib(bars, entry_date):
+def _fib(bars, entry_date, force_dir=''):
     """フィボナッチ・リトレースメント（2026-10-07・原則どおりの実装）。
 
     アンカーは自動・**直近レグ優先**（2026-10-07 ユーザー指摘「線に意味を感じない」で確定）:
@@ -425,21 +425,44 @@ def _fib(bars, entry_date):
           and None not in (b['high'], b['low'])]
     if len(ok) < 10:
         return None
-    h_i = max(range(len(ok)), key=lambda i: ok[i]['high'])
-    high, d_high = ok[h_i]['high'], ok[h_i]['date']
-    # 高値より後の最安値（直近の下落レグの終点）と、高値より前の最安値（上昇レグの起点）
-    la_i = min(range(h_i, len(ok)), key=lambda i: ok[i]['low'])
-    lb_i = min(range(0, h_i + 1), key=lambda i: ok[i]['low'])
-    dn_pct = (high / ok[la_i]['low'] - 1) * 100 if ok[la_i]['low'] < high else 0.0
-    up_pct = (high / ok[lb_i]['low'] - 1) * 100 if ok[lb_i]['low'] < high else 0.0
-    if dn_pct >= FIB_MIN_WAVE_PCT:
-        up, low, d_low = False, ok[la_i]['low'], ok[la_i]['date']     # 下落レグの戻り
-    elif up_pct >= FIB_MIN_WAVE_PCT:
-        up, low, d_low = True, ok[lb_i]['low'], ok[lb_i]['date']      # 上昇レグの押し
+
+    # 波の端点は「向き＋時間順序の制約」で一意に決まる（2026-10-08 ユーザーの定式化で確定）:
+    #   下降波: 窓内最大 → その後の最小 ／ 上昇波: 窓内最小 → その後の最大
+    def _seg_down():
+        h_i = max(range(len(ok)), key=lambda i: ok[i]['high'])
+        l_i = min(range(h_i, len(ok)), key=lambda i: ok[i]['low'])
+        return ok[h_i]['high'], ok[l_i]['low'], ok[h_i]['date'], ok[l_i]['date']
+
+    def _seg_up():
+        l_i = min(range(len(ok)), key=lambda i: ok[i]['low'])
+        h_i = max(range(l_i, len(ok)), key=lambda i: ok[i]['high'])
+        return ok[h_i]['high'], ok[l_i]['low'], ok[h_i]['date'], ok[l_i]['date']
+
+    def _pct(high, low):
+        return (high / low - 1) * 100 if (low and high > low) else 0.0
+
+    if force_dir in ('up', 'down'):
+        # 向きの指定あり（人間の選択が最終権限。波の大きさのガードは掛けない）
+        up = force_dir == 'up'
+        high, low, d_high, d_low = _seg_up() if up else _seg_down()
+        if not low or high <= low:
+            return {'small': True, 'pct': 0.0, 'lines': [], 'levels': [],
+                    'up': up, 'low': None, 'high': high, 'kind': '', 'wave': ''}
+        forced = True
     else:
-        # 波が小さすぎて水準として機能しない → 線は出さず、凡例に理由だけ出す
-        return {'small': True, 'pct': max(dn_pct, up_pct), 'lines': [], 'levels': [],
-                'up': True, 'low': None, 'high': high, 'kind': '', 'wave': ''}
+        # 自動: 直近の下降レグ優先（保有中に見るべきは戻りの抵抗）、無ければ上昇レグの押し
+        dh, dl, dhd, dld = _seg_down()
+        uh, ul, uhd, uld = _seg_up()
+        dn_pct, up_pct = _pct(dh, dl), _pct(uh, ul)
+        if dn_pct >= FIB_MIN_WAVE_PCT:
+            up, high, low, d_high, d_low = False, dh, dl, dhd, dld
+        elif up_pct >= FIB_MIN_WAVE_PCT:
+            up, high, low, d_high, d_low = True, uh, ul, uhd, uld
+        else:
+            # 波が小さすぎて水準として機能しない → 線は出さず、凡例に理由だけ出す
+            return {'small': True, 'pct': max(dn_pct, up_pct), 'lines': [], 'levels': [],
+                    'up': True, 'low': None, 'high': dh, 'kind': '', 'wave': ''}
+        forced = False
     # 上昇レグ: 高値から r% 押した価格 ／ 下落レグ: 安値から r% 戻した価格
     levels = [{'ratio': r,
                'price': (high - (high - low) * r / 100) if up else (low + (high - low) * r / 100)}
@@ -449,7 +472,7 @@ def _fib(bars, entry_date):
         return f'{d.month}/{d.day}'
     wave = (f'{low:,.2f}({_d(d_low)})→{high:,.2f}({_d(d_high)})' if up
             else f'{high:,.2f}({_d(d_high)})→{low:,.2f}({_d(d_low)})')
-    return {'low': low, 'high': high, 'levels': levels, 'up': up,
+    return {'low': low, 'high': high, 'levels': levels, 'up': up, 'forced': forced,
             'd_high': d_high, 'd_low': d_low,
             'kind': '押し' if up else '戻り', 'wave': wave}
 
@@ -481,13 +504,14 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
             and None not in (b['open'], b['high'], b['low'], b['close'])]
     if not rows:
         return None
-    # フィボを先に計算し、縦軸のレンジに5水準を含める（手動アンカーがあれば自動より優先）
+    # フィボを先に計算し、縦軸のレンジに5水準を含める。優先順位:
+    #   手動アンカー（価格指定） > 向きだけ指定（端点は向きの制約で自動） > 完全自動（直近レグ優先）
     if t.fib_high and t.fib_low and t.fib_high > t.fib_low:
         fib = _fib_manual(t)
     else:
         fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
                        .order_by('date').values('date', 'high', 'low'))
-        fib = _fib(fib_src, t.entry_date)
+        fib = _fib(fib_src, t.entry_date, force_dir=t.fib_dir)
     fib_prices = [l['price'] for l in fib['levels']] if fib else []
     ymax = max([t.target_price] + [b['high'] for b in rows] + fib_prices)
     ymin = min([t.stop_price] + [b['low'] for b in rows] + fib_prices)
