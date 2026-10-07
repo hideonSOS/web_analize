@@ -19,7 +19,10 @@ from django.core.management.base import BaseCommand
 
 from diary.models import Trade, TradeBar
 
-from diary.contra import PRE_REVIEW_DAYS as PRE_ENTRY_DAYS   # 取得日の前に取る日数（暦日10日・振り返りチャートと同じ）
+# 取得日の前に取る日数: フィボナッチのアンカー探索窓（暦日120日・2026-10-07 に10日→120日へ拡大。
+# 振り返りチャートは review_candles 側で10日（PRE_REVIEW_DAYS）に絞るので表示は変わらない。
+# 毎回取り直す1コールの開始日を早めるだけなので取得コストは同じ
+from diary.contra import FIB_WINDOW_DAYS as PRE_ENTRY_DAYS
 
 
 def yf_ticker(trade: Trade) -> str:

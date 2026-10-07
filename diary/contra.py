@@ -393,12 +393,18 @@ CANDLE_W, CANDLE_H = 1000, 100   # SVG の座標系（preserveAspectRatio=none �
 
 # フィボナッチ・リトレースメントの比率（2026-10-07 ユーザー要望・原則どおり5本）
 FIB_RATIOS = (23.6, 38.2, 50.0, 61.8, 78.6)
+# アンカー探索の窓（暦日・約4か月）。⚠️ 当初10日窓で実装したら AMZN で線の間隔が$2＝
+# 日中ノイズ未満になり「判断を変えるポイントにならない」とユーザー指摘（2026-10-07）。
+# フィボが意味を持つのは数週間〜数か月の主要な波だけ。10日に戻さないこと
+FIB_WINDOW_DAYS = 120
+# 波の値幅がこれ未満（%）ならフィボを描かない（小さい波の38.2%刻みはノイズ。凡例に理由を出す）
+FIB_MIN_WAVE_PCT = 8.0
 
 
 def _fib(bars, entry_date, y, ymin, ymax):
     """フィボナッチ・リトレースメント（2026-10-07・原則どおりの実装）。
 
-    アンカーは自動: 購入10日前（PRE_REVIEW_DAYS）〜現在の スイング安値とスイング高値。
+    アンカーは自動: 購入 FIB_WINDOW_DAYS（120日）前〜現在の スイング安値とスイング高値。
     **波の向きを時系列で判定**（2026-10-07 追加・ユーザーの画面で発覚）:
       安値が先 → 上昇波。高値からの「押し」を測る（38.2〜61.8%で止まれば健全な押し）
       高値が先 → 下落波。安値からの「戻り」を測る（押し目買い後の反発の抵抗水準）
@@ -408,9 +414,9 @@ def _fib(bars, entry_date, y, ymin, ymax):
     可視範囲（損切り〜利確＋はみ出し）の外の線は描かない（軸を広げて足を潰さない）。
     """
     ok = [b for b in bars
-          if b['date'] and b['date'] >= entry_date - timedelta(days=PRE_REVIEW_DAYS)
+          if b['date'] and b['date'] >= entry_date - timedelta(days=FIB_WINDOW_DAYS)
           and None not in (b['high'], b['low'])]
-    if len(ok) < 3:
+    if len(ok) < 10:
         return None
     low_i = min(range(len(ok)), key=lambda i: ok[i]['low'])
     high_i = max(range(len(ok)), key=lambda i: ok[i]['high'])
@@ -418,6 +424,11 @@ def _fib(bars, entry_date, y, ymin, ymax):
     if high <= low:
         return None
     up = low_i <= high_i          # 安値が先＝上昇波（押し）／高値が先＝下落波（戻り）
+    wave_pct = (high / low - 1) * 100
+    if wave_pct < FIB_MIN_WAVE_PCT:
+        # 波が小さすぎて水準として機能しない → 線は出さず、凡例に理由だけ出す
+        return {'small': True, 'pct': wave_pct, 'lines': [], 'up': up,
+                'low': low, 'high': high, 'kind': '', 'wave': ''}
     lines = []
     for r in FIB_RATIOS:
         # 上昇波: 高値から r% 押した価格 ／ 下落波: 安値から r% 戻した価格
@@ -463,9 +474,9 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
     over = span > TIME_LIMIT_DAYS
-    # フィボのアンカーは購入前の足も含めて取る（押し目買いではスイング安値が購入直前にある。
+    # フィボのアンカーは購入前の足も含めて取る（直近の主要な波＝120日窓。
     # ⚠️ 引数の bars は open_rows が判定用に取得日以降へ絞っているので、ここで別途クエリする）
-    fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=PRE_REVIEW_DAYS))
+    fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
                    .order_by('date').values('date', 'high', 'low'))
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
             'fib': _fib(fib_src, t.entry_date, y, ymin, ymax),
