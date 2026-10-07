@@ -301,8 +301,10 @@
 .ct-cdl{ margin-top:18px; height:346px; position:relative; border-left:1px solid #1f2937; border-bottom:1px solid #1f2937; }
 .ct-cdl svg{ display:block; width:100%; height:100%; overflow:visible; }
 .ct-cdl line{ vector-effect:non-scaling-stroke; }
-.ct-cdl .ln-target{ stroke:rgba(74,222,128,.55); stroke-width:1; stroke-dasharray:4 3; }
-.ct-cdl .ln-stop{ stroke:rgba(248,113,113,.55); stroke-width:1; stroke-dasharray:4 3; }
+/* 利確・損切りは実線（2026-10-07 ユーザー指示「すべて点線で分かりづらい」。
+   フィボ=点線（紫）・ルール2線=実線 で見分ける。建値は従来どおり細かい点線 */
+.ct-cdl .ln-target{ stroke:rgba(74,222,128,.7); stroke-width:1; }
+.ct-cdl .ln-stop{ stroke:rgba(248,113,113,.7); stroke-width:1; }
 .ct-cdl .ln-entry{ stroke:rgba(255,255,255,.45); stroke-width:1; stroke-dasharray:2 3; }
 .ct-cdl .ln-half{ stroke:rgba(255,255,255,.15); stroke-width:1; stroke-dasharray:2 4; }
 .ct-cdl .wick{ stroke-width:1; }
