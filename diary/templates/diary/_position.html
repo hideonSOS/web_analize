@@ -75,6 +75,10 @@
     </svg>
     {% with c=r.candles %}{% include 'diary/_chart_overlay.html' %}{% endwith %}
     {% if r.candles.fib %}{% for f in r.candles.fib.lines %}<span class="cv-fib-lab" style="top:calc({{ f.y }} / {{ r.candles.H }} * 100%)">{{ f.ratio }}% {{ r.unit }}{{ f.price|floatformat:2 }}</span>{% endfor %}{% endif %}
+    {% comment %} ルール線のチャート内ラベル（2026-10-07 ユーザー要望: フィボ線と紛らわしい）。左端に小さく {% endcomment %}
+    <span class="cv-rule-lab target" style="top:calc({{ r.candles.target_y }} / {{ r.candles.H }} * 100%)">利確 {{ r.unit }}{{ r.t.target_price|floatformat:2 }}</span>
+    <span class="cv-rule-lab stop" style="top:calc({{ r.candles.stop_y }} / {{ r.candles.H }} * 100%)">損切り {{ r.unit }}{{ r.t.stop_price|floatformat:2 }}</span>
+    <span class="cv-rule-lab entry" style="top:calc({{ r.candles.entry_y }} / {{ r.candles.H }} * 100%)">建値 {{ r.unit }}{{ r.t.entry_price|floatformat:2 }}</span>
     {% if r.candles.over %}<span class="cd-over-label" style="left:calc({{ r.candles.limit_x }} / {{ r.candles.W }} * 100%)">期限20日 → ここから超過</span>{% endif %}
     {% else %}<span class="ct-sub">日足待ち</span>{% endif %}
   </div>

@@ -315,6 +315,12 @@
 .ct-cdl .ln-fib{ stroke:rgba(167,139,250,.5); stroke-width:1; stroke-dasharray:2 3; }
 .cv-fib-lab{ position:absolute; right:4px; transform:translateY(-110%); font-size:10px; color:#a78bfa;
   pointer-events:none; z-index:1; white-space:nowrap; text-shadow:0 0 4px #000, 0 0 8px #000; }
+/* ルール線（利確・損切り・建値）のチャート内ラベル（2026-10-07）: フィボは右端・ルールは左端で住み分け */
+.cv-rule-lab{ position:absolute; left:4px; transform:translateY(-110%); font-size:10px;
+  pointer-events:none; z-index:1; white-space:nowrap; text-shadow:0 0 4px #000, 0 0 8px #000; }
+.cv-rule-lab.target{ color:#4ade80; }
+.cv-rule-lab.stop{ color:#f87171; }
+.cv-rule-lab.entry{ color:#cbd5e1; }
 .cv-legend .fib{ color:#a78bfa; } .cv-legend .fib i{ font-style:normal; }
 
 /* フィボの波の全体図（.cv-fibctx）は 2026-10-07 に撤去（ユーザー指示「フィボ線中心の描画に」。
