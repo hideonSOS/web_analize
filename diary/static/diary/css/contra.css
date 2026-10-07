@@ -323,6 +323,15 @@
 .cv-rule-lab.target{ color:#4ade80; }
 .cv-rule-lab.stop{ color:#f87171; }
 .cv-rule-lab.entry{ color:#cbd5e1; }
+/* フィボの手動アンカー設定（2026-10-08）: チャート直下の小さな折りたたみ */
+.ct-fib-set{ margin:4px 0 2px; font-size:12px; color:#9ca3af; }
+.ct-fib-set summary{ cursor:pointer; color:#a78bfa; }
+.ct-fib-form{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-top:8px; }
+.ct-fib-form label{ display:inline-flex; gap:6px; align-items:center; white-space:nowrap; }
+.ct-fib-form input[type=number]{ width:110px; background:#0f172a; border:1px solid #334155;
+  border-radius:6px; color:#e5e7eb; padding:4px 8px; }
+.ct-fib-dirs{ display:inline-flex; gap:14px; }
+.ct-fib-clear{ color:#f87171; }
 .cv-legend .fib{ color:#a78bfa; } .cv-legend .fib i{ font-style:normal; }
 
 /* フィボの波の全体図（.cv-fibctx）は 2026-10-07 に撤去（ユーザー指示「フィボ線中心の描画に」。

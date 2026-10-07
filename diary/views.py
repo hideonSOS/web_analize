@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -445,6 +446,31 @@ def track(request, pk):
     return redirect(back)
 
 
+def _save_fib_anchor(request, t):
+    """フィボの手動アンカーの保存／クリア（2026-10-08 ユーザー決定「上端・下端は人間が設定する」。
+    短期トレード・練習の両ページから form_id='fib_anchor' で呼ばれる。戦略の縛りは呼び出し側）"""
+    if request.POST.get('clear'):
+        t.fib_high = t.fib_low = None
+        t.fib_dir = ''
+        t.save(update_fields=['fib_high', 'fib_low', 'fib_dir'])
+        messages.success(request, f'{t.ticker}: フィボのアンカーを自動（直近レグ）に戻しました。')
+        return
+    try:
+        hi = float(request.POST.get('fib_high', ''))
+        lo = float(request.POST.get('fib_low', ''))
+    except (TypeError, ValueError):
+        messages.error(request, 'フィボのアンカーは数値で入力してください。')
+        return
+    if not (hi > lo > 0):
+        messages.error(request, 'フィボのアンカーは 高値 > 安値 > 0 で入力してください。')
+        return
+    t.fib_high, t.fib_low = hi, lo
+    t.fib_dir = 'up' if request.POST.get('fib_dir') == 'up' else 'down'
+    t.save(update_fields=['fib_high', 'fib_low', 'fib_dir'])
+    kind = '押し（下の支持）' if t.fib_dir == 'up' else '戻り（上の抵抗）'
+    messages.success(request, f'{t.ticker}: フィボを 手動アンカー {lo:,.2f}→{hi:,.2f} の{kind}で引き直しました。')
+
+
 def contra(request):
     """短期トレードのダッシュボード（2026-09-09）。
 
@@ -501,6 +527,11 @@ def contra(request):
             C.move_to_breakeven(t, on)
             messages.success(request, f'{t.ticker}: 損切りを建値 {t.entry_price:,.2f} に上げたと記録しました。' if on
                              else f'{t.ticker}: 建値への変更記録を取り消しました。')
+            return redirect('diary:contra')
+
+        if form_id == 'fib_anchor':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='contra')
+            _save_fib_anchor(request, t)
             return redirect('diary:contra')
 
         if form_id == 'note':
@@ -698,6 +729,11 @@ def practice(request):
             C.move_to_breakeven(t, on)
             messages.success(request, f'{t.ticker}: 損切りを建値 {t.entry_price:,.2f} に上げたと記録しました。' if on
                              else f'{t.ticker}: 建値への変更記録を取り消しました。')
+            return redirect('diary:practice')
+
+        if form_id == 'fib_anchor':
+            t = get_object_or_404(Trade, pk=request.POST.get('id'), strategy='practice')
+            _save_fib_anchor(request, t)
             return redirect('diary:practice')
 
         if form_id == 'delete':

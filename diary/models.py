@@ -145,6 +145,12 @@ class Trade(models.Model):
     # be_moved_at = 本人が証券会社で逆指値を建値に変更した日（「変更した」ボタンで記録）
     be_trigger_pct = models.FloatField(null=True, blank=True)
     be_moved_at = models.DateField(null=True, blank=True)
+    # フィボナッチの手動アンカー（2026-10-08 ユーザー決定「解釈の余地のある上端・下端の
+    # 設定は人間側が行う」）。未設定なら contra._fib の自動（直近レグ）が初期値として働く
+    fib_high = models.FloatField(null=True, blank=True)
+    fib_low = models.FloatField(null=True, blank=True)
+    fib_dir = models.CharField(max_length=4, blank=True,
+                               choices=[('down', '下落波の戻り'), ('up', '上昇波の押し')])
 
     exit_date = models.DateField(null=True, blank=True)
     exit_price = models.FloatField(null=True, blank=True)

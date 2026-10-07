@@ -454,6 +454,20 @@ def _fib(bars, entry_date):
             'kind': '押し' if up else '戻り', 'wave': wave}
 
 
+def _fib_manual(t: Trade) -> dict:
+    """手動アンカーのフィボ（2026-10-08 ユーザー決定「波の選択＝上端・下端は人間が設定する」。
+    チャートツールのフィボが手動描画なのと同じ思想で、自動（_fib）はあくまで初期値。
+    手動のときは波の大きさのガード（FIB_MIN_WAVE_PCT）も掛けない＝人間の判断が最終権限"""
+    high, low = t.fib_high, t.fib_low
+    up = t.fib_dir == 'up'
+    levels = [{'ratio': r,
+               'price': (high - (high - low) * r / 100) if up else (low + (high - low) * r / 100)}
+              for r in FIB_RATIOS]
+    return {'low': low, 'high': high, 'levels': levels, 'up': up, 'manual': True,
+            'kind': '押し' if up else '戻り',
+            'wave': f'{low:,.2f}→{high:,.2f}' if up else f'{high:,.2f}→{low:,.2f}'}
+
+
 def candles(t: Trade, bars: list[dict]) -> dict | None:
     """取得日からのローソク足（2026-09-24 ユーザー要望）。横軸は期限の線と同じ（左端=取得日・右端=
     TIME_LIMIT_DAYS）、縦軸は **フィボ5水準＋損切り線〜利確線＋足** が全部入るように取る
@@ -467,10 +481,13 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
             and None not in (b['open'], b['high'], b['low'], b['close'])]
     if not rows:
         return None
-    # フィボを先に計算し、縦軸のレンジに5水準を含める
-    fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
-                   .order_by('date').values('date', 'high', 'low'))
-    fib = _fib(fib_src, t.entry_date)
+    # フィボを先に計算し、縦軸のレンジに5水準を含める（手動アンカーがあれば自動より優先）
+    if t.fib_high and t.fib_low and t.fib_high > t.fib_low:
+        fib = _fib_manual(t)
+    else:
+        fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
+                       .order_by('date').values('date', 'high', 'low'))
+        fib = _fib(fib_src, t.entry_date)
     fib_prices = [l['price'] for l in fib['levels']] if fib else []
     ymax = max([t.target_price] + [b['high'] for b in rows] + fib_prices)
     ymin = min([t.stop_price] + [b['low'] for b in rows] + fib_prices)

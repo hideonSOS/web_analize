@@ -102,6 +102,24 @@
   {% if r.touched_target %}<span class="ct-flag target">✔ 高値が利確線に触れた → {{ close_hint }}</span>{% endif %}
 </div>
 {% comment %}
+  フィボの手動アンカー（2026-10-08 ユーザー決定「解釈の余地のある上端・下端の設定は人間側が行う」）。
+  未入力なら自動（直近レグ）が初期値。チャートツールの手動描画と同じ思想
+{% endcomment %}
+<details class="ct-fib-set">
+  <summary>⚙ フィボのアンカー{% if r.t.fib_high and r.t.fib_low %}: 手動 {{ r.t.fib_low|floatformat:2 }}→{{ r.t.fib_high|floatformat:2 }}{% else %}（自動: 直近レグ）{% endif %}</summary>
+  <form method="post" class="ct-fib-form">{% csrf_token %}
+    <input type="hidden" name="form_id" value="fib_anchor"><input type="hidden" name="id" value="{{ r.t.id }}">
+    <label>波の高値 <input type="number" name="fib_high" step="0.01" min="0" inputmode="decimal" value="{{ r.t.fib_high|default_if_none:'' }}" placeholder="{{ r.candles.fib.high|floatformat:2 }}"></label>
+    <label>波の安値 <input type="number" name="fib_low" step="0.01" min="0" inputmode="decimal" value="{{ r.t.fib_low|default_if_none:'' }}" placeholder="{{ r.candles.fib.low|floatformat:2 }}"></label>
+    <span class="ct-fib-dirs">
+      <label><input type="radio" name="fib_dir" value="down" {% if r.t.fib_dir != 'up' %}checked{% endif %}> 下落波の戻り（上の抵抗）</label>
+      <label><input type="radio" name="fib_dir" value="up" {% if r.t.fib_dir == 'up' %}checked{% endif %}> 上昇波の押し（下の支持）</label>
+    </span>
+    <button type="submit" class="ct-btn-sub">保存</button>
+    {% if r.t.fib_high and r.t.fib_low %}<button type="submit" name="clear" value="1" class="ct-btn-sub ct-fib-clear">自動に戻す</button>{% endif %}
+  </form>
+</details>
+{% comment %}
   建値ストップ（2026-09-24）: +7% に届いたら損切りの逆指値を建値に上げる。
   wait=次の目標を小さく表示／reached=大きな案内＋「変更した」ボタン／moved=変更済み（取り消し可）
 {% endcomment %}
