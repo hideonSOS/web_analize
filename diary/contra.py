@@ -391,6 +391,35 @@ def untrack(entry) -> bool:
 
 CANDLE_W, CANDLE_H = 1000, 100   # SVG の座標系（preserveAspectRatio=none で横に伸ばす）
 
+# フィボナッチ・リトレースメントの比率（2026-10-07 ユーザー要望・原則どおり5本）
+FIB_RATIOS = (23.6, 38.2, 50.0, 61.8, 78.6)
+
+
+def _fib(bars, entry_date, y, ymin, ymax):
+    """フィボナッチ・リトレースメント（2026-10-07・原則どおりの実装）。
+
+    アンカーは自動: 購入10日前（PRE_REVIEW_DAYS）〜現在の スイング安値→スイング高値。
+    上昇波の押しの深さを測る（38.2〜61.8%で止まれば健全な押し、78.6%超は波が崩れた目安）。
+    ⚠️ エントリー価格・利確価格をアンカーにしないこと（他の市場参加者と共有されない線に
+    なり、水準として機能する根拠が消える。2026-10-07 にユーザーと合意済み）。
+    可視範囲（損切り〜利確＋はみ出し）の外の線は描かない（軸を広げて足を潰さない）。
+    """
+    ok = [b for b in bars
+          if b['date'] and b['date'] >= entry_date - timedelta(days=PRE_REVIEW_DAYS)
+          and None not in (b['high'], b['low'])]
+    if len(ok) < 3:
+        return None
+    low = min(b['low'] for b in ok)
+    high = max(b['high'] for b in ok)
+    if high <= low:
+        return None
+    lines = []
+    for r in FIB_RATIOS:
+        price = high - (high - low) * r / 100
+        if ymin <= price <= ymax:
+            lines.append({'ratio': r, 'price': price, 'y': y(price)})
+    return {'low': low, 'high': high, 'lines': lines} if lines else None
+
 
 def candles(t: Trade, bars: list[dict]) -> dict | None:
     """取得日からのローソク足（2026-09-24 ユーザー要望）。横軸は期限の線と同じ（左端=取得日・右端=
@@ -424,7 +453,12 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
     over = span > TIME_LIMIT_DAYS
+    # フィボのアンカーは購入前の足も含めて取る（押し目買いではスイング安値が購入直前にある。
+    # ⚠️ 引数の bars は open_rows が判定用に取得日以降へ絞っているので、ここで別途クエリする）
+    fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=PRE_REVIEW_DAYS))
+                   .order_by('date').values('date', 'high', 'low'))
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
+            'fib': _fib(fib_src, t.entry_date, y, ymin, ymax),
             'peak': _peak(t, out, y, CANDLE_W),
             # 吹き出し用（2026-09-30）: 取得価格と最終価格（最新の終値）
             # 購入日の白い ▲（2026-09-30 ユーザー指示）: 取得日（最初の足）の安値の真下に置く
