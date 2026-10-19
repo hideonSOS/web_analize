@@ -565,13 +565,9 @@ def contra(request):
     be = C.breakeven(setting.default_stop_pct, setting.default_target_pct, setting.cost_pct)
     st = C.stats(setting)
     open_rows = C.open_rows(setting)
-    # 保有中の含み損益の合計（トップの損益表示用・2026-09-29 ユーザー要望「$と円の損益をモチベーションが上がるよう目立たせる」）
-    unreal = [r for r in open_rows if r.get('pnl_now') is not None]
-    open_pnl = {'n': len(unreal), 'amount': sum(r['pnl_now'] for r in unreal),
-                'amount_jpy': sum(r['pnl_now_jpy'] for r in unreal if r.get('pnl_now_jpy') is not None)
-                if any(r.get('pnl_now_jpy') is not None for r in unreal) else None}
+    # トップの成績は確定損益だけを出す（2026-10-19 ユーザー指示）。保有中の含み損益は動くので
+    # 「保有中」セクションの各カードに任せ、トップの成績サマリには混ぜない。
     return render(request, 'diary/contra.html', {
-        'open_pnl': open_pnl,
         'setting': setting, 'be': be,
         # 円グラフ用（勝ち/負けの件数と、最低勝率＝コスト込みの分岐勝率）
         'donut': {'wins': st['wins'], 'losses': st['losses'], 'win_rate': st['win_rate'],
@@ -580,7 +576,6 @@ def contra(request):
         # 振り返りは 負けトレード／勝ちトレード の2つ（2026-09-29 ユーザー要望。コスト込み損益の符号で分ける）
         'reflect_panels': [('loss', st['reflect']['loss'], '負けトレード'), ('win', st['reflect']['win'], '勝ちトレード')],
         'open_rows': open_rows, 'stats': st,
-        'after_rows': C.after_exit_rows('contra'),
         'moods': MOODS,   # 保有中のコメント追記フォーム用
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,
@@ -774,7 +769,6 @@ def practice(request):
         # 振り返りは 負けトレード／勝ちトレード の2つ（2026-09-29 ユーザー要望。コスト込み損益の符号で分ける）
         'reflect_panels': [('loss', st['reflect']['loss'], '負けトレード'), ('win', st['reflect']['win'], '勝ちトレード')],
         'open_rows': C.open_rows(setting, strategy='practice'),
-        'after_rows': C.after_exit_rows('practice'),
         'exit_choices': Trade.EXIT, 'today': _date.today().isoformat(),
         'risk_budget': setting.capital * setting.risk_pct / 100,
         'tags': TAGS, 'moods': MOODS,

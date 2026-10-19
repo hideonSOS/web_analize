@@ -197,9 +197,6 @@
     </details>
   </section>
 
-  {% include 'diary/_after_exit.html' %}
-
-
   {{ donut|json_script:"ct-donut-data" }}
   <script>window.DIARY_STOCK_OPTIONS_URL = "{% url 'diary:stock_options' %}";
     window.CT = {capital: {{ setting.capital }}, riskPct: {{ setting.risk_pct }}, cost: {{ setting.cost_pct }},
