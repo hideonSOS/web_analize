@@ -38,4 +38,22 @@
   $('cal-close').addEventListener('click', close);
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
+
+  // 今日にフォーカス（2026-10-22 ユーザー要望「今日がどこにあるか分かりづらい」）。
+  // 当月を開いたら: 画面外なら今日のマスへスクロール＋点滅（画面内でも点滅で目印）。
+  // 「📍 今日へ」: 当月ならその場でスクロール＋点滅、他の月ならリンク遷移（#cal-today）で戻って点滅
+  const todayCell = document.getElementById('cal-today');
+  const focusToday = (scroll) => {
+    if (!todayCell) return;
+    const r = todayCell.getBoundingClientRect();
+    if (scroll || r.top < 0 || r.bottom > window.innerHeight) {
+      todayCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    todayCell.classList.remove('flash');
+    void todayCell.offsetWidth;   // reflow で点滅を再発火できるように
+    todayCell.classList.add('flash');
+  };
+  const gotoBtn = document.getElementById('cal-goto-today');
+  if (gotoBtn && todayCell) gotoBtn.addEventListener('click', (e) => { e.preventDefault(); focusToday(true); });
+  if (todayCell) setTimeout(() => focusToday(false), 150);
 })();

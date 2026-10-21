@@ -15,7 +15,7 @@
     <a class="cal-nav" href="?ym={{ prev_ym }}">‹ 前月</a>
     <h1 class="cal-title">{{ month|date:"Y年n月" }}</h1>
     <a class="cal-nav" href="?ym={{ next_ym }}">翌月 ›</a>
-    {% if not is_this_month %}<a class="cal-nav cal-today-link" href="?ym={{ this_ym }}">今月</a>{% endif %}
+    <a class="cal-nav cal-today-link" id="cal-goto-today" href="?ym={{ this_ym }}#cal-today">📍 今日へ</a>
     <button type="button" class="cal-add-btn" id="cal-open-add">＋ 予定を追加</button>
   </div>
 
@@ -30,7 +30,7 @@
     {% for w in weekdays %}<div class="cal-wd {% if forloop.counter >= 6 %}weekend{% endif %}">{{ w }}</div>{% endfor %}
     {% for wk in weeks %}{% for c in wk %}
     <div class="cal-day{% if not c.in_month %} out{% endif %}{% if c.today %} today{% endif %}{% if c.weekend %} weekend{% endif %}"
-         data-date="{{ c.date|date:'Y-m-d' }}">
+         {% if c.today %}id="cal-today" {% endif %}data-date="{{ c.date|date:'Y-m-d' }}">
       <div class="cal-num"><span class="cal-m-md">{{ c.date|date:"n/" }}</span>{{ c.date.day }}<span class="cal-m-wd">（{{ c.date|date:"D" }}）</span>{% if c.today %}<span class="cal-today-tag">今日</span>{% endif %}</div>
       {% for ev in c.events %}
       <button type="button" class="cal-ev {{ ev.category }}{% if ev.important %} important{% endif %}"

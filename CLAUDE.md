@@ -451,6 +451,11 @@ TTMの計算は `japan_kabu/indicators.py` の `_ttm_np`（日本株）と `_ttm
 （自動取得はしない＝「自動のしくみは極力控える」方針）。`CalendarEvent`（date・category＝決算/FOMC・金融政策/経済指標/
 政治・選挙/配当・権利/その他・title・ticker・time_note・memo・important）。日付のマスを押すと追加、予定を押すと編集・削除
 （1つのモーダルを使い回す・`calendar.js`）。下に「これからの予定」と「その月の予定」の一覧。
+**今日フォーカス**（2026-10-22 ユーザー要望「今日がどこにあるか分かりづらい」）: 今日のマスは背景＋グローで強調し
+`id="cal-today"`、当月を開くと自動スクロール＋点滅（画面内なら点滅のみ）。ヘッダーの「📍 今日へ」は常設
+（当月=その場でスクロール、他の月=`?ym=今月#cal-today` で遷移）。
+⚠️ カレンダーは監視・カルテ・保有と**連動しない**（完全手入力）。「監視してるのに決算が出ない」は仕様
+（2026-10-22 に SpaceX でユーザーが質問・確認済み）。
 - ⚠️ 削除したのはページ（`japan_kabu` の index/volume ビュー・テンプレ・marketcap.js/volume.js）だけ。旧 URL
   （/japan_kabu/・/japan_kabu/volume/）はカレンダーへリダイレクト。**`update_jp_ranking`/`update_us_ranking` のバッチは残す**
   （Stock.close・change_pct・時価総額はカルテ・ポートフォリオ・ヒートマップが使う）。`marketcap.css` は他ページが共用

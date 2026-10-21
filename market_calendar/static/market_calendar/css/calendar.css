@@ -25,7 +25,14 @@
 .cal-day:hover{ background:rgba(30,144,255,.05); }
 .cal-day.weekend{ background:#05080f; }
 .cal-day.out{ opacity:.38; }
-.cal-day.today{ background:rgba(34,211,238,.07); box-shadow:inset 0 0 0 2px #22d3ee; }
+/* 今日のマス（2026-10-22 ユーザー要望「今日がどこにあるか分かりづらい」: 枠線だけ→背景＋グローで強調） */
+.cal-day.today{ background:rgba(34,211,238,.14); box-shadow:inset 0 0 0 2px #22d3ee, 0 0 16px rgba(34,211,238,.35); }
+.cal-day.today .cal-num{ color:#67e8f9; font-weight:700; }
+.cal-day.today.flash{ animation:cal-today-flash .6s ease 3; }
+@keyframes cal-today-flash{
+  0%,100%{ background:rgba(34,211,238,.14); }
+  50%{ background:rgba(34,211,238,.38); box-shadow:inset 0 0 0 3px #22d3ee, 0 0 26px rgba(34,211,238,.7); }
+}
 .cal-num{ font-size:13px; font-weight:bold; color:#cbd5e1; margin-bottom:4px; }
 .cal-today-tag{ margin-left:6px; font-size:10px; color:#0b1220; background:#22d3ee; border-radius:4px; padding:0 5px; }
 .cal-ev{ display:block; width:100%; text-align:left; margin:0 0 3px; padding:3px 6px; border-radius:6px; font-size:12px; line-height:1.35;
@@ -95,5 +102,5 @@
   .cal-day:not(:has(.cal-ev)) .cal-num{ font-size:12px; color:#6b7280; }
   .cal-ev{ font-size:13px; padding:5px 8px; white-space:normal; }
   .cal-ev i{ display:inline; }
-  .cal-day.today{ box-shadow:inset 3px 0 0 #22d3ee; }
+  .cal-day.today{ box-shadow:inset 3px 0 0 #22d3ee, 0 0 12px rgba(34,211,238,.3); background:rgba(34,211,238,.12); }
 }
