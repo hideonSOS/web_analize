@@ -456,6 +456,10 @@ TTMの計算は `japan_kabu/indicators.py` の `_ttm_np`（日本株）と `_ttm
 （当月=その場でスクロール、他の月=`?ym=今月#cal-today` で遷移）。
 ⚠️ カレンダーは監視・カルテ・保有と**連動しない**（完全手入力）。「監視してるのに決算が出ない」は仕様
 （2026-10-22 に SpaceX でユーザーが質問・確認済み）。
+**決算日の記載規約（2026-10-27 ユーザー承認）**: 米国株は**日本時間の影響日**（＝米国引け後発表の翌朝）で記載し、
+time_note に「米◯日引け後」を明記。yfinance の推定日は古いまま残ることがある（実例: PayPay 10/31→公式11/4、
+SBG 前年踏襲 11/11→公式11/10、住友林業は12月決算を無視した10/30→公式11/5）。公式IRとの突合結果を memo に
+「公式確定／推定」で残す。CalendarEvent に書く自動バッチは**無い**（yfinance由来の一括登録は過去1回の手動作業）。
 - ⚠️ 削除したのはページ（`japan_kabu` の index/volume ビュー・テンプレ・marketcap.js/volume.js）だけ。旧 URL
   （/japan_kabu/・/japan_kabu/volume/）はカレンダーへリダイレクト。**`update_jp_ranking`/`update_us_ranking` のバッチは残す**
   （Stock.close・change_pct・時価総額はカルテ・ポートフォリオ・ヒートマップが使う）。`marketcap.css` は他ページが共用
