@@ -399,6 +399,11 @@ FIB_RATIOS = (23.6, 38.2, 50.0, 61.8, 78.6)
 FIB_WINDOW_DAYS = 120
 # 波の値幅がこれ未満（%）ならフィボを描かない（小さい波の38.2%刻みはノイズ。凡例に理由を出す）
 FIB_MIN_WAVE_PCT = 8.0
+# 縦軸をフィボのために広げる上限（トレード帯＝損切り〜利確＋足の値幅に対する倍率）。
+# 超えた水準は軸に入れずチャート上端/下端の案内で示す（2026-11-19 SOXL暴落でトレード帯が
+# 画面の7.5%に潰れたユーザー指摘への対処。小さくしすぎると AMZN のような近い水準まで
+# 案内送りになり 2026-10-22 の「61.8%が見えない」問題が再発する）
+FIB_AXIS_HEADROOM = 0.6
 
 
 def _fib(bars, entry_date, force_dir=''):
@@ -493,10 +498,14 @@ def _fib_manual(t: Trade) -> dict:
 
 def candles(t: Trade, bars: list[dict]) -> dict | None:
     """取得日からのローソク足（2026-09-24 ユーザー要望）。横軸は期限の線と同じ（左端=取得日・右端=
-    TIME_LIMIT_DAYS）、縦軸は **フィボ5水準＋損切り線〜利確線＋足** が全部入るように取る
+    TIME_LIMIT_DAYS）、縦軸は **フィボ5水準＋損切り線〜利確線＋足** が入るように取る
     （＝フィボ中心の描画。2026-10-07 ユーザー指示「フィボナッチの線を中心とした描画に」。
     旧実装の「損切り〜利確だけの縦軸＋範囲外のフィボ線はクリップ」は 61.8% 等の重要水準が
     画面から消えて不評だった。全体図チャート（fib_context）も同日撤去）。
+    ⚠️ ただし縦軸の拡張には上限がある（FIB_AXIS_HEADROOM・2026-11-19）: SOXLの−76%暴落で
+    フィボ水準が建値の+44%上空に並び、縦軸が$43〜$142に伸びてトレード帯が画面の7.5%に
+    潰れた（ユーザー指摘）。トレード帯の±60%より遠い水準は軸に入れず、チャート上端/下端の
+    コンパクトな案内（fib['above']/['below']）で示す＝隠さず・潰さず。
     サーバー側で SVG の座標まで作る（JS なし）。
     期限（20日）を過ぎて持ち続けたら横軸を今日まで伸ばし、全部の足を描く（2026-09-29 ユーザー決定。以前は
     20日で止めていて、期限超過の値動きと心情が見えなかった）。20日の位置に赤い縦線・右側は薄い赤の背景（over）"""
@@ -512,9 +521,17 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
         fib_src = list(t.bars.filter(date__gte=t.entry_date - timedelta(days=FIB_WINDOW_DAYS))
                        .order_by('date').values('date', 'high', 'low'))
         fib = _fib(fib_src, t.entry_date, force_dir=t.fib_dir)
+    # 縦軸: まずトレード帯（損切り〜利確＋足）を基準に、その±FIB_AXIS_HEADROOM 倍まで
+    # フィボ水準のために広げる。それより遠い水準は軸に入れない（above/below の案内へ）
+    base_max = max([t.target_price] + [b['high'] for b in rows])
+    base_min = min([t.stop_price] + [b['low'] for b in rows])
+    band = base_max - base_min or 1
+    allow_max = base_max + band * FIB_AXIS_HEADROOM
+    allow_min = base_min - band * FIB_AXIS_HEADROOM
     fib_prices = [l['price'] for l in fib['levels']] if fib else []
-    ymax = max([t.target_price] + [b['high'] for b in rows] + fib_prices)
-    ymin = min([t.stop_price] + [b['low'] for b in rows] + fib_prices)
+    in_prices = [p for p in fib_prices if allow_min <= p <= allow_max]
+    ymax = max([base_max] + in_prices)
+    ymin = min([base_min] + in_prices)
     pad = (ymax - ymin) * 0.04 or 1
     ymax, ymin = ymax + pad, ymin - pad
 
@@ -535,10 +552,14 @@ def candles(t: Trade, bars: list[dict]) -> dict | None:
                     'o': b['open'], 'h': b['high'], 'l': b['low'], 'c': b['close']})
     be_y = y(t.entry_price * (1 + t.be_trigger_pct / 100)) if t.be_trigger_pct else None
     over = span > TIME_LIMIT_DAYS
-    # フィボ水準にY座標を付ける（レンジに含めてあるので全5本が必ず画面内）
+    # フィボ水準にY座標を付ける（軸内のみ）。軸外は上下の案内リストへ（近い順）
     if fib:
         fib['lines'] = [{'ratio': l['ratio'], 'price': l['price'], 'y': y(l['price'])}
-                        for l in fib['levels']]
+                        for l in fib['levels'] if allow_min <= l['price'] <= allow_max]
+        fib['above'] = sorted([l for l in fib['levels'] if l['price'] > allow_max],
+                              key=lambda l: l['price'])
+        fib['below'] = sorted([l for l in fib['levels'] if l['price'] < allow_min],
+                              key=lambda l: -l['price'])
     return {'items': out, 'W': CANDLE_W, 'H': CANDLE_H, 'step': step, 'span': span,
             'fib': fib,
             'peak': _peak(t, out, y, CANDLE_W),
